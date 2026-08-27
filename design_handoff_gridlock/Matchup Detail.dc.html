@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/styles.css">
+<script src="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;height:100%;background:var(--color-neutral-200)}
+body{font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:inherit;text-decoration:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.15}}
+</style>
+</helmet>
+
+<div style="width:390px;max-width:100%;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--color-bg);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+
+  <div style="display:flex;justify-content:space-between;padding:9px 14px 3px;font-size:10px;letter-spacing:.1em;color:var(--color-neutral-600)"><span>9:41</span><span>{{ clock }}</span></div>
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:2px solid var(--color-divider)">
+    <a href="Weekly%20Matchups.dc.html" style="display:flex;align-items:center;height:44px;padding-right:4px;font:800 15px/1 var(--font-heading);color:var(--color-text);cursor:pointer" style-hover="color:var(--color-accent)">←</a>
+    <span style="font:800 11px var(--font-heading);letter-spacing:.12em">WEEK 11 MATCHUP</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:7px">
+      <sc-if value="{{ head.liveDot }}" hint-placeholder-val="{{ true }}"><span style="width:6px;height:6px;background:var(--color-accent);animation:blip 1.4s infinite"></span></sc-if>
+      <span style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-accent)">{{ head.tag }}</span>
+    </span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:44px 1fr 44px;align-items:center;border-bottom:1px solid var(--color-divider)">
+    <a href="{{ prevHref }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-right:1px solid var(--color-divider);font:800 13px var(--font-heading);color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)">‹</a>
+    <div style="text-align:center;font:800 9.5px var(--font-heading);letter-spacing:.12em;color:var(--color-neutral-600)">{{ label }}</div>
+    <a href="{{ nextHref }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-left:1px solid var(--color-divider);font:800 13px var(--font-heading);color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)">›</a>
+  </div>
+
+  <div style="padding:12px 14px 14px;border-bottom:2px solid var(--color-divider)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+      <div style="min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mHome }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ head.hYtp }}</div></div>
+      <div style="text-align:right;min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);color:var(--color-neutral-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mAway }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ head.aYtp }}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:11px">
+      <div><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ head.hs }}</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ head.hSub }}</div></div>
+      <div style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);padding:0 10px">{{ head.hWin }} / {{ head.aWin }}</div>
+      <div style="text-align:right"><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ head.as }}</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ head.aSub }}</div></div>
+    </div>
+    <div style="display:flex;height:7px;background:var(--color-neutral-300);margin-top:12px"><span style="background:var(--color-text);width:{{ head.bar }}"></span></div>
+  </div>
+
+  <div style="flex:1;overflow:auto">
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="9">
+      <div style="display:grid;grid-template-columns:1fr 34px 1fr;border-bottom:1px solid var(--color-divider)">
+        <div style="display:flex;align-items:center;gap:9px;padding:10px 10px 10px 14px;min-width:0">
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.hName }}</div>
+            <div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.hLine }}</div>
+          </div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ r.hPts }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ r.hProj }}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;font:800 9.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">{{ r.pos }}</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:10px 14px 10px 10px;min-width:0">
+          <div><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ r.aPts }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ r.aProj }}</div></div>
+          <div style="min-width:0;flex:1;text-align:right">
+            <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--color-neutral-800)">{{ r.aName }}</div>
+            <div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.aLine }}</div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+
+    <div style="border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider);padding:11px 14px 7px;font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600)">BENCH</div>
+
+    <sc-for list="{{ bench }}" as="b" hint-placeholder-count="4">
+      <div style="display:grid;grid-template-columns:1fr 34px 1fr;border-bottom:1px solid var(--color-divider)">
+        <div style="display:flex;align-items:center;gap:9px;padding:10px 10px 10px 14px;min-width:0">
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.hName }}</div>
+            <div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.hLine }}</div>
+          </div>
+          <div style="text-align:right"><div style="font:800 15px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-700)">{{ b.hPts }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ b.hProj }}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;font:800 9.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">{{ b.pos }}</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:10px 14px 10px 10px;min-width:0">
+          <div><div style="font:800 15px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-700)">{{ b.aPts }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ b.aProj }}</div></div>
+          <div style="min-width:0;flex:1;text-align:right">
+            <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.aName }}</div>
+            <div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.aLine }}</div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+
+    <div style="height:20px"></div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;phase&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pre&quot;,&quot;live&quot;,&quot;final&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  L = {
+    home: { name: 'Ridge Runners', rec: '7-3', score: '90.1', proj: '112.4', left: '2', win: '51%' },
+    away: { name: 'Mahomes Depot', rec: '6-4', score: '88.1', proj: '118.9', left: '3', win: '49%' },
+    starters: [
+      ['QB', ['J. Daniels', 'WSH @NYG', 'FINAL · 281yd 2TD 41ru', '24.6', '21.4', 0],
+             ['J. Love', 'GB @MIN', 'FINAL · 244yd 2TD 1INT', '19.8', '20.2', 0]],
+      ['RB', ['B. Robinson', 'ATL vs TB', 'Q3 8:22 · 74yd TD 3rec', '18.2', '15.9', 1],
+             ['S. Barkley', 'PHI vs DAL', 'Q4 11:03 · 118yd TD', '22.4', '18.7', 1]],
+      ['RB', ['J. Gibbs', 'DET @CHI', '4:25 ET · yet to play', '0.0', '16.4', 0],
+             ['K. Walker', 'SEA @LAR', 'FINAL · 52yd 4rec', '7.7', '13.1', 0]],
+      ['WR', ['P. Nacua', 'LAR vs SEA', 'FINAL · 6rec 71yd', '12.1', '14.8', 0],
+             ['J. Jefferson', 'MIN vs GB', 'FINAL · 7rec 102yd', '15.2', '17.9', 0]],
+      ['WR', ['M. Nabers', 'NYG vs WSH', 'FINAL · 5rec 44yd', '9.4', '13.2', 0],
+             ['G. Wilson', 'NYJ @BUF', '4:25 ET · yet to play', '0.0', '12.4', 0]],
+      ['TE', ['T. McBride', 'ARI @SF', 'Q2 2:40 · 4rec 35yd', '6.5', '11.1', 1],
+             ['B. Bowers', 'LV @DEN', '4:25 ET · yet to play', '0.0', '12.8', 0]],
+      ['FLX', ['D. London', 'ATL vs TB', 'Q3 8:22 · 5rec 63yd', '11.3', '12.0', 1],
+              ['R. Odunze', 'CHI vs DET', '4:25 ET · yet to play', '0.0', '10.1', 0]],
+      ['K', ['C. Boswell', 'PIT @CLE', 'FINAL · 2/2 FG', '8.0', '8.4', 0],
+            ['J. Tucker', 'BAL vs CIN', 'FINAL · 3/3 FG 2XP', '11.0', '8.2', 0]],
+      ['DEF', ['Broncos D/ST', 'DEN vs LV', '4:25 ET · yet to play', '0.0', '8.6', 0],
+              ['Eagles D/ST', 'PHI vs DAL', 'Q4 · 2 SK 1 INT', '12.0', '9.0', 1]]
+    ],
+    games: [
+      ['Hurts So Good', 'Dak to the Future', '112.4', '104.9', 'FINAL', 'FIN', '8-2', '5-5', '112.4', '104.9', '100%', '—'],
+      ['Trust the Process', 'Zero RB Zealots', '88.6', '91.2', 'IN PROGRESS · 4 LEFT', 'LIVE', '6-4', '4-6', '115.0', '108.3', '62%', '38%'],
+      ['Puka Chu', 'Waiver Wire Warlords', '76.0', '63.5', 'IN PROGRESS · 6 LEFT', 'LIVE', '5-5', '3-7', '104.8', '99.1', '58%', '42%'],
+      ['Bijan Mustard', 'Tanking Softly', '121.7', '70.4', 'FINAL', 'FIN', '9-1', '2-8', '121.7', '70.4', '100%', '—'],
+      ["Kelce's Angels", 'Rookie Szn', '59.8', '66.2', 'IN PROGRESS · 5 LEFT', 'LIVE', '4-6', '5-5', '96.2', '110.4', '24%', '76%'],
+      ['Sunk Cost Fantasy', 'Third Round Reach', '99.3', '97.8', 'IN PROGRESS · 2 LEFT', 'LIVE', '7-3', '6-4', '106.0', '113.7', '41%', '59%']
+    ]
+  };
+
+  gameYtp = [['0','0'],['2','2'],['3','3'],['0','0'],['2','3'],['1','1']];
+  gamePre = [['108.6','101.2'],['110.3','106.5'],['102.4','100.8'],['115.9','88.7'],['99.5','104.2'],['104.1','109.0']];
+
+  finals = {
+    'B. Robinson': ['FINAL · 96yd 2TD 4rec', '21.4'], 'S. Barkley': ['FINAL · 152yd 2TD', '26.8'],
+    'J. Gibbs': ['FINAL · 71yd TD 2rec', '14.2'], 'G. Wilson': ['FINAL · 6rec 66yd', '9.6'],
+    'T. McBride': ['FINAL · 6rec 52yd', '9.2'], 'B. Bowers': ['FINAL · 8rec 81yd TD', '15.1'],
+    'D. London': ['FINAL · 7rec 86yd', '14.6'], 'R. Odunze': ['FINAL · 3rec 33yd', '6.3'],
+    'Broncos D/ST': ['FINAL · 3 SK 1 FR', '11.0'], 'Eagles D/ST': ['FINAL · 3 SK 1 INT 1 TD', '14.0']
+  };
+
+  bench = [
+    [['T. Hill', 'WR', 'MIA vs NE', '13.6', 'Q2 5:10 · 3rec 41yd', '5.4', 'FINAL · 6rec 88yd', '14.8'],
+     ['C. Kirk', 'WR', 'JAX vs TEN', '9.8', 'FINAL · 4rec 52yd', '7.2', 'FINAL · 4rec 52yd', '7.2']],
+    [['Z. Charbonnet', 'RB', 'SEA @LAR', '8.1', 'FINAL · 44yd 1rec', '6.4', 'FINAL · 44yd 1rec', '6.4'],
+     ['T. Spears', 'RB', 'TEN @JAX', '10.4', 'FINAL · 61yd TD', '12.1', 'FINAL · 61yd TD', '12.1']],
+    [['D. Schultz', 'TE', 'HOU vs IND', '7.2', '4:25 ET · yet to play', '0.0', 'FINAL · 5rec 47yd', '9.7'],
+     ['H. Henry', 'TE', 'NE @MIA', '6.9', 'Q2 5:10 · 2rec 18yd', '2.8', 'FINAL · 4rec 39yd', '5.9']],
+    [['J. Fields', 'QB', 'NYJ @BUF', '17.4', '4:25 ET · yet to play', '0.0', 'FINAL · 208yd TD 58ru', '18.6'],
+     ['B. Nix', 'QB', 'DEN vs LV', '16.2', '4:25 ET · yet to play', '0.0', 'FINAL · 244yd 3TD', '24.1']]
+  ];
+
+  POOL = {
+    QB: ['J. Herbert', 'B. Purdy', 'K. Murray', 'T. Lawrence', 'G. Smith', 'B. Young', 'C. Stroud', 'D. Maye'],
+    RB: ['D. Achane', 'R. Stevenson', 'T. Etienne', 'Z. Charbonnet', 'B. Irving', 'T. Pollard', 'J. Mixon', 'C. Brooks', 'T. Spears', 'J. Warren', 'T. Bigsby', 'B. Corum'],
+    WR: ['T. Higgins', 'M. Pittman', 'J. Waddle', 'Z. Flowers', 'C. Sutton', 'C. Ridley', 'J. Meyers', 'R. Doubs', 'T. McLaurin', 'M. Evans', 'K. Shakir', 'T. Dell', 'R. Rice', 'C. Olave', 'A. Cooper', 'J. Palmer', 'D. Moore', 'K. Pickens'],
+    TE: ['C. Kmet', 'D. Njoku', 'H. Fant', 'J. Reed', 'C. Loveland', 'I. Likely', 'D. Schultz'],
+    K: ['H. Butker', 'J. Myers', 'Y. Koo', 'C. Santos', 'E. McPherson', 'J. Elliott', 'B. Aubrey'],
+    DEF: ['Texans D/ST', 'Steelers D/ST', 'Jets D/ST', 'Vikings D/ST', 'Bears D/ST', 'Chiefs D/ST', 'Packers D/ST']
+  };
+  TMS = ['KC', 'BUF', 'SF', 'DAL', 'MIA', 'NYJ', 'CIN', 'BAL', 'HOU', 'DET', 'GB', 'TB', 'LAC', 'ARI'];
+  SLOTS = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLX', 'K', 'DEF'];
+  BSLOTS = ['WR', 'RB', 'TE', 'QB'];
+
+  rnd(n) { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+  pick(slot, r, used) {
+    const key = slot === 'FLX' ? (r > 0.5 ? 'WR' : 'RB') : slot;
+    const list = this.POOL[key];
+    let i = Math.floor(r * list.length);
+    for (let k = 0; k < list.length; k++) {
+      const n = list[(i + k) % list.length];
+      if (!used[n]) { used[n] = 1; return n; }
+    }
+    return list[i];
+  }
+
+  genSide(seed, ytp, tProj, tLive, tFinal, count, used, allDone) {
+    const n = count || 9;
+    const P = [];
+    for (let i = 0; i < n; i++) {
+      const r1 = this.rnd(seed + i * 7.3), r2 = this.rnd(seed + i * 3.1 + 11), r3 = this.rnd(seed + i * 5.7 + 23);
+      const slot = n === 4 ? this.BSLOTS[i % 4] : this.SLOTS[i % 9];
+      const proj = 5.5 + r1 * 15;
+      const fin = Math.max(0.4, proj * (0.4 + r2 * 1.3));
+      const done = allDone || i < n - ytp;
+      const mid = done && !allDone && r3 > 0.62;
+      P.push({
+        name: this.pick(slot, r2, used || {}),
+        team: this.TMS[Math.floor(r3 * 14)], slot, proj, fin,
+        live: !done ? 0 : mid ? fin * (0.35 + r1 * 0.4) : fin,
+        state: !done ? 'pending' : mid ? 'mid' : 'done'
+      });
+    }
+    const scale = (key, target) => {
+      const raw = P.reduce((t, p) => t + p[key], 0);
+      if (!raw || !target) { P.forEach(p => { p[key] = Number(p[key].toFixed(1)); }); return; }
+      const f = Number(target) / raw;
+      P.forEach(p => { p[key] = Number((p[key] * f).toFixed(1)); });
+      const drift = Number(target) - P.reduce((t, p) => t + p[key], 0);
+      const last = P[P.length - 1];
+      last[key] = Number((last[key] + drift).toFixed(1));
+    };
+    scale('proj', tProj); scale('fin', tFinal); scale('live', tLive);
+    return P;
+  }
+
+  renderVals() {
+    const L = this.L;
+    const ph = this.props.phase ?? 'live';
+    let qi = 0;
+    if (typeof window !== 'undefined') {
+      const q = new URLSearchParams(window.location.search).get('m');
+      if (q !== null && !isNaN(Number(q))) qi = Number(q);
+    }
+    const side = (x) => {
+      if (ph === 'pre') return { line: x[1] + ' · ' + (x[2].indexOf('4:25') === 0 ? '4:25 ET' : '1:00 ET'), pts: '—', proj: 'proj ' + x[4] };
+      if (ph === 'final') { const f = this.finals[x[0]]; return { line: f ? f[0] : x[2], pts: f ? f[1] : x[3], proj: 'proj ' + x[4] }; }
+      return { line: x[2].split(' · ')[1] || 'yet to play', pts: x[3], proj: 'proj ' + x[4] };
+    };
+    const bside = (b) => ph === 'pre'
+      ? { line: b[2], pts: '—', proj: 'proj ' + b[3] }
+      : ph === 'final' ? { line: b[6], pts: b[7], proj: 'proj ' + b[3] }
+      : { line: b[4], pts: b[5], proj: 'proj ' + b[3] };
+
+    const mList = [{
+      yours: true, home: L.home.name, away: L.away.name,
+      hRec: L.home.rec, aRec: L.away.rec, hLeft: L.home.left, aLeft: L.away.left,
+      hs: L.home.score, as: L.away.score, hProj: L.home.proj, aProj: L.away.proj,
+      hPre: L.home.proj, aPre: L.away.proj, hWin: L.home.win, aWin: L.away.win, final: false
+    }].concat(L.games.map((g, i) => ({
+      yours: false, home: g[0], away: g[1], hRec: g[6], aRec: g[7],
+      hLeft: this.gameYtp[i][0], aLeft: this.gameYtp[i][1],
+      hs: g[2], as: g[3], hProj: g[8], aProj: g[9],
+      hPre: this.gamePre[i][0], aPre: this.gamePre[i][1],
+      hWin: g[10], aWin: g[11], final: g[4] === 'FINAL'
+    })));
+
+    const mi = Math.min(Math.max(qi, 0), mList.length - 1), M = mList[mi];
+    const href = (n) => 'Matchup%20Detail.dc.html?m=' + ((n + mList.length) % mList.length);
+
+    let rowsOut = L.starters.map(([pos, h, a]) => {
+      const H = side(h), A = side(a);
+      return {
+        pos, hName: h[0], hPts: H.pts, hProj: H.proj, hLine: H.line,
+        aName: a[0], aPts: A.pts, aProj: A.proj, aLine: A.line
+      };
+    });
+    let benchOut = this.bench.map(([h, a]) => {
+      const H = bside(h), A = bside(a);
+      return {
+        pos: h[1] === a[1] ? h[1] : 'BN',
+        hName: h[0], hPts: H.pts, hProj: H.proj, hLine: H.line,
+        aName: a[0], aPts: A.pts, aProj: A.proj, aLine: A.line
+      };
+    });
+
+    if (!M.yours) {
+      const fmt = (p) => {
+        if (ph === 'pre') return { pts: '—', line: 'SUN 1:00 ET', proj: 'proj ' + p.proj.toFixed(1) };
+        if (ph === 'final') return { pts: p.fin.toFixed(1), line: 'FINAL', proj: 'proj ' + p.proj.toFixed(1) };
+        return {
+          pts: p.live.toFixed(1), proj: 'proj ' + p.proj.toFixed(1),
+          line: p.state === 'pending' ? '4:25 ET · yet to play' : p.state === 'mid' ? 'Q3 8:22 · in play' : 'FINAL'
+        };
+      };
+      const seed = mi * 97 + 5;
+      const fh0 = M.final ? M.hs : M.hProj, fa0 = M.final ? M.as : M.aProj;
+      const tph = ph === 'pre' ? M.hPre : M.hProj, tpa = ph === 'pre' ? M.aPre : M.aProj;
+      const used = {}, allDone = ph === 'final' || (ph === 'live' && M.final);
+      const HS = this.genSide(seed, ph === 'pre' ? 9 : Number(M.hLeft), tph, M.hs, fh0, 9, used, allDone);
+      const AS = this.genSide(seed + 311, ph === 'pre' ? 9 : Number(M.aLeft), tpa, M.as, fa0, 9, used, allDone);
+      const HB = this.genSide(seed + 601, 0, 0, 0, 0, 4, used, allDone);
+      const AB = this.genSide(seed + 907, 0, 0, 0, 0, 4, used, allDone);
+      rowsOut = HS.map((h, i) => {
+        const a = AS[i], fh = fmt(h), fa = fmt(a);
+        return {
+          pos: h.slot, hName: h.name, hPts: fh.pts, hProj: fh.proj, hLine: h.team + ' · ' + fh.line,
+          aName: a.name, aPts: fa.pts, aProj: fa.proj, aLine: a.team + ' · ' + fa.line
+        };
+      });
+      benchOut = HB.map((h, i) => {
+        const a = AB[i], fh = fmt(h), fa = fmt(a);
+        return {
+          pos: 'BN', hName: h.name, hPts: fh.pts, hProj: fh.proj, hLine: h.team + ' · ' + fh.line,
+          aName: a.name, aPts: fa.pts, aProj: fa.proj, aLine: a.team + ' · ' + fa.line
+        };
+      });
+    }
+
+    const sum = (k) => rowsOut.reduce((t, r) => t + (Number(r[k]) || 0), 0).toFixed(1);
+    const pctBar = (a, b) => Math.max(6, Math.min(94, Math.round((Number(a) / (Number(a) + Number(b))) * 100))) + '%';
+    const winPct = (a, b) => {
+      const w = Math.max(6, Math.min(94, Math.round(50 + (Number(a) - Number(b)) * 1.6)));
+      return [w + '%', (100 - w) + '%'];
+    };
+    const [pw1, pw2] = winPct(M.hPre, M.aPre);
+    const fh = M.yours ? sum('hPts') : (M.final ? M.hs : M.hProj);
+    const fa = M.yours ? sum('aPts') : (M.final ? M.as : M.aProj);
+    const ytpCount = (s) => rowsOut.filter(r => (s === 'h' ? r.hLine : r.aLine).indexOf('yet to play') >= 0).length;
+
+    const head = ph === 'pre'
+      ? { hs: M.hPre, as: M.aPre, hSub: 'projected total', aSub: 'projected total',
+          hYtp: M.hRec + ' · 9 YTP', aYtp: M.aRec + ' · 9 YTP',
+          hWin: pw1, aWin: pw2, bar: pw1, tag: 'KICKOFF 1:00 ET', liveDot: false }
+      : ph === 'final'
+      ? { hs: fh, as: fa, hSub: M.hPre, aSub: M.aPre,
+          hYtp: M.hRec + ' · 0 YTP', aYtp: M.aRec + ' · 0 YTP',
+          hWin: Number(fh) >= Number(fa) ? 'W' : 'L', aWin: Number(fa) > Number(fh) ? 'W' : 'L',
+          bar: pctBar(fh, fa), tag: 'FINAL', liveDot: false }
+      : { hs: M.hs, as: M.as,
+          hSub: (M.final ? M.hPre : M.hProj), aSub: (M.final ? M.aPre : M.aProj),
+          hYtp: M.hRec + ' · ' + (M.final ? 0 : ytpCount('h')) + ' YTP',
+          aYtp: M.aRec + ' · ' + (M.final ? 0 : ytpCount('a')) + ' YTP',
+          hWin: M.final ? (Number(M.hs) >= Number(M.as) ? 'W' : 'L') : M.hWin,
+          aWin: M.final ? (Number(M.as) > Number(M.hs) ? 'W' : 'L') : M.aWin,
+          bar: M.final ? pctBar(M.hs, M.as) : M.hWin,
+          tag: M.final ? 'FINAL' : 'LIVE', liveDot: !M.final };
+
+    return {
+      clock: ph === 'pre' ? 'SUN 11:52 ET' : ph === 'final' ? 'SUN 11:38 ET' : 'SUN 1:07 ET',
+      mHome: M.home, mAway: M.away, head,
+      label: 'MATCHUP ' + (mi + 1) + ' OF ' + mList.length + (M.yours ? ' · YOURS' : ''),
+      prevHref: href(mi - 1), nextHref: href(mi + 1),
+      rows: rowsOut, bench: benchOut
+    };
+  }
+}
+
+</script>
+</body>
+</html>

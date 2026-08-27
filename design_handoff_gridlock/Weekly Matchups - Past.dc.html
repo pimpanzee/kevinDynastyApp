@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/styles.css">
+<script src="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;height:100%;background:var(--color-neutral-200)}
+body{font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:inherit;text-decoration:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="width:390px;max-width:100%;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--color-bg);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+
+  <div style="display:flex;justify-content:space-between;padding:9px 14px 3px;font-size:10px;letter-spacing:.1em;color:var(--color-neutral-600)"><span>9:41</span><span>TUE 9:41 ET</span></div>
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:2px solid var(--color-divider)">
+    <span style="font:800 17px/1 var(--font-heading);letter-spacing:-.02em">GRIDLOCK</span>
+    <button onClick="{{ toggleWeek }}" style="margin-left:auto;display:flex;align-items:center;gap:6px;height:32px;background:none;border:1px solid var(--color-divider);padding:0 11px;font:800 11px var(--font-heading);letter-spacing:.06em;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)">WEEK 10 <span style="font-size:8px">▼</span></button>
+  </div>
+
+  <sc-if value="{{ weekOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="border-bottom:2px solid var(--color-divider);background:var(--color-neutral-200)">
+      <sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5">
+        <div onClick="{{ w.pick }}" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 14px;border-bottom:1px solid var(--color-divider);font-size:12px;cursor:pointer" style-hover="background:var(--color-neutral-300)"><span>{{ w.label }}</span><span style="color:var(--color-neutral-600);font-size:10px;letter-spacing:.08em">{{ w.note }}</span></div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="flex:1;overflow:auto">
+
+    <div style="display:flex;align-items:center;gap:7px;padding:12px 14px 6px">
+      <span style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600)">FINAL</span>
+    </div>
+
+    <div style="border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider);padding:12px 14px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div style="min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ home.name }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ home.meta }}</div></div>
+        <div style="text-align:right;min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);color:var(--color-neutral-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ away.name }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ away.meta }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;align-items:center;margin-top:11px">
+        <div><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ home.num }}</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ home.sub }}</div></div>
+        <div style="text-align:right"><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-600)">{{ away.num }}</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ away.sub }}</div></div>
+      </div>
+      <div style="display:flex;height:7px;background:var(--color-neutral-300);margin-top:12px"><span style="background:var(--color-text);width:{{ bar }}"></span></div>
+    </div>
+
+    <div style="padding:11px 14px 7px;font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">AROUND THE LEAGUE</div>
+
+    <sc-for list="{{ games }}" as="g" hint-placeholder-count="6">
+      <div style="border-bottom:1px solid var(--color-divider);padding:10px 14px">
+        <div style="display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center">
+          <div style="display:flex;align-items:baseline;gap:7px;min-width:0"><span style="font-size:18px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ g.hCol }}">{{ g.home }}</span><span style="font-size:11.5px;color:var(--color-neutral-600);white-space:nowrap">{{ g.hMeta }}</span></div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:{{ g.hCol }}">{{ g.hs }}</div><div style="font:400 11.5px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ g.hSub }}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center;margin-top:8px">
+          <div style="display:flex;align-items:baseline;gap:7px;min-width:0"><span style="font-size:18px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ g.aCol }}">{{ g.away }}</span><span style="font-size:11.5px;color:var(--color-neutral-600);white-space:nowrap">{{ g.aMeta }}</span></div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:{{ g.aCol }}">{{ g.as }}</div><div style="font:400 11.5px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ g.aSub }}</div></div>
+        </div>
+        <div style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);margin-top:8px">FINAL</div>
+      </div>
+    </sc-for>
+
+    <div style="height:20px"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-text);flex:none">
+    <a href="Weekly%20Matchups.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid var(--color-accent);margin-top:-3px;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m2.75 9.25 1.5 2.5 2 1.5m-4.5 0 1 1m1.5-2.5-1.5 1.5m3-1 8.5-8.5v-2h-2l-8.5 8.5"></path><path d="m10.25 12.25-2.25-2.25m2-2 2.25 2.25m1-1-1.5 2.5-2 1.5m4.5 0-1 1m-1.5-2.5 1.5 1.5m-7.25-5.25-4.25-4.25v-2h2l4.25 4.25"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">MATCHUPS</span>
+    </a>
+    <a href="Roster.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">ROSTERS</span>
+    </a>
+    <a href="Standings.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h11"></path><path d="M10 18h11"></path><path d="M10 6h11"></path><path d="M4 10h2"></path><path d="M4 6h1v4"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">STANDINGS</span>
+    </a>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;trashTalk&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;off&quot;,&quot;on&quot;],&quot;default&quot;:&quot;on&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;resultText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Sixteen and a half up on a week Depot projected to win. Gibbs went for 27 off the bench you benched him from.&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  state = { weekOpen: false };
+
+  /* Week 10, every game complete. [home, away, hScore, aScore, hRec, aRec, hProj, aProj] */
+  games = [
+    ['Hurts So Good', 'Puka Chu', '134.8', '96.3', '8-2', '5-5', '121.4', '108.7'],
+    ['Trust the Process', 'Bijan Mustard', '87.2', '113.6', '5-5', '9-1', '110.9', '119.2'],
+    ['Dak to the Future', 'Tanking Softly', '102.7', '99.4', '5-5', '2-8', '105.3', '92.8'],
+    ["Kelce's Angels", 'Sunk Cost Fantasy', '78.5', '124.1', '4-6', '7-3', '96.6', '111.5'],
+    ['Zero RB Zealots', 'Waiver Wire Warlords', '116.9', '115.2', '4-6', '3-7', '107.8', '103.4'],
+    ['Rookie Szn', 'Third Round Reach', '64.3', '88.7', '5-5', '6-4', '94.1', '106.2']
+  ];
+
+  weeks = [['Week 12 · next', 'THU 8:15'], ['Week 11 · current', 'LIVE'], ['Week 10', 'W 118.2–101.6'], ['Week 9', 'L 94.0–110.7']];
+
+  renderVals() {
+    const hs = 118.2, as = 101.6;
+    const bar = Math.round((hs / (hs + as)) * 100) + '%';
+    return {
+      home: { name: 'Ridge Runners', meta: '7-3 · 0 YTP', num: '118.2', sub: '112.4' },
+      away: { name: 'Mahomes Depot', meta: '6-4 · 0 YTP', num: '101.6', sub: '118.9' },
+      bar,
+      games: this.games.map((g) => {
+        const hWon = Number(g[2]) > Number(g[3]);
+        return {
+          home: g[0], away: g[1], hs: g[2], as: g[3],
+          hMeta: g[4] + ' · 0 YTP', aMeta: g[5] + ' · 0 YTP',
+          hSub: g[6], aSub: g[7],
+          /* FINAL state: the winner holds ink, the loser steps back to n-600 */
+          hCol: hWon ? 'var(--color-text)' : 'var(--color-neutral-600)',
+          aCol: hWon ? 'var(--color-neutral-600)' : 'var(--color-text)',
+          hTag: hWon ? 'W' : 'L', aTag: hWon ? 'L' : 'W'
+        };
+      }),
+      noteOn: (this.props.trashTalk ?? 'on') !== 'off',
+      note: this.props.resultText ?? 'Sixteen and a half up on a week Depot projected to win. Gibbs went for 27 off the bench you benched him from.',
+      weekOpen: this.state.weekOpen,
+      toggleWeek: () => this.setState(s => ({ weekOpen: !s.weekOpen })),
+      weeks: this.weeks.map((w, i) => ({
+        label: w[0], note: w[1],
+        pick: () => {
+          const dest = ['Weekly%20Matchups%20-%20Future%20(Not%20Started).dc.html', 'Weekly%20Matchups.dc.html', null, null][i];
+          if (dest) window.location.href = dest; else this.setState({ weekOpen: false });
+        }
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

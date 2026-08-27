@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/styles.css">
+<script src="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;height:100%;background:var(--color-neutral-200)}
+body{font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:inherit;text-decoration:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="width:390px;max-width:100%;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--color-bg);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+
+  <div style="display:flex;justify-content:space-between;padding:9px 14px 3px;font-size:10px;letter-spacing:.1em;color:var(--color-neutral-600)"><span>9:41</span><span>WED 9:41 ET</span></div>
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:2px solid var(--color-divider)">
+    <span style="font:800 17px/1 var(--font-heading);letter-spacing:-.02em">GRIDLOCK</span>
+    <button onClick="{{ toggleWeek }}" style="margin-left:auto;display:flex;align-items:center;gap:6px;height:32px;background:none;border:1px solid var(--color-divider);padding:0 11px;font:800 11px var(--font-heading);letter-spacing:.06em;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)">WEEK 12 <span style="font-size:8px">▼</span></button>
+  </div>
+
+  <sc-if value="{{ weekOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="border-bottom:2px solid var(--color-divider);background:var(--color-neutral-200)">
+      <sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5">
+        <div onClick="{{ w.pick }}" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 14px;border-bottom:1px solid var(--color-divider);font-size:12px;cursor:pointer" style-hover="background:var(--color-neutral-300)"><span>{{ w.label }}</span><span style="color:var(--color-neutral-600);font-size:10px;letter-spacing:.08em">{{ w.note }}</span></div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="flex:1;overflow:auto">
+
+    <div style="display:flex;align-items:center;gap:7px;padding:12px 14px 6px">
+      <span style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600)">KICKOFF THU 8:15 ET</span>
+      <span style="margin-left:auto;font-size:9.5px;color:var(--color-neutral-600)">9 YET TO PLAY</span>
+    </div>
+
+    <div style="border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider);padding:12px 14px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div style="min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ home.name }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ home.meta }}</div></div>
+        <div style="text-align:right;min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);color:var(--color-neutral-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ away.name }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ away.meta }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:11px">
+        <div><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ home.num }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">projected total</div></div>
+        <div style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);padding:0 10px">{{ hWin }} / {{ aWin }}</div>
+        <div style="text-align:right"><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ away.num }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">projected total</div></div>
+      </div>
+      <sc-if value="{{ noteOn }}" hint-placeholder-val="{{ true }}">
+        <p style="margin:12px 0 0;font-size:11.5px;line-height:1.45;color:var(--color-neutral-700);border-left:2px solid var(--color-accent);padding-left:9px">{{ note }}</p>
+      </sc-if>
+    </div>
+
+    <div style="padding:11px 14px 7px;font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">AROUND THE LEAGUE</div>
+
+    <sc-for list="{{ games }}" as="g" hint-placeholder-count="6">
+      <div style="border-bottom:1px solid var(--color-divider);padding:10px 14px">
+        <div style="display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center">
+          <div style="display:flex;align-items:baseline;gap:7px;min-width:0"><span style="font-size:18px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.home }}</span><span style="font-size:11.5px;color:var(--color-neutral-600);white-space:nowrap">{{ g.hMeta }}</span></div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ g.hs }}</div><div style="font:400 11.5px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">projected</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center;margin-top:8px">
+          <div style="display:flex;align-items:baseline;gap:7px;min-width:0"><span style="font-size:18px;font-weight:600;line-height:1.2;color:var(--color-neutral-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.away }}</span><span style="font-size:11.5px;color:var(--color-neutral-600);white-space:nowrap">{{ g.aMeta }}</span></div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ g.as }}</div><div style="font:400 11.5px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">projected</div></div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:8px">
+          <span style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600)">{{ g.kick }}</span>
+          <span style="margin-left:auto;font:800 9.5px var(--font-heading);color:var(--color-neutral-600)">{{ g.hWin }} / {{ g.aWin }}</span>
+        </div>
+      </div>
+    </sc-for>
+
+    <div style="height:20px"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-text);flex:none">
+    <a href="Weekly%20Matchups.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid var(--color-accent);margin-top:-3px;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m2.75 9.25 1.5 2.5 2 1.5m-4.5 0 1 1m1.5-2.5-1.5 1.5m3-1 8.5-8.5v-2h-2l-8.5 8.5"></path><path d="m10.25 12.25-2.25-2.25m2-2 2.25 2.25m1-1-1.5 2.5-2 1.5m4.5 0-1 1m-1.5-2.5 1.5 1.5m-7.25-5.25-4.25-4.25v-2h2l4.25 4.25"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">MATCHUPS</span>
+    </a>
+    <a href="Roster.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">ROSTERS</span>
+    </a>
+    <a href="Standings.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h11"></path><path d="M10 18h11"></path><path d="M10 6h11"></path><path d="M4 10h2"></path><path d="M4 6h1v4"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">STANDINGS</span>
+    </a>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;trashTalk&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;off&quot;,&quot;on&quot;],&quot;default&quot;:&quot;on&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;previewText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Nothing has happened yet. These are the projections you go in with.&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  state = { weekOpen: false };
+
+  /* Week 12, nothing kicked off. [home, away, hProj, aProj, hRec, aRec, kickoff] */
+  games = [
+    ['Hurts So Good', 'Trust the Process', '119.4', '108.2', '9-2', '6-5', 'THU 8:15 ET'],
+    ['Bijan Mustard', 'Dak to the Future', '124.7', '101.9', '10-1', '5-6', 'SUN 1:00 ET'],
+    ['Puka Chu', "Kelce's Angels", '103.6', '98.4', '6-5', '4-7', 'SUN 1:00 ET'],
+    ['Zero RB Zealots', 'Rookie Szn', '110.1', '112.8', '5-6', '6-5', 'SUN 1:00 ET'],
+    ['Waiver Wire Warlords', 'Tanking Softly', '96.2', '89.5', '3-8', '2-9', 'SUN 4:25 ET'],
+    ['Sunk Cost Fantasy', 'Third Round Reach', '107.3', '114.6', '8-3', '6-5', 'SUN 8:20 ET']
+  ];
+
+  weeks = [['Week 12 · next', 'THU 8:15'], ['Week 11 · current', 'LIVE'], ['Week 10', 'W 118.2–101.6'], ['Week 9', 'L 94.0–110.7']];
+
+  win(h, a) {
+    const w = Math.max(6, Math.min(94, Math.round(50 + (Number(h) - Number(a)) * 1.6)));
+    return [w + '%', (100 - w) + '%'];
+  }
+
+  renderVals() {
+    const [hw, aw] = this.win('115.8', '109.3');
+    return {
+      home: { name: 'Ridge Runners', meta: '8-3 · 9 YTP', num: '115.8' },
+      away: { name: 'Mahomes Depot', meta: '6-5 · 9 YTP', num: '109.3' },
+      hWin: hw, aWin: aw, bar: hw,
+      games: this.games.map((g, i) => {
+        const [h, a] = this.win(g[2], g[3]);
+        return {
+          href: 'Matchup%20Detail.dc.html?m=' + (i + 1),
+          home: g[0], away: g[1], hs: g[2], as: g[3],
+          hMeta: g[4] + ' · 9 YTP', aMeta: g[5] + ' · 9 YTP',
+          hWin: h, aWin: a, hBar: h, kick: g[6]
+        };
+      }),
+      noteOn: (this.props.trashTalk ?? 'on') !== 'off',
+      note: this.props.previewText ?? 'Nothing has happened yet. These are the projections you go in with.',
+      weekOpen: this.state.weekOpen,
+      toggleWeek: () => this.setState(s => ({ weekOpen: !s.weekOpen })),
+      weeks: this.weeks.map((w, i) => ({
+        label: w[0], note: w[1],
+        pick: () => {
+          const dest = [null, 'Weekly%20Matchups.dc.html', 'Weekly%20Matchups%20-%20Past%20(Final).dc.html', 'Weekly%20Matchups%20-%20Past%20(Final).dc.html'][i];
+          if (dest) window.location.href = dest; else this.setState({ weekOpen: false });
+        }
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

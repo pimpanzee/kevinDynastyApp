@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/styles.css">
+<script src="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;height:100%;background:var(--color-neutral-200)}
+body{font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:inherit;text-decoration:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="width:390px;max-width:100%;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--color-bg);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider);position:relative">
+
+  <div style="display:flex;justify-content:space-between;padding:9px 14px 3px;font-size:10px;letter-spacing:.1em;color:var(--color-neutral-600)"><span>9:41</span><span>ROSTERS</span></div>
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:2px solid var(--color-divider)">
+    <span style="font:800 17px/1 var(--font-heading);letter-spacing:-.02em">GRIDLOCK</span>
+    <span style="margin-left:auto;font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600)">ROSTER</span>
+  </div>
+
+  <div onClick="{{ openSwitcher }}" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 14px;border-bottom:2px solid var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)">
+    <div style="flex:1;min-width:0">
+      <div style="font:800 15px/1.15 var(--font-heading);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ current.name }}</div>
+      <div style="font-size:10px;color:var(--color-neutral-600);margin-top:2px">{{ current.countLabel }}</div>
+    </div>
+    <sc-if value="{{ current.isYou }}" hint-placeholder-val="{{ true }}"><span class="tag tag-outline" style="font-size:8.5px;white-space:nowrap;flex:none">YOUR TEAM</span></sc-if>
+    <span style="font:800 11px var(--font-heading);color:var(--color-neutral-600)">▾</span>
+  </div>
+
+  <div style="flex:1;overflow:auto;padding-bottom:6px">
+
+    <sc-for list="{{ groups }}" as="grp" hint-placeholder-count="4">
+
+      <div style="position:sticky;top:0;z-index:1;background:var(--color-bg);padding:12px 14px 7px;border-bottom:2px solid var(--color-text)">
+        <div style="font:800 11px var(--font-heading);letter-spacing:.12em;color:var(--color-accent-700)">{{ grp.label }}</div>
+      </div>
+
+      <sc-for list="{{ grp.players }}" as="p" hint-placeholder-count="3">
+        <div style="border-bottom:1px solid var(--color-divider)">
+
+          <div onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer" style-hover="background:var(--color-neutral-200)">
+            <div style="flex:1;min-width:0">
+              <div style="font:600 13.5px/1.2 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+              <div style="font:800 9px var(--font-heading);letter-spacing:.07em;color:var(--color-neutral-600);margin-top:3px">{{ p.teamPos }}</div>
+            </div>
+            <div style="text-align:right;flex:none">
+              <div style="font:800 14px var(--font-heading);font-variant-numeric:tabular-nums">{{ p.salaryFmt }}</div>
+              <div style="margin-top:4px;text-align:right">
+                <span style="font:700 10px var(--font-body);color:var(--color-neutral-600)">{{ p.yearsLabel }}</span>
+              </div>
+            </div>
+            <span style="width:10px;flex:none;font-size:8px;color:var(--color-neutral-600);transform:{{ p.chevRotate }};transition:transform .15s;margin-left:2px">▼</span>
+          </div>
+
+          <sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:2px 14px 12px;background:var(--color-neutral-200)">
+              <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">ECR</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.ecr }}</div></div>
+              <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PROJ</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.proj }}</div></div>
+              <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">MATCHUP</div><div style="margin-top:2px;font-size:10px;letter-spacing:-1px"><span style="color:var(--color-accent-700)">{{ p.starsFilled }}</span><span style="color:var(--color-neutral-300)">{{ p.starsEmpty }}</span></div></div>
+              <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PTS</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.pts }}</div></div>
+              <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">BYE</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.bye }}</div></div>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-for>
+
+    </sc-for>
+
+    <div style="position:sticky;top:0;z-index:1;background:var(--color-bg);padding:12px 14px 7px;border-bottom:2px solid var(--color-text);margin-top:6px">
+      <div style="font:800 11px var(--font-heading);letter-spacing:.12em;color:var(--color-accent-700)">TAXI SQUAD</div>
+      <div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:2px">{{ taxi.countLabel }} · not counted toward roster or salary cap</div>
+    </div>
+
+    <sc-for list="{{ taxi.players }}" as="p" hint-placeholder-count="2">
+      <div style="border-bottom:1px solid var(--color-divider)">
+        <div onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer" style-hover="background:var(--color-neutral-200)">
+          <div style="flex:1;min-width:0">
+            <div style="font:600 13.5px/1.2 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+            <div style="font:800 9px var(--font-heading);letter-spacing:.07em;color:var(--color-neutral-600);margin-top:3px">{{ p.teamPos }}</div>
+          </div>
+          <div style="text-align:right;flex:none">
+            <div style="font:800 14px var(--font-heading);font-variant-numeric:tabular-nums">{{ p.salaryFmt }}</div>
+            <div style="margin-top:4px;text-align:right">
+              <span style="font:700 10px var(--font-body);color:var(--color-neutral-600)">{{ p.yearsLabel }}</span>
+            </div>
+          </div>
+          <span style="width:10px;flex:none;font-size:8px;color:var(--color-neutral-600);transform:{{ p.chevRotate }};transition:transform .15s;margin-left:2px">▼</span>
+        </div>
+        <sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:2px 14px 12px;background:var(--color-neutral-200)">
+            <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">ECR</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.ecr }}</div></div>
+            <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PROJ</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.proj }}</div></div>
+            <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">MATCHUP</div><div style="margin-top:2px;font-size:10px;letter-spacing:-1px"><span style="color:var(--color-accent-700)">{{ p.starsFilled }}</span><span style="color:var(--color-neutral-300)">{{ p.starsEmpty }}</span></div></div>
+            <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PTS</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.pts }}</div></div>
+            <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">BYE</div><div style="font:700 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px">{{ p.bye }}</div></div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <div style="height:4px"></div>
+  </div>
+
+  <div style="border-top:2px solid var(--color-text);padding:10px 14px 11px;background:var(--color-bg)">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+      <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PLAYERS</div><div style="font:800 13px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ footer.count }}</div></div>
+      <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">ADJ</div><div style="font:800 13px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ footer.adj }}</div></div>
+      <div><div style="font:800 8px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">TOTAL</div><div style="font:800 13px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ footer.total }}</div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-text);flex:none">
+    <a href="Weekly%20Matchups.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m2.75 9.25 1.5 2.5 2 1.5m-4.5 0 1 1m1.5-2.5-1.5 1.5m3-1 8.5-8.5v-2h-2l-8.5 8.5"></path><path d="m10.25 12.25-2.25-2.25m2-2 2.25 2.25m1-1-1.5 2.5-2 1.5m4.5 0-1 1m-1.5-2.5 1.5 1.5m-7.25-5.25-4.25-4.25v-2h2l4.25 4.25"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">MATCHUPS</span>
+    </a>
+    <a href="Roster.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid var(--color-accent);margin-top:-3px;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">ROSTERS</span>
+    </a>
+    <a href="Standings.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h11"></path><path d="M10 18h11"></path><path d="M10 6h11"></path><path d="M4 10h2"></path><path d="M4 6h1v4"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">STANDINGS</span>
+    </a>
+  </div>
+
+  <sc-if value="{{ switcherOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ closeSwitcher }}" style="position:absolute;inset:0;z-index:5;display:flex;align-items:flex-end">
+      <div class="dialog" onClick="{{ stop }}" style="width:100%;max-height:80%;overflow:auto;border-radius:0">
+        <div class="dialog-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>SWITCH FRANCHISE</span>
+          <span onClick="{{ closeSwitcher }}" style="cursor:pointer;font:800 14px var(--font-heading)">×</span>
+        </div>
+        <div class="dialog-body" style="padding:0">
+          <sc-for list="{{ franchiseList }}" as="f" hint-placeholder-count="6">
+            <div onClick="{{ f.select }}" style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-neutral-200)">
+              <span style="width:16px;flex:none;font:800 12px var(--font-heading);color:var(--color-accent)">{{ f.check }}</span>
+              <span style="flex:1;font:600 13.5px var(--font-body)">{{ f.name }}</span>
+              <sc-if value="{{ f.isYou }}" hint-placeholder-val="{{ false }}"><span class="tag tag-outline" style="font-size:8px">YOU</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { franchiseIdx: 0, open: {}, switcherOpen: false };
+
+  franchises = ['Ridge Runners','Mahomes Depot','Tanking Softly','Sunk Cost Fantasy',"Kelce's Angels",'Rookie Szn','Bijan Mustard','Third Round Reach','Waiver Wire Warlords','Trust the Process','Zero RB Zealots','Dak to the Future'];
+
+  // Authored roster for the user's own franchise (Ridge Runners)
+  ridgeRunners = [
+    {name:'Trevor Lawrence', team:'JAC', pos:'QB', ecr:'QB9', proj:'16.99', pts:'298.48', bye:7, salary:220.00, years:2, status:'SIGNED', matchup:3},
+    {name:'Brock Purdy', team:'SFO', pos:'QB', ecr:'QB14', proj:'16.83', pts:'160.08', bye:9, salary:240.90, years:2, status:'SIGNED', matchup:3},
+    {name:'Malik Willis', team:'MIA', pos:'QB', ecr:'QB19', proj:'16.07', pts:'48.68', bye:6, salary:125.00, years:1, status:'EXPIRING', matchup:3},
+    {name:'Kayton Allen', team:'WAS', pos:'RB', ecr:'RB73', proj:'1.26', pts:'—', bye:7, salary:45.00, years:2, status:'SIGNED', matchup:3},
+    {name:'Saquon Barkley', team:'PHI', pos:'RB', ecr:'RB8', proj:'14.46', pts:'212.80', bye:10, salary:350.00, years:2, status:'SIGNED', matchup:4},
+    {name:'Jacory Croskey-Merritt', team:'WAS', pos:'RB', ecr:'RB37', proj:'7.65', pts:'133.80', bye:7, salary:5.50, years:1, status:'ROOKIE', matchup:2},
+    {name:'Woody Marks', team:'HOU', pos:'RB', ecr:'RB49', proj:'6.75', pts:'133.10', bye:8, salary:5.50, years:1, status:'ROOKIE', matchup:2},
+    {name:'Devin Neal', team:'NOS', pos:'RB', ecr:'RB89', proj:'0.17', pts:'51.50', bye:7, salary:5.50, years:1, status:'ROOKIE', matchup:1},
+    {name:'Kenneth Walker III', team:'KCC', pos:'RB', ecr:'RB13', proj:'13.16', pts:'176.40', bye:5, salary:295.00, years:1, status:'EXPIRING', matchup:3},
+    {name:'Jordan Addison', team:'MIN', pos:'WR', ecr:'WR42', proj:'8.52', pts:'114.10', bye:6, salary:181.02, years:1, status:'EXPIRING', matchup:3},
+    {name:'A.J. Brown', team:'NEP', pos:'WR', ecr:'WR11', proj:'12.13', pts:'181.30', bye:11, salary:230.00, years:1, status:'EXPIRING', matchup:4},
+    {name:'Luther Burden', team:'CHI', pos:'WR', ecr:'WR28', proj:'10.01', pts:'104.40', bye:7, salary:69.30, years:2, status:'SIGNED', matchup:2},
+    {name:'Chimere Dike', team:'TEN', pos:'WR', ecr:'WR97', proj:'2.26', pts:'140.90', bye:9, salary:20.00, years:1, status:'ROOKIE', matchup:1},
+    {name:'Tetairoa McMillan', team:'CAR', pos:'WR', ecr:'WR16', proj:'11.71', pts:'175.40', bye:5, salary:127.60, years:1, status:'ROOKIE', matchup:3},
+    {name:'Carnell Tate', team:'TEN', pos:'WR', ecr:'WR33', proj:'9.52', pts:'—', bye:9, salary:122.00, years:2, status:'SIGNED', matchup:4},
+    {name:'Dontayvion Wicks', team:'PHI', pos:'WR', ecr:'WR63', proj:'5.87', pts:'60.80', bye:10, salary:5.00, years:1, status:'ROOKIE', matchup:2},
+    {name:'Antonio Williams', team:'WAS', pos:'WR', ecr:'WR90', proj:'2.86', pts:'69.00', bye:7, salary:69.00, years:2, status:'SIGNED', matchup:1},
+    {name:'AJ Barner', team:'SEA', pos:'TE', ecr:'TE22', proj:'6.10', pts:'121.30', bye:11, salary:20.00, years:1, status:'ROOKIE', matchup:3},
+    {name:'T.J. Hockenson', team:'MIN', pos:'TE', ecr:'TE21', proj:'6.49', pts:'87.30', bye:6, salary:35.00, years:1, status:'SIGNED', matchup:3},
+    {name:'Eli Raridon', team:'NEP', pos:'TE', ecr:'TE45', proj:'1.84', pts:'12.00', bye:11, salary:12.00, years:3, status:'ROOKIE', matchup:2}
+  ];
+
+  qbPool = ['C. Stroud DEN','J. Herbert LAC','K. Murray ARI','B. Nix NYJ','D. Prescott DAL','J. Love GB','A. Richardson IND','G. Smith SEA'];
+  rbPool = ['D. Henry BAL','J. Gibbs DET','B. Robinson ATL','K. Walker SEA','J. Cook BUF','R. Stevenson NEP','A. Jones MIN','T. Etienne JAC','J. Mason PIT','Z. Charbonnet SEA'];
+  wrPool = ['CeeDee Lamb DAL','A.J. Brown PHI','Puka Nacua LAR','Garrett Wilson NYJ','Chris Olave NOS','DK Metcalf SEA','Terry McLaurin WAS','Courtland Sutton DEN','Jaylen Waddle MIA','Rome Odunze CHI','Xavier Worthy KCC','Marvin Harrison Jr ARI'];
+  tePool = ['Sam LaPorta DET','Trey McBride ARI','Dalton Kincaid BUF','Brock Bowers LVR','Evan Engram DEN','Cole Kmet CHI'];
+  statuses = ['SIGNED','EXPIRING','ROOKIE'];
+
+  ridgeRunnersTaxi = [
+    {name:'Jaydon Blue', team:'DAL', pos:'RB', ecr:'RB55', proj:'2.63', pts:'19.90', bye:14, salary:19.80, years:1, matchup:4},
+    {name:'Adam Randall', team:'BAL', pos:'RB', ecr:'RB86', proj:'0.89', pts:'—', bye:13, salary:5.00, years:2, matchup:1},
+    {name:'Konata Mumpfield', team:'LAR', pos:'WR', ecr:'WR171', proj:'1.27', pts:'20.20', bye:11, salary:36.00, years:1, matchup:3},
+    {name:'Elijah Arroyo', team:'SEA', pos:'TE', ecr:'TE42', proj:'2.96', pts:'28.40', bye:1, salary:22.00, years:1, matchup:4}
+  ];
+
+  rand(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  synthRoster(seed) {
+    const pick = (pool, n, offset) => {
+      const out = [];
+      for (let i = 0; i < n; i++) out.push(pool[(offset + i) % pool.length]);
+      return out;
+    };
+    const build = (pool, n, pos, offset) => pick(pool, n, offset).map((entry, i) => {
+      const [nm, team] = [entry.split(' ').slice(0, -1).join(' '), entry.split(' ').slice(-1)[0]];
+      const r = (k) => this.rand(seed * 97 + offset * 13 + i * 7 + k);
+      return {
+        name: nm, team, pos,
+        ecr: pos + (5 + Math.floor(r(1) * 90)),
+        proj: (2 + r(2) * 16).toFixed(2),
+        pts: (30 + r(3) * 220).toFixed(2),
+        bye: 5 + Math.floor(r(4) * 9),
+        salary: Math.round((5 + r(5) * 300) * 100) / 100,
+        years: 1 + Math.floor(r(6) * 3),
+        status: this.statuses[Math.floor(r(7) * 3)],
+        matchup: 1 + Math.floor(r(8) * 5)
+      };
+    });
+    return [
+      ...build(this.qbPool, 2, 'QB', seed + 1),
+      ...build(this.rbPool, 4, 'RB', seed + 2),
+      ...build(this.wrPool, 4, 'WR', seed + 3),
+      ...build(this.tePool, 2, 'TE', seed + 4)
+    ];
+  }
+
+  fmtMoney(n) { return '$' + n.toFixed(2); }
+
+  renderVals() {
+    const idx = this.state.franchiseIdx;
+    const roster = idx === 0 ? this.ridgeRunners : this.synthRoster(idx);
+    const open = this.state.open;
+    const posOrder = ['QB','RB','WR','TE'];
+
+    const mapPlayer = (p, key) => {
+      const m = p.matchup;
+      return {
+        ...p,
+        teamPos: p.team + ' · ' + p.pos,
+        salaryFmt: this.fmtMoney(p.salary),
+        yearsLabel: p.years + 'yr',
+        starsFilled: '★'.repeat(m),
+        starsEmpty: '☆'.repeat(5 - m),
+        open: !!open[key],
+        chevRotate: open[key] ? 'rotate(180deg)' : 'rotate(0deg)',
+        toggle: () => this.setState(s => ({ open: { ...s.open, [key]: !s.open[key] } }))
+      };
+    };
+
+    const groups = posOrder.map(pos => ({
+      label: pos,
+      players: roster.filter(p => p.pos === pos).map((p, i) => mapPlayer(p, pos + '-' + i + '-' + p.name))
+    })).filter(g => g.players.length);
+
+    const taxiRoster = idx === 0 ? this.ridgeRunnersTaxi : this.synthRoster(idx + 100).slice(0, 3);
+    const taxi = {
+      players: taxiRoster.map((p, i) => mapPlayer(p, 'taxi-' + i + '-' + p.name)),
+      countLabel: taxiRoster.length + (taxiRoster.length === 1 ? ' PLAYER' : ' PLAYERS')
+    };
+
+    const adj = idx === 0 ? 67.65 : Math.round(this.rand(idx * 11) * 40 - 10);
+    const base = roster.reduce((s, p) => s + p.salary, 0);
+    const total = base + adj;
+
+    const footer = {
+      count: roster.length,
+      adj: (adj >= 0 ? '+' : '') + this.fmtMoney(adj),
+      total: this.fmtMoney(total)
+    };
+
+    const current = {
+      name: this.franchises[idx],
+      countLabel: roster.length + ' PLAYERS',
+      isYou: idx === 0
+    };
+
+    const franchiseList = this.franchises.map((name, i) => ({
+      name, isYou: i === 0,
+      check: i === idx ? '✓' : '',
+      select: () => this.setState({ franchiseIdx: i, switcherOpen: false, open: {} })
+    }));
+
+    return {
+      groups, footer, current, franchiseList, taxi,
+      switcherOpen: this.state.switcherOpen,
+      openSwitcher: () => this.setState({ switcherOpen: true }),
+      closeSwitcher: () => this.setState({ switcherOpen: false }),
+      stop: (e) => e.stopPropagation()
+    };
+  }
+}
+
+</script>
+</body>
+</html>

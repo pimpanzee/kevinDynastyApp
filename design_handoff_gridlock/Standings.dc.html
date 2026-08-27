@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/styles.css">
+<script src="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;height:100%;background:var(--color-neutral-200)}
+body{font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:inherit;text-decoration:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="width:390px;max-width:100%;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--color-bg);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+
+  <div style="display:flex;justify-content:space-between;padding:9px 14px 3px;font-size:10px;letter-spacing:.1em;color:var(--color-neutral-600)"><span>9:41</span><span>SUN 1:07 ET</span></div>
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:2px solid var(--color-divider)">
+    <span style="font:800 17px/1 var(--font-heading);letter-spacing:-.02em">GRIDLOCK</span>
+    <span style="margin-left:auto;font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600)">STANDINGS</span>
+  </div>
+
+  <div style="flex:1;overflow:auto;padding-bottom:16px">
+
+    <sc-for list="{{ groups }}" as="grp" hint-placeholder-count="3">
+
+      <div style="position:sticky;top:0;z-index:1;background:var(--color-bg);padding:14px 14px 8px;border-bottom:2px solid var(--color-text)">
+        <div style="font:800 11px var(--font-heading);letter-spacing:.1em;color:var(--color-accent-700)">{{ grp.label }}</div>
+      </div>
+
+      <sc-for list="{{ grp.teams }}" as="t" hint-placeholder-count="3">
+
+        <div style="border-bottom:1px solid var(--color-divider)">
+
+          <div onClick="{{ t.toggle }}" style="display:flex;align-items:center;gap:10px;padding:12px 14px 0;cursor:pointer">
+            <span style="width:16px;flex:none;font:800 11px var(--font-heading);color:var(--color-neutral-600);text-align:right">{{ t.rank }}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font:600 14px/1.2 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</div>
+            </div>
+            <div style="font:800 13px var(--font-heading);font-variant-numeric:tabular-nums;flex:none">{{ t.record }}</div>
+            <span style="width:10px;flex:none;font-size:9px;color:var(--color-neutral-600);transform:{{ t.chevRotate }};transition:transform .15s">▼</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:9px 14px 12px 58px">
+            <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PF</div><div style="font:800 12px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ t.pf }}</div></div>
+            <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PA</div><div style="font:800 12px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ t.pa }}</div></div>
+            <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">DIV</div><div style="font:800 12px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ t.div }}</div></div>
+            <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">CONF</div><div style="font:800 12px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px">{{ t.conf }}</div></div>
+            <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-accent-700)">PP</div><div style="font:800 12px var(--font-heading);font-variant-numeric:tabular-nums;margin-top:2px;color:var(--color-accent-700)">{{ t.pp }}</div></div>
+          </div>
+
+          <sc-if value="{{ t.open }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:0 14px 13px 58px;border-top:1px solid var(--color-divider);margin:0 14px 0 58px;padding-top:9px">
+              <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">PCT</div><div style="font:600 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px;color:var(--color-neutral-700)">{{ t.pct }}</div></div>
+              <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">GB</div><div style="font:600 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px;color:var(--color-neutral-700)">{{ t.gb }}</div></div>
+              <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">STRK</div><div style="font:600 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px;color:var(--color-neutral-700)">{{ t.streak }}</div></div>
+              <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">AVG PF</div><div style="font:600 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px;color:var(--color-neutral-700)">{{ t.avgPf }}</div></div>
+              <div><div style="font:800 8.5px var(--font-heading);letter-spacing:.06em;color:var(--color-neutral-600)">AVG PA</div><div style="font:600 11.5px var(--font-body);font-variant-numeric:tabular-nums;margin-top:2px;color:var(--color-neutral-700)">{{ t.avgPa }}</div></div>
+            </div>
+          </sc-if>
+
+        </div>
+
+      </sc-for>
+
+    </sc-for>
+
+    <div style="height:8px"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-text);flex:none">
+    <a href="Weekly%20Matchups.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m2.75 9.25 1.5 2.5 2 1.5m-4.5 0 1 1m1.5-2.5-1.5 1.5m3-1 8.5-8.5v-2h-2l-8.5 8.5"></path><path d="m10.25 12.25-2.25-2.25m2-2 2.25 2.25m1-1-1.5 2.5-2 1.5m4.5 0-1 1m-1.5-2.5 1.5 1.5m-7.25-5.25-4.25-4.25v-2h2l4.25 4.25"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">MATCHUPS</span>
+    </a>
+    <a href="Roster.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">ROSTERS</span>
+    </a>
+    <a href="Standings.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid var(--color-accent);margin-top:-3px;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h11"></path><path d="M10 18h11"></path><path d="M10 6h11"></path><path d="M4 10h2"></path><path d="M4 6h1v4"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">STANDINGS</span>
+    </a>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { open: {} };
+
+  data = [
+    { label: 'CONFERENCE 1 · DIVISION 1', teams: [
+      { name: 'Ridge Runners', record: '11-3-0', pf: '2275.9', pa: '1495.7', div: '4-0-0', conf: '8-0-0', pp: '2649.6', pct: '.786', gb: '—', streak: 'W5', avgPf: '162.6', avgPa: '106.8' },
+      { name: 'Mahomes Depot', record: '7-7-0', pf: '1875.6', pa: '1690.1', div: '2-2-0', conf: '4-4-0', pp: '2106.7', pct: '.500', gb: '4.0', streak: 'L1', avgPf: '133.9', avgPa: '120.7' },
+      { name: 'Tanking Softly', record: '2-12-0', pf: '1515.6', pa: '1848.1', div: '0-4-0', conf: '1-7-0', pp: '1804.6', pct: '.143', gb: '9.0', streak: 'L4', avgPf: '108.3', avgPa: '132.0' }
+    ]},
+    { label: 'CONFERENCE 1 · DIVISION 2', teams: [
+      { name: 'Sunk Cost Fantasy', record: '12-2-0', pf: '2136.7', pa: '1345.5', div: '4-0-0', conf: '7-1-0', pp: '2541.2', pct: '.857', gb: '—', streak: 'W3', avgPf: '152.6', avgPa: '96.1' },
+      { name: "Kelce's Angels", record: '8-6-0', pf: '2049.5', pa: '1536.6', div: '2-2-0', conf: '6-2-0', pp: '2488.8', pct: '.571', gb: '4.0', streak: 'L2', avgPf: '146.4', avgPa: '109.8' },
+      { name: 'Rookie Szn', record: '1-13-0', pf: '1427.0', pa: '1566.6', div: '0-4-0', conf: '1-7-0', pp: '1658.1', pct: '.071', gb: '11.0', streak: 'L1', avgPf: '101.9', avgPa: '111.9' }
+    ]},
+    { label: 'CONFERENCE 2 · DIVISION 1', teams: [
+      { name: 'Bijan Mustard', record: '9-5-0', pf: '2049.5', pa: '1536.6', div: '4-0-0', conf: '6-2-0', pp: '2488.8', pct: '.643', gb: '—', streak: 'L2', avgPf: '146.4', avgPa: '109.8' },
+      { name: 'Third Round Reach', record: '6-8-0', pf: '1804.2', pa: '1799.8', div: '2-2-0', conf: '4-4-0', pp: '2010.4', pct: '.429', gb: '3.0', streak: 'W1', avgPf: '128.9', avgPa: '128.6' },
+      { name: 'Waiver Wire Warlords', record: '3-11-0', pf: '1560.3', pa: '1780.9', div: '0-4-0', conf: '2-6-0', pp: '1820.5', pct: '.214', gb: '6.0', streak: 'L3', avgPf: '111.5', avgPa: '127.2' }
+    ]},
+    { label: 'CONFERENCE 2 · DIVISION 2', teams: [
+      { name: 'Trust the Process', record: '10-4-0', pf: '2010.8', pa: '1601.4', div: '3-1-0', conf: '6-2-0', pp: '2390.1', pct: '.714', gb: '—', streak: 'W2', avgPf: '143.6', avgPa: '114.4' },
+      { name: 'Zero RB Zealots', record: '7-7-0', pf: '1890.2', pa: '1750.6', div: '2-2-0', conf: '4-4-0', pp: '2150.9', pct: '.500', gb: '3.0', streak: 'W1', avgPf: '135.0', avgPa: '125.0' },
+      { name: 'Dak to the Future', record: '4-10-0', pf: '1650.1', pa: '1899.3', div: '1-3-0', conf: '2-6-0', pp: '1902.7', pct: '.286', gb: '6.0', streak: 'L2', avgPf: '117.9', avgPa: '135.7' }
+    ]}
+  ];
+
+  renderVals() {
+    const open = this.state.open;
+    const groups = this.data.map((g, gi) => ({
+      label: g.label,
+      teams: g.teams.map((t, ti) => {
+        const key = gi + '-' + ti;
+        const initials = t.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        return {
+          ...t, initials, rank: ti + 1,
+          open: !!open[key],
+          chevRotate: open[key] ? 'rotate(180deg)' : 'rotate(0deg)',
+          toggle: () => this.setState(s => ({ open: { ...s.open, [key]: !s.open[key] } }))
+        };
+      })
+    }));
+    return { groups };
+  }
+}
+
+</script>
+</body>
+</html>

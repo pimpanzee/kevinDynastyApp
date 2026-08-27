@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/styles.css">
+<script src="_ds/modernist-3cc5c80c-c354-464f-9b79-713d9868752e/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;height:100%;background:var(--color-neutral-200)}
+body{font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:inherit;text-decoration:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.15}}
+</style>
+</helmet>
+
+<div style="width:390px;max-width:100%;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--color-bg);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+
+  <div style="display:flex;justify-content:space-between;padding:9px 14px 3px;font-size:10px;letter-spacing:.1em;color:var(--color-neutral-600)"><span>9:41</span><span>{{ clock }}</span></div>
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:2px solid var(--color-divider)">
+    <span style="font:800 17px/1 var(--font-heading);letter-spacing:-.02em">GRIDLOCK</span>
+    <button onClick="{{ toggleWeek }}" style="margin-left:auto;display:flex;align-items:center;gap:6px;height:32px;background:none;border:1px solid var(--color-divider);padding:0 11px;font:800 11px var(--font-heading);letter-spacing:.06em;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)">WEEK 11 <span style="font-size:8px">▼</span></button>
+  </div>
+
+  <sc-if value="{{ weekOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="border-bottom:2px solid var(--color-divider);background:var(--color-neutral-200)">
+      <sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5">
+        <div onClick="{{ w.pick }}" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 14px;border-bottom:1px solid var(--color-divider);font-size:12px;cursor:pointer" style-hover="background:var(--color-neutral-300)"><span>{{ w.label }}</span><span style="color:var(--color-neutral-600);font-size:10px;letter-spacing:.08em">{{ w.note }}</span></div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="flex:1;overflow:auto">
+
+    <div style="display:flex;align-items:center;gap:7px;padding:12px 14px 6px">
+      <sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}">
+        <span style="width:6px;height:6px;background:var(--color-accent);animation:blip 1.4s infinite"></span>
+      </sc-if>
+      <span style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-accent)">{{ head }}</span>
+      <span style="margin-left:auto;font-size:9.5px;color:var(--color-neutral-600)">{{ playersLeft }}</span>
+    </div>
+
+    <a href="Matchup%20Detail.dc.html?m=0" style="display:block;border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider);padding:12px 14px 14px;cursor:pointer" style-hover="background:var(--color-neutral-200)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div style="min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ home.name }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ home.meta }}</div></div>
+        <div style="text-align:right;min-width:0"><div style="font:600 14.5px/1.15 var(--font-body);color:var(--color-neutral-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ away.name }}</div><div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">{{ away.meta }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:11px">
+        <div><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ home.num }}</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ home.sub }}</div></div>
+        <div style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);padding:0 10px">{{ hWin }} / {{ aWin }}</div>
+        <div style="text-align:right"><div style="font:800 42px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ away.num }}</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ away.sub }}</div></div>
+      </div>
+      <div style="display:flex;height:7px;background:var(--color-neutral-300);margin-top:12px"><span style="background:var(--color-text);width:{{ bar }}"></span></div>
+      <sc-if value="{{ noteOn }}" hint-placeholder-val="{{ true }}">
+        <p style="margin:12px 0 0;font-size:11.5px;line-height:1.45;color:var(--color-neutral-700);border-left:2px solid var(--color-accent);padding-left:9px">{{ note }}</p>
+      </sc-if>
+    </a>
+
+    <div style="padding:11px 14px 7px;font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">AROUND THE LEAGUE</div>
+
+    <sc-for list="{{ games }}" as="g" hint-placeholder-count="6">
+      <a href="{{ g.href }}" style="display:block;border-bottom:1px solid var(--color-divider);padding:10px 14px;cursor:pointer" style-hover="background:var(--color-neutral-200)">
+        <div style="display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center">
+          <div style="display:flex;align-items:baseline;gap:7px;min-width:0"><span style="font-size:18px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.home }}</span><span style="font-size:11.5px;color:var(--color-neutral-600);white-space:nowrap">{{ g.hMeta }}</span></div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums">{{ g.hs }}</div><div style="font:400 11.5px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ g.hSub }}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center;margin-top:8px">
+          <div style="display:flex;align-items:baseline;gap:7px;min-width:0"><span style="font-size:18px;font-weight:600;line-height:1.2;color:var(--color-neutral-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.away }}</span><span style="font-size:11.5px;color:var(--color-neutral-600);white-space:nowrap">{{ g.aMeta }}</span></div>
+          <div style="text-align:right"><div style="font:800 18px/1 var(--font-heading);font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ g.as }}</div><div style="font:400 11.5px/1 var(--font-body);color:var(--color-neutral-600);font-variant-numeric:tabular-nums;margin-top:3px">{{ g.aSub }}</div></div>
+        </div>
+        <sc-if value="{{ g.barShow }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+            <div style="flex:1;display:flex;height:4px;background:var(--color-neutral-300)"><span style="background:var(--color-text);width:{{ g.hBar }}"></span></div>
+            <span style="font:800 9.5px var(--font-heading);color:var(--color-neutral-600);width:54px;text-align:right">{{ g.hWin }} / {{ g.aWin }}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ g.tailShow }}" hint-placeholder-val="{{ false }}">
+          <div style="font:800 10px var(--font-heading);letter-spacing:.14em;color:var(--color-neutral-600);margin-top:8px">{{ g.tail }}</div>
+        </sc-if>
+      </a>
+    </sc-for>
+
+    <div style="height:20px"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-text);flex:none">
+    <a href="Weekly%20Matchups.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid var(--color-accent);margin-top:-3px;color:var(--color-text);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m2.75 9.25 1.5 2.5 2 1.5m-4.5 0 1 1m1.5-2.5-1.5 1.5m3-1 8.5-8.5v-2h-2l-8.5 8.5"></path><path d="m10.25 12.25-2.25-2.25m2-2 2.25 2.25m1-1-1.5 2.5-2 1.5m4.5 0-1 1m-1.5-2.5 1.5 1.5m-7.25-5.25-4.25-4.25v-2h2l4.25 4.25"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">MATCHUPS</span>
+    </a>
+    <a href="Roster.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">ROSTERS</span>
+    </a>
+    <a href="Standings.dc.html" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:54px;padding:0 4px;border-top:3px solid transparent;margin-top:-3px;color:var(--color-neutral-600);cursor:pointer" style-hover="background:var(--color-neutral-200)" style-focus="outline:2px solid var(--color-accent);outline-offset:2px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h11"></path><path d="M10 18h11"></path><path d="M10 6h11"></path><path d="M4 10h2"></path><path d="M4 6h1v4"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+      <span style="font:800 9px var(--font-heading);letter-spacing:.06em">STANDINGS</span>
+    </a>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;phase&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pre&quot;,&quot;live&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;trashTalk&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;off&quot;,&quot;on&quot;],&quot;default&quot;:&quot;on&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;jabText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Two points up with Gibbs still on the bus. Depot has four bodies left. Enjoy the view while it lasts.&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  state = { weekOpen: false };
+
+  L = {
+    home: { name: 'Ridge Runners', rec: '7-3', score: '90.1', proj: '112.4', left: '2', win: '51%' },
+    away: { name: 'Mahomes Depot', rec: '6-4', score: '88.1', proj: '118.9', left: '3', win: '49%' },
+    games: [
+      ['Hurts So Good', 'Dak to the Future', '112.4', '104.9', 'FINAL', 'FIN', '8-2', '5-5', '112.4', '104.9', '100%', '—'],
+      ['Trust the Process', 'Zero RB Zealots', '88.6', '91.2', 'IN PROGRESS · 4 LEFT', 'LIVE', '6-4', '4-6', '115.0', '108.3', '62%', '38%'],
+      ['Puka Chu', 'Waiver Wire Warlords', '76.0', '63.5', 'IN PROGRESS · 6 LEFT', 'LIVE', '5-5', '3-7', '104.8', '99.1', '58%', '42%'],
+      ['Bijan Mustard', 'Tanking Softly', '121.7', '70.4', 'FINAL', 'FIN', '9-1', '2-8', '121.7', '70.4', '100%', '—'],
+      ["Kelce's Angels", 'Rookie Szn', '59.8', '66.2', 'IN PROGRESS · 5 LEFT', 'LIVE', '4-6', '5-5', '96.2', '110.4', '24%', '76%'],
+      ['Sunk Cost Fantasy', 'Third Round Reach', '99.3', '97.8', 'IN PROGRESS · 2 LEFT', 'LIVE', '7-3', '6-4', '106.0', '113.7', '41%', '59%']
+    ],
+    weeks: [['Week 12 · next', 'THU 8:15'], ['Week 11 · current', 'LIVE'], ['Week 10', 'W 118.2–101.6'], ['Week 9', 'L 94.0–110.7']]
+  };
+
+  gameYtp = [['0','0'],['2','2'],['3','3'],['0','0'],['2','3'],['1','1']];
+  gamePre = [['108.6','101.2'],['110.3','106.5'],['102.4','100.8'],['115.9','88.7'],['99.5','104.2'],['104.1','109.0']];
+
+  pw(hp, ap) {
+    const w = Math.max(6, Math.min(94, Math.round(50 + (Number(hp) - Number(ap)) * 1.6)));
+    return [w + '%', (100 - w) + '%'];
+  }
+
+  renderVals() {
+    const L = this.L, pre = (this.props.phase ?? 'live') === 'pre';
+    const [hw, aw] = this.pw(L.home.proj, L.away.proj);
+    const games = L.games.map((g, i) => {
+      const pg = this.gamePre[i], final = g[4] === 'FINAL';
+      const [gh, ga] = this.pw(pg[0], pg[1]);
+      const href = 'Matchup%20Detail.dc.html?m=' + (i + 1);
+      return pre ? {
+        href, home: g[0], away: g[1], hs: pg[0], as: pg[1],
+        hMeta: g[6] + ' · 9 YTP', aMeta: g[7] + ' · 9 YTP',
+        hSub: 'projected', aSub: 'projected', barShow: true,
+        hWin: gh, aWin: ga, hBar: gh, tail: 'SUN 1:00 ET', tailShow: true
+      } : {
+        href, home: g[0], away: g[1], hs: g[2], as: g[3],
+        hMeta: g[6] + ' · ' + this.gameYtp[i][0] + ' YTP',
+        aMeta: g[7] + ' · ' + this.gameYtp[i][1] + ' YTP',
+        hSub: final ? pg[0] : g[8],
+        aSub: final ? pg[1] : g[9],
+        barShow: !final, hWin: g[10], aWin: g[11], hBar: g[10] === '—' ? '0%' : g[10],
+        tail: 'FINAL', tailShow: final
+      };
+    });
+    const talk = this.props.trashTalk ?? 'on';
+    return {
+      clock: pre ? 'SUN 11:52 ET' : 'SUN 1:07 ET',
+      isLive: !pre,
+      head: pre ? 'KICKOFF 1:00 ET' : 'LIVE',
+      playersLeft: pre ? '9 YET TO PLAY' : L.home.left + ' YET TO PLAY',
+      home: {
+        name: L.home.name, meta: L.home.rec + ' · ' + (pre ? '9' : L.home.left) + ' YTP',
+        num: pre ? L.home.proj : L.home.score, sub: pre ? 'projected total' : L.home.proj
+      },
+      away: {
+        name: L.away.name, meta: L.away.rec + ' · ' + (pre ? '9' : L.away.left) + ' YTP',
+        num: pre ? L.away.proj : L.away.score, sub: pre ? 'projected total' : L.away.proj
+      },
+      hWin: pre ? hw : L.home.win, aWin: pre ? aw : L.away.win, bar: pre ? hw : L.home.win,
+      games,
+      noteOn: talk !== 'off',
+      note: pre
+        ? 'Nothing has happened yet. These are the projections you go in with.'
+        : (this.props.jabText ?? 'Two points up with Gibbs still on the bus. Depot has four bodies left. Enjoy the view while it lasts.'),
+      weekOpen: this.state.weekOpen,
+      toggleWeek: () => this.setState(s => ({ weekOpen: !s.weekOpen })),
+      weeks: L.weeks.map((w, i) => ({
+        label: w[0], note: w[1],
+        pick: () => {
+          const dest = ['Weekly%20Matchups%20-%20Future%20(Not%20Started).dc.html', null, 'Weekly%20Matchups%20-%20Past%20(Final).dc.html', 'Weekly%20Matchups%20-%20Past%20(Final).dc.html'][i];
+          if (dest) window.location.href = dest; else this.setState({ weekOpen: false });
+        }
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>
