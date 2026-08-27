@@ -1,97 +1,131 @@
-/** Phase of a week. Derived from week status, never set by a UI control. */
+/**
+ * View models the screens render. Everything here is already formatted for
+ * display — the MFL layer does the joining, gating and rounding so components
+ * stay presentational.
+ */
+
 export type Phase = 'pre' | 'live' | 'final';
 
 export type WeekStatus = 'past' | 'current' | 'future';
 
-export interface Week {
-  /** NFL week number, and the value used in the URL. */
+export interface WeekOption {
   n: number;
-  /** Dropdown label, e.g. "Week 11 · current". */
+  /** "Week 11 · current" */
   label: string;
-  /** Right-hand dropdown note, e.g. "LIVE" or "W 118.2–101.6". */
+  /** Right-hand note: "LIVE", "THU 8:15", or the user's result that week. */
   note: string;
   status: WeekStatus;
 }
 
-/** One side of a matchup as the list and detail header need it. */
-export interface Side {
+/** One franchise as the score block renders it. */
+export interface SideView {
+  franchiseId: string;
   name: string;
-  /** Win-loss record, e.g. "7-3". */
-  rec: string;
-  /** Live/final score. */
-  score: string;
-  /** Projected total. */
-  proj: string;
-  /** Players yet to play. */
-  left: string;
-  /** Win probability, e.g. "51%". */
+  /** Big number: live or final score, or the projected total pre-kickoff. */
+  num: string;
+  /** Small line beneath it — usually the projection. */
+  sub: string;
+  /** "7-3 · 2 YTP" */
+  meta: string;
+  /** "51%" while in doubt, "W"/"L" once decided, "" when unknown. */
   win: string;
+  scoreValue: number;
 }
 
-/** An "around the league" game. Field order mirrors the design's tuples. */
-export interface Game {
-  home: string;
-  away: string;
-  hScore: string;
-  aScore: string;
-  /** "FINAL" or "IN PROGRESS · N LEFT". */
-  state: string;
-  hRec: string;
-  aRec: string;
-  /** Live projection (live weeks) or final projection (past weeks). */
-  hProj: string;
-  aProj: string;
-  hWin: string;
-  aWin: string;
-  /** Players yet to play per side. */
-  hLeft: string;
-  aLeft: string;
-  /** Pre-kickoff projection, used for the `pre` phase. */
-  hPre: string;
-  aPre: string;
-  /** Kickoff time, future weeks only. */
-  kick?: string;
+export interface MatchupView {
+  index: number;
+  isMine: boolean;
+  final: boolean;
+  home: SideView;
+  away: SideView;
+  /** Width of the probability bar, or null when there is nothing to show. */
+  bar: string | null;
+  /** Tail label under a row: "FINAL" or a kickoff time. */
+  tail: string | null;
 }
 
-/** A week's full matchup set: the user's game plus the six league games. */
-export interface WeekMatchups {
+export interface WeekView {
   week: number;
-  /** Status-strip label: "LIVE", "KICKOFF THU 8:15 ET", "FINAL". */
-  head: string;
-  /** Status-bar clock on the right, e.g. "SUN 1:07 ET". */
+  phase: Phase;
+  leagueName: string;
+  /** Status-bar clock, e.g. "SUN 1:07 ET". */
   clock: string;
-  /** Right-hand count on the status strip, blank on past weeks. */
+  /** Status strip: "LIVE", "KICKOFF THU 8:15 ET", "FINAL". */
+  head: string;
+  /** "2 YET TO PLAY", blank once a week is done. */
   playersLeft: string;
-  home: Side;
-  away: Side;
-  /** Trash-talk / result note. Null when the design renders none. */
-  note: string | null;
-  games: Game[];
+  /** Index 0 is the user's own matchup. */
+  matchups: MatchupView[];
+  weeks: WeekOption[];
+  /** Set when the app is running on a simulated clock. */
+  simulatedAt: string | null;
 }
 
-export interface RosterPlayer {
+export interface BoxPlayerView {
   name: string;
-  team: string;
-  pos: string;
-  ecr: string;
-  proj: string;
+  /** "SEA · FINAL" or "DET · 4:25 ET · yet to play" */
+  line: string;
   pts: string;
-  bye: number;
-  salary: number;
-  years: number;
-  status?: string;
-  /** Matchup strength, 1–5, rendered as stars. */
-  matchup: number;
+  proj: string;
 }
 
-export interface StandingsTeam {
+export interface BoxRowView {
+  pos: string;
+  home: BoxPlayerView;
+  away: BoxPlayerView;
+}
+
+export interface MatchupDetailView {
+  week: number;
+  phase: Phase;
+  clock: string;
+  /** "LIVE" / "FINAL" / "KICKOFF THU 8:15 ET" */
+  tag: string;
+  liveDot: boolean;
+  index: number;
+  total: number;
+  isMine: boolean;
+  home: SideView;
+  away: SideView;
+  bar: string;
+  starters: BoxRowView[];
+  bench: BoxRowView[];
+  simulatedAt: string | null;
+}
+
+export interface RosterPlayerView {
+  playerId: string;
+  name: string;
+  /** "SEA · WR" */
+  teamPos: string;
+  salaryFmt: string;
+  yearsLabel: string;
+  /** Expand row: projected points for the current week. */
+  proj: string;
+  /** Expand row: season points to date. */
+  pts: string;
+}
+
+export interface RosterView {
+  franchises: Array<{ id: string; name: string; isMine: boolean }>;
+  franchiseId: string;
+  name: string;
+  isMine: boolean;
+  groups: Array<{ label: string; players: RosterPlayerView[] }>;
+  taxi: RosterPlayerView[];
+  footer: { count: number; adj: string; total: string; cap: string };
+  simulatedAt: string | null;
+}
+
+export interface StandingsTeamView {
+  franchiseId: string;
+  rank: number;
   name: string;
   record: string;
   pf: string;
   pa: string;
   div: string;
   conf: string;
-  /** Power points — a power-ranking metric, distinct from points for. */
   pp: string;
   pct: string;
   gb: string;
@@ -100,7 +134,7 @@ export interface StandingsTeam {
   avgPa: string;
 }
 
-export interface StandingsGroup {
-  label: string;
-  teams: StandingsTeam[];
+export interface StandingsView {
+  groups: Array<{ label: string; teams: StandingsTeamView[] }>;
+  simulatedAt: string | null;
 }
