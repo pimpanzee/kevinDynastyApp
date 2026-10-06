@@ -1,0 +1,21 @@
+# GRIDLOCK live-score relay. See worker/README.md.
+name = "gridlock-live"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# One global instance holds the latest scores in memory, so MFL sees at most
+# one request per CACHE_SECONDS however many people have the app open.
+[[durable_objects.bindings]]
+name = "LIVE"
+class_name = "LiveScores"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveScores"]
+
+[vars]
+MFL_HOST = "https://www44.myfantasyleague.com"
+MFL_LEAGUE_ID = "63396"
+MFL_SEASON = "2025"
+CACHE_SECONDS = "90"
+ALLOWED_ORIGINS = "https://pimpanzee.github.io,http://localhost:3000"

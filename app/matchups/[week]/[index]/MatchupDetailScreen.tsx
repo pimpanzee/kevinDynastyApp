@@ -1,10 +1,16 @@
+'use client';
+
 import Link from 'next/link';
 import PhoneFrame from '@/components/PhoneFrame';
 import ScoreHeader from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
+import { applyLiveToDetail } from '@/lib/live';
 import type { BoxRowView, MatchupDetailView } from '@/lib/types';
+import { useLive } from '@/lib/useLive';
 
-export default function MatchupDetailScreen({ view }: { view: MatchupDetailView }) {
+export default function MatchupDetailScreen({ view: built }: { view: MatchupDetailView }) {
+  const live = useLive(built.week, built.liveWindow);
+  const view = live ? applyLiveToDetail(built, live) : built;
   const pageHref = (n: number) => `/matchups/${view.week}/${(n + view.total) % view.total}/`;
 
   return (

@@ -8,9 +8,13 @@ import HeaderBar from '@/components/HeaderBar';
 import PhoneFrame from '@/components/PhoneFrame';
 import ScoreHeader from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
+import { applyLiveToWeek } from '@/lib/live';
 import type { MatchupView, WeekView } from '@/lib/types';
+import { useLive } from '@/lib/useLive';
 
-export default function MatchupsScreen({ view }: { view: WeekView }) {
+export default function MatchupsScreen({ view: built }: { view: WeekView }) {
+  const live = useLive(built.week, built.liveWindow);
+  const view = live ? applyLiveToWeek(built, live) : built;
   const router = useRouter();
   const [weekOpen, setWeekOpen] = useState(false);
 
