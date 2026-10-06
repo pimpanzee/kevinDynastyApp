@@ -92,6 +92,8 @@ lib/mfl/client.ts  host discovery, JSON, auth, throttling, backoff
 lib/mfl/cache.ts   in-memory + on-disk cache, TTL per data volatility
 lib/mfl/*.ts       one module per endpoint family, returning clean types
 lib/mfl/view.ts    assembles the view models the screens render
+lib/stats/         box-score stats from Sleeper, joined to MFL players
+lib/scoring.ts     scores a stat line with the league's MFL rules (byline + breakdown)
 app/               server components fetch at build; client components hold local state
 ```
 
@@ -129,6 +131,17 @@ rather than read, it is marked here and in the code:
   final line, so replaying a past week models the climb rather than recording
   it. On the real clock MFL's numbers are used as reported, and the browser
   keeps them current from `liveScoring`.
+- **Box-score stat lines and score breakdowns come from Sleeper**, not MFL.
+  MFL reports each player's points but not the stats behind them, so Matchup
+  Detail reads weekly stats from Sleeper's public API (no key), joins players
+  on the Sportradar id both databases carry, and scores them with this league's
+  MFL `rules`. Checked against MFL's weekly results for 2025 weeks 2, 4, 11
+  and 15, the two agree to the hundredth for every player. Any gap (a stat
+  correction, or live data from the two arriving at different times) shows as
+  an "Other" row so a breakdown always adds up to the score shown. During live
+  games the browser re-reads Sleeper every two minutes; under a simulated
+  clock a player still in play shows no stat line, since only final stats
+  exist.
 
 Three fields in the roster design were **dropped** rather than invented: ECR,
 the 1–5 star matchup rating and bye week. MFL has no source for the first two,
