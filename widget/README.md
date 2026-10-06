@@ -10,7 +10,9 @@ that runs JavaScript widgets, because a web app can't add widgets to iOS.
 | Small | both scores, win odds, the latest key play |
 | Medium | scores with projections, win odds, the last 4 key plays |
 | Large | the same, bigger, with the last 8 key plays |
-| Lock Screen (rectangular) | score line, win odds, the latest key play |
+| Lock Screen, rectangular | score line, win odds, the latest key play |
+| Lock Screen, round | win odds (W/L and your score once final) |
+| Lock Screen, inline (above the clock) | `🏈 135.3–80.4 · 68%` |
 
 **Key plays** are touchdowns, plus runs and catches of 20+ yards and passes of
 40+ yards, by starters in your matchup. A red marker is your player and a grey
@@ -29,8 +31,10 @@ one is your opponent's. Tapping the widget opens the matchup in the app.
 5. Optional, for another team: set **Parameter** to a franchise id (`0005`)
    or part of a team name (`Tuna`). Blank shows the league's default team.
 
-For the Lock Screen, add a Scriptable widget in the rectangular slot and pick
-the same script.
+For the Lock Screen: long-press the Lock Screen → **Customize** → **Lock
+Screen**, tap the widget row under the clock (or the line above it) →
+**Scriptable**, pick a shape, then tap the added widget and choose **Script:
+GRIDLOCK**. Lock Screen widgets are drawn in one tint by iOS.
 
 ## How fresh it is
 

@@ -182,6 +182,30 @@ async function build(data, family) {
   const refreshMin = data.state === 'live' ? 5 : data.state === 'pre' ? 30 : 120;
   w.refreshAfterDate = new Date(Date.now() + refreshMin * 60000);
 
+  // Lock Screen widgets are drawn in one tint by iOS, so they use plain white.
+  if (family === 'accessoryInline') {
+    // iOS shows a single line of text above the clock.
+    const pre = data.state === 'pre';
+    const score = `${fmt(pre ? data.me.projected : data.me.score)}–${fmt(pre ? data.opp.projected : data.opp.score)}`;
+    const tail = data.state === 'final' ? (data.me.score >= data.opp.score ? 'W' : 'L') : `${data.winPct}%`;
+    text(w, `🏈 ${pre ? 'proj ' : ''}${score} · ${tail}`, Font.semiboldSystemFont(12), Color.white());
+    return w;
+  }
+
+  if (family === 'accessoryCircular') {
+    w.addAccessoryWidgetBackground = true;
+    const final = data.state === 'final';
+    const top = w.addStack();
+    top.addSpacer();
+    text(top, final ? (data.me.score >= data.opp.score ? 'W' : 'L') : `${data.winPct}%`, Font.heavyRoundedSystemFont(final ? 22 : 17), Color.white());
+    top.addSpacer();
+    const bottom = w.addStack();
+    bottom.addSpacer();
+    text(bottom, final ? fmt(data.me.score) : data.state === 'pre' ? 'PROJ' : 'WIN', Font.semiboldSystemFont(9), Color.white());
+    bottom.addSpacer();
+    return w;
+  }
+
   if (family === 'accessoryRectangular') {
     const pre = data.state === 'pre';
     text(w, `${pre ? 'proj ' : ''}${fmt(pre ? data.me.projected : data.me.score)} – ${fmt(pre ? data.opp.projected : data.opp.score)}`, Font.heavyMonospacedSystemFont(14), Color.white());

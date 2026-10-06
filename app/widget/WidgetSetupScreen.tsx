@@ -12,6 +12,7 @@ const STEPS = [
   'Long-press your Home Screen → + → Scriptable, pick a size and add it.',
   'Long-press the widget → Edit Widget → Script: GRIDLOCK.',
   'Optional: set Parameter to your team name (e.g. Tuna) to follow another team.',
+  'Lock Screen: long-press the Lock Screen → Customize → Lock Screen → tap the widget area (or the line above the clock) → Scriptable, then tap the added widget and choose Script: GRIDLOCK.',
 ];
 
 export default function WidgetSetupScreen({ script }: { script: string }) {
