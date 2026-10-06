@@ -19,9 +19,10 @@ one is your opponent's. Tapping the widget opens the matchup in the app.
 ## Setup
 
 1. Install **Scriptable** from the App Store.
-2. In Scriptable, tap **+**, paste in the whole of
-   [`gridlock-widget.js`](gridlock-widget.js), and name it `GRIDLOCK`. Tap ▶ to
-   preview it.
+2. On your phone, open <https://pimpanzee.github.io/kevinDynastyApp/widget/>
+   and tap **Copy script**. In Scriptable, tap **+**, paste, and name it
+   `GRIDLOCK`. Tap ▶ to preview it. (The page carries
+   [`gridlock-widget.js`](gridlock-widget.js), read at build time.)
 3. On the Home Screen, long-press → **Edit Home Screen** → **+** →
    **Scriptable**, then pick a size and add it.
 4. Long-press the new widget → **Edit Widget** → **Script: GRIDLOCK**.
