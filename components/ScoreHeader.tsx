@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
 
+/** Shown in place of a score before kickoff, in a light tone so it reads as empty. */
+export const NO_SCORE = '—';
+const NO_SCORE_TONE = 'var(--color-neutral-400)';
+
 export interface ScoreSide {
   name: string;
   /** Record + players-yet-to-play line under the name. */
@@ -68,8 +72,8 @@ export default function ScoreHeader({
         }}
       >
         <div>
-          <div style={{ font: '800 42px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums' }}>{home.num}</div>
-          <div style={subStyle}>{home.sub}</div>
+          <div style={{ font: '800 42px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: home.num === NO_SCORE ? NO_SCORE_TONE : undefined }}>{home.num}</div>
+          {home.sub && <div style={subStyle}>{home.sub}</div>}
         </div>
         {win && (
           <div style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)', padding: '0 10px' }}>
@@ -77,8 +81,8 @@ export default function ScoreHeader({
           </div>
         )}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ font: '800 42px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: awayTone }}>{away.num}</div>
-          <div style={subStyle}>{away.sub}</div>
+          <div style={{ font: '800 42px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: away.num === NO_SCORE ? NO_SCORE_TONE : awayTone }}>{away.num}</div>
+          {away.sub && <div style={subStyle}>{away.sub}</div>}
         </div>
       </div>
 
