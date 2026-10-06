@@ -23,8 +23,9 @@ nothing on `*.workers.dev` addresses. Durable Objects are on the free plan.
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 5. **Actions → Deploy live relay → Run workflow.** The log ends with the
    Worker's URL, e.g. `https://gridlock-live.<you>.workers.dev`.
-6. Under **Variables**, add `LIVE_URL` with that URL, then re-run **Deploy to
-   GitHub Pages** so the site picks it up.
+6. The site defaults to `https://gridlock-live.flynnliam3.workers.dev`
+   (`.github/workflows/pages.yml`). If the Worker moves, set the `LIVE_URL`
+   variable to the new URL and re-run **Deploy to GitHub Pages**.
 
 Live polling only runs against the real clock: set the variables
 `MFL_SEASON=2026` and `MFL_SIM_NOW=live`, then re-run both workflows. On a

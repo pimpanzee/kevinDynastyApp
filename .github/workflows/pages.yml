@@ -32,8 +32,8 @@ jobs:
       MFL_HOST: ${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}
       MFL_REQUEST_GAP_MS: ${{ vars.MFL_REQUEST_GAP_MS || '900' }}
       MFL_APIKEY: ${{ secrets.MFL_APIKEY }}
-      # The live relay (worker/). Unset means no live updates in the browser.
-      NEXT_PUBLIC_LIVE_URL: ${{ vars.LIVE_URL }}
+      # The live relay (worker/); the LIVE_URL variable overrides it.
+      NEXT_PUBLIC_LIVE_URL: ${{ vars.LIVE_URL || 'https://gridlock-live.flynnliam3.workers.dev' }}
     steps:
       - uses: actions/checkout@v4
 
