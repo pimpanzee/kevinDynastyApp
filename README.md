@@ -44,6 +44,20 @@ Because pages are prebuilt, the published site shows what MFL said at the last
 build — up to three hours old — and the matchup screens cover the weeks the
 week picker offers.
 
+## Live scores on game day
+
+Between rebuilds, the matchup screens keep scores current themselves. From the
+week's first kickoff to the end of its last game they poll a small Cloudflare
+Worker (`worker/`) every minute, and `lib/live.ts` patches scores, win odds,
+yet-to-play counts and player lines into the prebuilt page. The Worker holds one
+shared copy of MFL's `liveScoring` and refreshes it at most every 90 seconds, so
+MFL's traffic stays flat however many people are watching.
+
+Setup is in `worker/README.md`: Cloudflare secrets, then the `LIVE_URL`
+variable. It only runs against the real clock (`MFL_SIM_NOW=live`); nothing
+polls while replaying a simulated week. Lineup changes after a build (who
+starts) reach the matchup detail rows at the next rebuild.
+
 ## The simulated clock
 
 The 2026 season has not kicked off, so against 2026 every score and standing is
@@ -110,10 +124,11 @@ rather than read, it is marked here and in the code:
 - **Projected totals for an unplayed week** assume the manager starts their
   best lineup by projection, subject to the league's real starter limits
   (7–10 starters; QB 1-2, RB 2-5, WR 3-6, TE 1-4).
-- **In-progress player scores are prorated** by elapsed game time. MFL keeps no
-  historical in-game snapshot, only the final line, so replaying a past week
-  models the climb rather than recording it. Against a live season MFL's
-  `liveScoring` supplies real in-progress numbers.
+- **In-progress player scores are prorated** by elapsed game time, under a
+  simulated clock only. MFL keeps no historical in-game snapshot, only the
+  final line, so replaying a past week models the climb rather than recording
+  it. On the real clock MFL's numbers are used as reported, and the browser
+  keeps them current from `liveScoring`.
 
 Three fields in the roster design were **dropped** rather than invented: ECR,
 the 1–5 star matchup rating and bye week. MFL has no source for the first two,

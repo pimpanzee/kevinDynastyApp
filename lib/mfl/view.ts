@@ -1,7 +1,7 @@
 import { FRANCHISE_ID, GAME_DURATION_MS, SEASON } from '@/lib/config';
 import { barWidth, fmtMoney, fmtScore, scoreBar, winPct } from '@/lib/format';
 import type {
-  BoxRowView, MatchupDetailView, MatchupView, Phase, RosterPlayerView, RosterView,
+  BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, Phase, RosterPlayerView, RosterView,
   SideView, StandingsView, WeekOption, WeekView,
 } from '@/lib/types';
 import { formatClock, formatKickoff, isSimulated, resolveNow } from './clock';
@@ -57,6 +57,42 @@ function standingsAsOfNow(ctx: Context) {
   return computeStandings(ctx.completed, ctx.league);
 }
 
+/**
+ * When the browser should poll for live scores: while any game is being
+ * played, one span per slate with overlapping slates merged — so Thursday
+ * night, the Sunday window and Monday night, not the days between. Null on a
+ * simulated clock (a replayed week has nothing live to fetch) and for a
+ * finished week.
+ */
+function liveWindow(ctx: Context, week: number, phase: Phase): Array<[number, number]> | null {
+  if (ctx.simulatedAt || phase === 'final') return null;
+  const kickoffs = (ctx.nfl.find((w) => w.week === week)?.games.map((g) => g.kickoff) ?? [])
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  const spans: Array<[number, number]> = [];
+  for (const k of kickoffs) {
+    const last = spans[spans.length - 1];
+    if (last && k <= last[1]) last[1] = Math.max(last[1], k + GAME_DURATION_MS);
+    else spans.push([k, k + GAME_DURATION_MS]);
+  }
+  return spans.length ? spans : null;
+}
+
+/**
+ * Projections for every rostered player, keyed by id, for the browser's
+ * live overlay to recompute projected totals and win odds. Only sent while a
+ * week can still go live.
+ */
+function projectionMap(
+  franchiseId: string,
+  rosters: Map<string, Array<{ playerId: string }>>,
+  projections: Map<string, number>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of rosters.get(franchiseId) ?? []) out[s.playerId] = projections.get(s.playerId) ?? 0;
+  return out;
+}
+
 /** Weeks the picker offers: next, current, and the two most recent. */
 function weekOptions(ctx: Context, results: Map<number, string>): WeekOption[] {
   const { league, current } = ctx;
@@ -81,17 +117,20 @@ function weekOptions(ctx: Context, results: Map<number, string>): WeekOption[] {
  * still in progress is prorated by elapsed game time. A player ten minutes
  * into kickoff shows a tenth of what they finished with. That is a model, not
  * a record of what the scoreboard actually read at that instant, and it only
- * applies while replaying a past week under a simulated clock; against a live
- * season MFL's own liveScoring supplies real in-progress numbers.
+ * applies while replaying a past week under a simulated clock. On the real
+ * clock MFL's score is already the in-progress figure and is taken as is; the
+ * browser then keeps it current from liveScoring (lib/live.ts).
  */
 function gatedScore(
   player: Player,
   finalScore: number,
   kickoffs: Map<string, number>,
-  now: number,
+  ctx: Context,
 ): { points: number; state: 'done' | 'in_play' | 'pending' } {
+  const { now } = ctx;
   const kickoff = kickoffs.get(player.team);
   const state = gameState(kickoff, now);
+  if (!ctx.simulatedAt) return { points: finalScore, state };
   if (state === 'pending') return { points: 0, state };
   if (state === 'done' || kickoff === undefined) return { points: finalScore, state };
   const elapsed = Math.min(1, Math.max(0, (now - kickoff) / GAME_DURATION_MS));
@@ -180,7 +219,7 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
       let remaining = 0;
       for (const p of starters) {
         const player = lookup(ctx.players, p.playerId);
-        const { points, state } = gatedScore(player, p.score, kickoffs, ctx.now);
+        const { points, state } = gatedScore(player, p.score, kickoffs, ctx);
         const projection = projections.get(p.playerId) ?? 0;
         live += points;
         if (state === 'pending') {
@@ -215,9 +254,15 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
     return buildSide(franchiseId, ctx, standings, 'pre', 0, sumPoints(lineup), lineup.length);
   };
 
+  const pollWindow = liveWindow(ctx, target, phase);
+
   const matchups: MatchupView[] = pairs.map((pair) => {
     const home = build(pair.franchiseIds[0]);
     const away = build(pair.franchiseIds[1]);
+    if (pollWindow) {
+      home.view.projections = projectionMap(pair.franchiseIds[0], rosters, projections);
+      away.view.projections = projectionMap(pair.franchiseIds[1], rosters, projections);
+    }
     const isMine = pair.franchiseIds.includes(FRANCHISE_ID);
     const decided = phase === 'final' || (phase === 'live' && home.yetToPlay === 0 && away.yetToPlay === 0);
 
@@ -263,8 +308,10 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
     head: phase === 'live' ? 'LIVE' : phase === 'final' ? 'FINAL' : `KICKOFF ${kickoffLabel}`,
     playersLeft: phase === 'final' ? '' : `${myYtp} YET TO PLAY`,
     matchups,
+    myFranchiseId: FRANCHISE_ID,
     weeks: weekOptions(ctx, await weekNotes(ctx)),
     simulatedAt: ctx.simulatedAt,
+    liveWindow: pollWindow,
   };
 }
 
@@ -310,6 +357,9 @@ function positionRank(pos: string): number {
 }
 
 interface BoxEntry {
+  id: string;
+  team: string;
+  kickoff: string;
   name: string;
   position: string;
   line: string;
@@ -320,6 +370,10 @@ interface BoxEntry {
 
 const EMPTY_ENTRY = { name: '', line: '', pts: '', proj: '' };
 
+function boxPlayer(e: BoxEntry): BoxPlayerView {
+  return { name: e.name, line: e.line, pts: e.pts, proj: e.proj, live: { id: e.id, team: e.team, kickoff: e.kickoff } };
+}
+
 /** Pair the two sides' players into the design's home | POS | away rows. */
 function pairRows(home: BoxEntry[], away: BoxEntry[], benchLabel: boolean): BoxRowView[] {
   const rows: BoxRowView[] = [];
@@ -329,8 +383,8 @@ function pairRows(home: BoxEntry[], away: BoxEntry[], benchLabel: boolean): BoxR
     const pos = benchLabel ? 'BN' : h && a ? (h.position === a.position ? h.position : `${h.position}/${a.position}`) : (h?.position ?? a?.position ?? '');
     rows.push({
       pos,
-      home: h ? { name: h.name, line: h.line, pts: h.pts, proj: h.proj } : { ...EMPTY_ENTRY },
-      away: a ? { name: a.name, line: a.line, pts: a.pts, proj: a.proj } : { ...EMPTY_ENTRY },
+      home: h ? boxPlayer(h) : { ...EMPTY_ENTRY },
+      away: a ? boxPlayer(a) : { ...EMPTY_ENTRY },
     });
   }
   return rows;
@@ -378,7 +432,7 @@ export async function getMatchupDetailView(
       const toEntry = (playerId: string, score: number): BoxEntry => {
         const player = lookup(ctx.players, playerId);
         const kickoff = kickoffs.get(player.team);
-        const { points, state } = gatedScore(player, score, kickoffs, ctx.now);
+        const { points, state } = gatedScore(player, score, kickoffs, ctx);
         const line =
           state === 'done'
             ? `${player.team} · FINAL`
@@ -386,6 +440,9 @@ export async function getMatchupDetailView(
               ? `${player.team} · in play`
               : `${player.team} · ${kickoff ? formatKickoff(kickoff) : 'TBD'} · yet to play`;
         return {
+          id: playerId,
+          team: player.team,
+          kickoff: kickoff ? formatKickoff(kickoff) : 'TBD',
           name: player.name,
           position: player.position,
           line,
@@ -413,6 +470,9 @@ export async function getMatchupDetailView(
       const player = lookup(ctx.players, playerId);
       const kickoff = kickoffs.get(player.team);
       return {
+        id: playerId,
+        team: player.team,
+        kickoff: kickoff ? formatKickoff(kickoff) : 'TBD',
         name: player.name,
         position: player.position,
         line: `${player.team} · ${kickoff ? formatKickoff(kickoff) : 'TBD'}`,
@@ -463,6 +523,11 @@ export async function getMatchupDetailView(
   }
 
   const kickoffLabel = nflWeek ? formatKickoff(Math.min(...nflWeek.games.map((g) => g.kickoff))) : '';
+  const pollWindow = liveWindow(ctx, week, phase);
+  if (pollWindow) {
+    home.view.projections = projectionMap(homeId, rosters, projections);
+    away.view.projections = projectionMap(awayId, rosters, projections);
+  }
 
   return {
     week,
@@ -479,6 +544,7 @@ export async function getMatchupDetailView(
     starters: pairRows(homeEntries.starters, awayEntries.starters, false),
     bench: pairRows(homeEntries.bench, awayEntries.bench, true),
     simulatedAt: ctx.simulatedAt,
+    liveWindow: pollWindow,
   };
 }
 

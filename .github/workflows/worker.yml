@@ -1,0 +1,36 @@
+name: Deploy live relay
+
+# Deploys worker/ — the Cloudflare Worker the site polls for live scores.
+# Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+# (see worker/README.md); skips cleanly until they exist. Re-run it by hand
+# after changing MFL_SEASON so the relay reads the same season as the site.
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**', '.github/workflows/worker.yml']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN is not set; skipping the live relay deploy. See worker/README.md."
+
+      - if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v4
+
+      - if: env.HAS_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          wranglerVersion: '4'
+          command: >-
+            deploy
+            --var MFL_SEASON:${{ vars.MFL_SEASON || '2025' }}
+            --var MFL_LEAGUE_ID:${{ vars.MFL_LEAGUE_ID || '63396' }}
+            --var MFL_HOST:${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}

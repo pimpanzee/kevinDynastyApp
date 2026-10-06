@@ -51,3 +51,26 @@ export function scoreBar(home: number, away: number): string {
 export function barWidth(pct: string): string {
   return /^\d+%$/.test(pct) ? pct : '0%';
 }
+
+const ET = 'America/New_York';
+
+/** "SUN 1:07 ET" — the status-bar clock format used across the designs. */
+export function formatClock(d: Date): string {
+  const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: ET })
+    .format(d)
+    .toUpperCase();
+  const time = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: ET,
+  })
+    .format(d)
+    .replace(/\s?[AP]M$/, '');
+  return `${day} ${time} ET`;
+}
+
+/** "SUN 1:00 ET" — kickoff labels on matchup rows. */
+export function formatKickoff(ms: number): string {
+  return formatClock(new Date(ms));
+}

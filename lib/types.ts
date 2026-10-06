@@ -30,6 +30,11 @@ export interface SideView {
   /** "51%" while in doubt, "W"/"L" once decided, "" when unknown. */
   win: string;
   scoreValue: number;
+  /**
+   * Projected points for every rostered player, by id — present only while
+   * the week can still go live, for the browser's live overlay.
+   */
+  projections?: Record<string, number>;
 }
 
 export interface MatchupView {
@@ -56,9 +61,13 @@ export interface WeekView {
   playersLeft: string;
   /** Index 0 is the user's own matchup. */
   matchups: MatchupView[];
+  /** The user's franchise, for the live overlay's yet-to-play count. */
+  myFranchiseId: string;
   weeks: WeekOption[];
   /** Set when the app is running on a simulated clock. */
   simulatedAt: string | null;
+  /** [start, end] spans in ms while games are being played — when to poll. */
+  liveWindow: Array<[number, number]> | null;
 }
 
 export interface BoxPlayerView {
@@ -67,6 +76,8 @@ export interface BoxPlayerView {
   line: string;
   pts: string;
   proj: string;
+  /** For patching the row from live scores; absent on an empty slot. */
+  live?: { id: string; team: string; kickoff: string };
 }
 
 export interface BoxRowView {
@@ -91,6 +102,7 @@ export interface MatchupDetailView {
   starters: BoxRowView[];
   bench: BoxRowView[];
   simulatedAt: string | null;
+  liveWindow: Array<[number, number]> | null;
 }
 
 export interface RosterPlayerView {
