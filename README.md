@@ -44,6 +44,12 @@ Because pages are prebuilt, the published site shows what MFL said at the last
 build — up to three hours old — and the matchup screens cover the weeks the
 week picker offers.
 
+## Home Screen widget
+
+`widget/` is a Scriptable widget for the iPhone Home Screen and Lock Screen,
+showing the live matchup and the latest touchdowns and big plays. Setup is in
+`widget/README.md`.
+
 ## Live scores on game day
 
 Between rebuilds, the matchup screens keep scores current themselves. From the

@@ -729,3 +729,74 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
 
   return { groups, simulatedAt: ctx.simulatedAt };
 }
+
+/* ── Home Screen widget ─────────────────────────────────────────────────── */
+
+/**
+ * What the live relay needs to build the Home Screen widget (worker/,
+ * widget/): who plays whom each week, and for every rostered player the name,
+ * NFL team and projection it uses to tie ESPN's plays to a franchise and to
+ * project the score. Published as /widget.json at build time.
+ */
+export interface WidgetContext {
+  season: string;
+  week: number;
+  myFranchiseId: string;
+  simulated: boolean;
+  builtAt: number;
+  franchises: Record<string, { name: string; icon?: string }>;
+  /** Week number → [home, away] franchise id pairs. */
+  matchups: Record<string, Array<[string, string]>>;
+  /** MFL player id → name ("J. Taylor"), MFL NFL team code, position, franchise, this week's projection. */
+  players: Record<string, { n: string; t: string; p: string; f: string; proj: number }>;
+  /**
+   * Before kickoff no lineups are set, so the site projects each franchise's
+   * best lineup; these are those totals (week → franchise → points), for the
+   * current and next week, so the widget agrees with the site.
+   */
+  preProjected: Record<string, Record<string, number>>;
+}
+
+export async function getWidgetContext(): Promise<WidgetContext> {
+  const ctx = await loadContext();
+  const week = ctx.current;
+  const [schedule, rosters] = await Promise.all([getLeagueSchedule(), getRosters(SEASON, week)]);
+  // Same id list as the week view, so the projections come out of its cache.
+  const allPlayerIds = [...rosters.values()].flat().map((s) => s.playerId);
+  const projections = await getProjections(week, allPlayerIds);
+  const preProjected: WidgetContext['preProjected'] = {};
+  for (const w of [week, week + 1]) {
+    if (w > ctx.league.endWeek) continue;
+    const wv = await getWeekView(w);
+    if (wv.phase !== 'pre') continue;
+    preProjected[String(w)] = Object.fromEntries(
+      wv.matchups.flatMap((m) => [m.home, m.away]).map((s) => [s.franchiseId, s.scoreValue]),
+    );
+  }
+
+  const players: WidgetContext['players'] = {};
+  for (const [franchiseId, slots] of rosters) {
+    for (const s of slots) {
+      const p = lookup(ctx.players, s.playerId);
+      players[s.playerId] = {
+        n: p.name,
+        t: p.team,
+        p: p.position,
+        f: franchiseId,
+        proj: Number((projections.get(s.playerId) ?? 0).toFixed(2)),
+      };
+    }
+  }
+
+  return {
+    season: SEASON,
+    week,
+    myFranchiseId: FRANCHISE_ID,
+    simulated: Boolean(ctx.simulatedAt),
+    builtAt: Date.now(),
+    franchises: Object.fromEntries(ctx.league.franchises.map((f) => [f.id, { name: f.name, icon: f.icon }])),
+    matchups: Object.fromEntries([...schedule].map(([w, pairs]) => [String(w), pairs.map((p) => p.franchiseIds)])),
+    players,
+    preProjected,
+  };
+}
