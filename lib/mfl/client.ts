@@ -59,16 +59,18 @@ export function isNotYetAvailable(e: unknown): boolean {
  */
 async function request(url: string): Promise<Response> {
   const send = () =>
+    // No `cache` option: Next's data cache stays out of it (lib/mfl/cache.ts
+    // owns caching), and an uncached fetch still lets pages export statically.
     fetch(url, {
-      cache: 'no-store',
       headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
     });
 
   // MFL applies a sliding per-IP limit and rejects intermittently once it is
   // approached. Back off progressively rather than giving up on the first
-  // rejection — but never retry tightly, which is what §5 warns against.
+  // rejection — but never retry tightly, which is what §5 warns against. A 503
+  // gets the same treatment: MFL returns it intermittently under load.
   let res = await throttle(send);
-  for (let attempt = 0; res.status === 429 && attempt < RETRY_DELAYS_MS.length; attempt++) {
+  for (let attempt = 0; (res.status === 429 || res.status === 503) && attempt < RETRY_DELAYS_MS.length; attempt++) {
     const retryAfter = Number(res.headers.get('retry-after'));
     const waitMs =
       Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : RETRY_DELAYS_MS[attempt];

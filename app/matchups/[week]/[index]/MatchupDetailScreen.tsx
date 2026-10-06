@@ -4,17 +4,8 @@ import ScoreHeader from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
 import type { BoxRowView, MatchupDetailView } from '@/lib/types';
 
-export default function MatchupDetailScreen({
-  view,
-  nowOverride,
-}: {
-  view: MatchupDetailView;
-  nowOverride: string | null;
-}) {
-  const withNow = (path: string) =>
-    nowOverride ? `${path}${path.includes('?') ? '&' : '?'}now=${encodeURIComponent(nowOverride)}` : path;
-
-  const pageHref = (n: number) => withNow(`/matchups/${view.week}/${(n + view.total) % view.total}`);
+export default function MatchupDetailScreen({ view }: { view: MatchupDetailView }) {
+  const pageHref = (n: number) => `/matchups/${view.week}/${(n + view.total) % view.total}/`;
 
   return (
     <PhoneFrame>
@@ -23,7 +14,7 @@ export default function MatchupDetailScreen({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 14px', borderBottom: '2px solid var(--color-divider)' }}>
         {/* Back returns to the week this matchup was opened from. */}
         <Link
-          href={withNow(`/matchups?week=${view.week}`)}
+          href={`/matchups/${view.week}/`}
           aria-label="Back to matchups"
           style={{ display: 'flex', alignItems: 'center', height: 44, paddingRight: 4, font: '800 15px/1 var(--font-heading)', color: 'var(--color-text)', cursor: 'pointer' }}
         >

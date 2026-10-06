@@ -8,13 +8,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import StatusBar from '@/components/StatusBar';
 import type { RosterPlayerView, RosterView } from '@/lib/types';
 
-export default function RostersScreen({
-  initial,
-  nowOverride,
-}: {
-  initial: RosterView;
-  nowOverride: string | null;
-}) {
+export default function RostersScreen({ initial }: { initial: RosterView }) {
   const [view, setView] = useState(initial);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -24,8 +18,8 @@ export default function RostersScreen({
   const toggle = (key: string) => setOpen((s) => ({ ...s, [key]: !s[key] }));
 
   /**
-   * Switching franchise fetches through the relay and swaps the data in place —
-   * the page never navigates.
+   * Switching franchise fetches that team's prebuilt roster and swaps the data
+   * in place — the page never navigates.
    */
   const selectFranchise = async (id: string) => {
     setSwitcherOpen(false);
@@ -34,9 +28,7 @@ export default function RostersScreen({
     setError(null);
     setOpen({});
     try {
-      const params = new URLSearchParams({ franchise: id });
-      if (nowOverride) params.set('now', nowOverride);
-      const res = await fetch(`/api/roster?${params}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/roster/${encodeURIComponent(id)}`);
       if (!res.ok) throw new Error(`Roster request failed (${res.status})`);
       setView(await res.json());
     } catch (e) {
