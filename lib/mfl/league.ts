@@ -13,6 +13,8 @@ export interface Franchise {
   divisionId: string;
   conferenceId: string;
   isMine: boolean;
+  /** Owner-uploaded square icon (or, failing that, the logo). */
+  icon?: string;
 }
 
 export interface League {
@@ -45,7 +47,13 @@ interface RawLeague {
     starters?: { count?: string; position?: RawPos | RawPos[] };
   };
 }
-interface RawFranchise { id?: string; name?: string; division?: string; conference?: string }
+interface RawFranchise { id?: string; name?: string; division?: string; conference?: string; icon?: string; logo?: string }
+
+/** Owners paste any URL; keep web images only, and load them over https. */
+function imageUrl(...candidates: Array<string | undefined>): string | undefined {
+  const url = candidates.map((c) => c?.trim()).find((c) => c && /^https?:\/\//i.test(c));
+  return url?.replace(/^http:/i, 'https:');
+}
 interface RawConf { id?: string; name?: string }
 interface RawDiv { id?: string; name?: string; conference?: string }
 interface RawPos { name?: string; limit?: string }
@@ -76,6 +84,7 @@ export async function getLeague(season: string = SEASON): Promise<League> {
       // from the division tree.
       conferenceId: f.conference ?? divConf.get(divisionId) ?? '',
       isMine: f.id === FRANCHISE_ID,
+      icon: imageUrl(f.icon, f.logo),
     };
   });
 
