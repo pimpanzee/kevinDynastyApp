@@ -6,6 +6,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import ScoreHeader from '@/components/ScoreHeader';
 import ScoreSheet from '@/components/ScoreSheet';
 import StatusBar from '@/components/StatusBar';
+import TeamWatermarks from '@/components/TeamWatermarks';
 import { applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView } from '@/lib/types';
 import { useLive, useLiveStats } from '@/lib/useLive';
@@ -55,13 +56,16 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
         <Link href={pageHref(view.index + 1)} aria-label="Next matchup" style={pagerStyle('left')}>›</Link>
       </div>
 
-      <div style={{ padding: '12px 14px 14px', borderBottom: '2px solid var(--color-divider)' }}>
-        <ScoreHeader
-          home={{ name: view.home.name, meta: view.home.meta, num: view.home.num, sub: view.home.sub }}
-          away={{ name: view.away.name, meta: view.away.meta, num: view.away.num, sub: view.away.sub }}
-          win={[view.home.win, view.away.win]}
-          bar={view.bar}
-        />
+      <div style={{ position: 'relative', overflow: 'hidden', borderBottom: '2px solid var(--color-divider)' }}>
+        <TeamWatermarks home={view.home.icon} away={view.away.icon} />
+        <div style={{ position: 'relative', padding: '12px 14px 14px' }}>
+          <ScoreHeader
+            home={{ name: view.home.name, meta: view.home.meta, num: view.home.num, sub: view.home.sub }}
+            away={{ name: view.away.name, meta: view.away.meta, num: view.away.num, sub: view.away.sub }}
+            win={[view.home.win, view.away.win]}
+            bar={view.bar}
+          />
+        </div>
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
