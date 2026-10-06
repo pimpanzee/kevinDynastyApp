@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar from '@/components/HeaderBar';
+import MedianRace from '@/components/MedianRace';
 import PhoneFrame from '@/components/PhoneFrame';
 import ScoreHeader from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
@@ -105,6 +106,8 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
             />
           </Link>
         )}
+
+        <MedianRace view={view} />
 
         <div style={{
           padding: '11px 14px 7px', font: '800 10px var(--font-heading)', letterSpacing: '.14em',
