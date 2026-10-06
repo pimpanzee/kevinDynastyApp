@@ -1,5 +1,5 @@
 import { APIKEY, GENERIC_HOST, LEAGUE_ID, SEASON } from '@/lib/config';
-import { TTL, cached } from './cache';
+import { IS_BUILD, TTL, cached } from './cache';
 
 /**
  * The single place that knows how to talk to MyFantasyLeague: which host a
@@ -22,8 +22,11 @@ let requestChain: Promise<unknown> = Promise.resolve();
 /** Identify the app to MFL, as a well-behaved API consumer should. */
 const USER_AGENT = 'gridlock/1.0 (+personal league hub)';
 
-/** Progressive backoff when the sliding limit rejects a request. */
-const RETRY_DELAYS_MS = [2000, 5000, 12000];
+/**
+ * Progressive backoff when the sliding limit rejects a request. A build has no
+ * one waiting on it, so it rides out a longer window rather than failing.
+ */
+const RETRY_DELAYS_MS = IS_BUILD ? [5000, 15000, 30000, 60000, 90000] : [2000, 5000, 12000];
 
 function throttle<T>(task: () => Promise<T>): Promise<T> {
   const run = requestChain.then(async () => {
