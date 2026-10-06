@@ -10,15 +10,17 @@ const MIN_INTERVAL_MS = 60 * 1000;
 
 /**
  * Keeps an installed app current. iOS resumes a Home Screen app exactly as it
- * was left, possibly hours and several rebuilds ago. Whenever the app comes
- * back on screen, ask for the live build's id; if it differs, reload the same
- * screen. The reload carries the new id as a query string so neither GitHub
- * Pages' ten-minute cache nor the browser's serves the old page again.
+ * was left, possibly hours and several rebuilds ago, and even a cold launch
+ * can be served a page up to ten minutes old from the HTTP cache. So on launch
+ * and whenever the app comes back on screen, ask for the live build's id; if
+ * it differs, reload the same screen. The reload carries the new id as a
+ * query string so neither GitHub Pages' ten-minute cache nor the browser's
+ * serves the old page again.
  */
 export default function UpdateCheck() {
   useEffect(() => {
     if (!BUILD_ID) return;
-    let lastCheck = Date.now();
+    let lastCheck = 0;
 
     const check = async () => {
       if (document.hidden || Date.now() - lastCheck < MIN_INTERVAL_MS) return;
@@ -40,6 +42,7 @@ export default function UpdateCheck() {
       }
     };
 
+    check();
     const onVisible = () => { if (!document.hidden) check(); };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('pageshow', onVisible);
