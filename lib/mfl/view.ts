@@ -12,6 +12,8 @@ import { getPlayers, lookup, type Player } from './players';
 import { getRosters, getSalaryAdjustments } from './rosters';
 import { currentWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
 import { getProjections, getSeasonPoints } from './scores';
+import { scoreBreakdown, statLine, type Breakdown, type RuleSet, type Stats } from '@/lib/scoring';
+import { getScoringRules, getSleeperIds, getWeekStats, sleeperStatsUrl } from '@/lib/stats/sleeper';
 import { computeStandings, gamesBack, sortDivision, type StandingsRow } from './standings';
 
 /**
@@ -364,14 +366,22 @@ interface BoxEntry {
   position: string;
   line: string;
   pts: string;
+  ptsExact?: number;
   proj: string;
   sort: number;
+  sleeperId?: string;
+  byline?: string;
+  breakdown?: Breakdown;
 }
 
 const EMPTY_ENTRY = { name: '', line: '', pts: '', proj: '' };
 
 function boxPlayer(e: BoxEntry): BoxPlayerView {
-  return { name: e.name, line: e.line, pts: e.pts, proj: e.proj, live: { id: e.id, team: e.team, kickoff: e.kickoff } };
+  return {
+    name: e.name, line: e.line, pts: e.pts, ptsExact: e.ptsExact, proj: e.proj,
+    byline: e.byline, breakdown: e.breakdown,
+    live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId },
+  };
 }
 
 /** Pair the two sides' players into the design's home | POS | away rows. */
@@ -424,6 +434,18 @@ export async function getMatchupDetailView(
   const byFranchise = new Map<string, ResultSide>();
   for (const m of results ?? []) for (const side of m) byFranchise.set(side.franchiseId, side);
 
+  const pollWindow = liveWindow(ctx, week, phase);
+  // Played weeks score their box-score players; a week that can still go live
+  // ships ids and rules alone, for the browser to score live stats with.
+  const scoringIds = pair.franchiseIds.flatMap((f) =>
+    results
+      ? (byFranchise.get(f)?.players ?? []).map((p) => p.playerId)
+      : (rosters.get(f) ?? []).map((s) => s.playerId),
+  );
+  const scoring = results || pollWindow
+    ? await loadScoring(week, scoringIds, !!results, phase === 'final' && !ctx.simulatedAt)
+    : null;
+
   const sideEntries = (franchiseId: string) => {
     const result = byFranchise.get(franchiseId);
     const projOf = (id: string) => `proj ${fmtScore(projections.get(id) ?? 0)}`;
@@ -447,8 +469,10 @@ export async function getMatchupDetailView(
           position: player.position,
           line,
           pts: fmtScore(points),
+          ptsExact: points,
           proj: projOf(playerId),
           sort: positionRank(player.position) * 1000 - points,
+          ...scoringDetail(scoring, playerId, player.position, points, state, ctx),
         };
       };
       const starters = result.players.filter((p) => p.started).map((p) => toEntry(p.playerId, p.score));
@@ -476,6 +500,7 @@ export async function getMatchupDetailView(
         name: player.name,
         position: player.position,
         line: `${player.team} · ${kickoff ? formatKickoff(kickoff) : 'TBD'}`,
+        sleeperId: scoring?.ids[playerId],
         pts: '—',
         proj: projOf(playerId),
         sort: positionRank(player.position) * 1000 - (projections.get(playerId) ?? 0),
@@ -523,7 +548,6 @@ export async function getMatchupDetailView(
   }
 
   const kickoffLabel = nflWeek ? formatKickoff(Math.min(...nflWeek.games.map((g) => g.kickoff))) : '';
-  const pollWindow = liveWindow(ctx, week, phase);
   if (pollWindow) {
     home.view.projections = projectionMap(homeId, rosters, projections);
     away.view.projections = projectionMap(awayId, rosters, projections);
@@ -545,6 +569,61 @@ export async function getMatchupDetailView(
     bench: pairRows(homeEntries.bench, awayEntries.bench, true),
     simulatedAt: ctx.simulatedAt,
     liveWindow: pollWindow,
+    scoring: pollWindow && scoring ? { rules: scoring.rules, statsUrl: sleeperStatsUrl(week) } : undefined,
+  };
+}
+
+interface Scoring {
+  rules: RuleSet;
+  /** MFL player id → Sleeper id. */
+  ids: Record<string, string>;
+  /** Sleeper id → that week's stats. */
+  stats: Record<string, Stats>;
+}
+
+/**
+ * Rules, id map and stats for the players in one matchup. Box-score detail is
+ * an extra: if Sleeper is unreachable the matchup still renders, without it.
+ */
+async function loadScoring(
+  week: number,
+  playerIds: string[],
+  withStats: boolean,
+  settled: boolean,
+): Promise<Scoring | null> {
+  try {
+    const [rules, allIds] = await Promise.all([getScoringRules(), getSleeperIds()]);
+    const ids: Record<string, string> = {};
+    for (const id of playerIds) if (allIds[id]) ids[id] = allIds[id];
+    const stats = withStats ? await getWeekStats(week, Object.values(ids), settled) : {};
+    return { rules, ids, stats };
+  } catch (e) {
+    console.warn(`Box-score stats unavailable for week ${week}:`, e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Byline and breakdown for one player. Nothing before kickoff; and on a
+ * simulated clock nothing mid-game either, since the stats on hand are the
+ * final ones and would run ahead of the pro-rated score.
+ */
+function scoringDetail(
+  scoring: Scoring | null,
+  playerId: string,
+  position: string,
+  points: number,
+  state: 'done' | 'in_play' | 'pending',
+  ctx: Context,
+): Pick<BoxEntry, 'sleeperId' | 'byline' | 'breakdown'> {
+  const sleeperId = scoring?.ids[playerId];
+  if (!scoring || !sleeperId) return {};
+  if (state === 'pending' || (state === 'in_play' && ctx.simulatedAt)) return { sleeperId };
+  const stats = scoring.stats[sleeperId] ?? {};
+  return {
+    sleeperId,
+    byline: statLine(position, stats),
+    breakdown: scoreBreakdown(position, stats, scoring.rules, points),
   };
 }
 

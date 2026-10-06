@@ -1,3 +1,5 @@
+import type { Breakdown, RuleSet } from '@/lib/scoring';
+
 /**
  * View models the screens render. Everything here is already formatted for
  * display — the MFL layer does the joining, gating and rounding so components
@@ -75,9 +77,15 @@ export interface BoxPlayerView {
   /** "SEA · FINAL" or "DET · 4:25 ET · yet to play" */
   line: string;
   pts: string;
+  /** `pts` unrounded, for the breakdown total. */
+  ptsExact?: number;
   proj: string;
+  /** Box-score line: "32/52 CMP, 412 YD, 1 TD". Absent before kickoff. */
+  byline?: string;
+  /** How the stats became points, for the tap-to-open sheet. */
+  breakdown?: Breakdown;
   /** For patching the row from live scores; absent on an empty slot. */
-  live?: { id: string; team: string; kickoff: string };
+  live?: { id: string; team: string; kickoff: string; position: string; sleeperId?: string };
 }
 
 export interface BoxRowView {
@@ -103,6 +111,8 @@ export interface MatchupDetailView {
   bench: BoxRowView[];
   simulatedAt: string | null;
   liveWindow: Array<[number, number]> | null;
+  /** While games can be live: what the browser needs to rescore fresh stats. */
+  scoring?: { rules: RuleSet; statsUrl: string };
 }
 
 export interface RosterPlayerView {

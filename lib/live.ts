@@ -1,5 +1,6 @@
 import { barWidth, fmtScore, formatClock, scoreBar, winPct } from '@/lib/format';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, SideView, WeekView } from '@/lib/types';
+import { scoreBreakdown, statLine, trimStats, type Stats } from '@/lib/scoring';
 
 /**
  * Live-score overlay. Pages are prebuilt, so during games the browser polls
@@ -118,7 +119,8 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
         : secs >= GAME_SECONDS
           ? `${p.live.team} · ${p.live.kickoff} · yet to play`
           : `${p.live.team} · in play`;
-    return { ...p, pts: secs >= GAME_SECONDS ? fmtScore(0) : fmtScore(score), line };
+    const pts = secs >= GAME_SECONDS ? 0 : score;
+    return { ...p, pts: fmtScore(pts), ptsExact: pts, line };
   };
   const patchRows = (rows: BoxRowView[]) => rows.map((r) => ({ ...r, home: patch(r.home), away: patch(r.away) }));
 
@@ -134,4 +136,26 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
     starters: patchRows(view.starters),
     bench: patchRows(view.bench),
   };
+}
+
+/**
+ * Rescore bylines and breakdowns from live stats. Runs after the score
+ * overlay, so each breakdown adds up to the points the row now shows; a
+ * player whose game has not started keeps a blank byline.
+ */
+export function applyStatsToDetail(view: MatchupDetailView, stats: Record<string, Stats>): MatchupDetailView {
+  const rules = view.scoring?.rules;
+  if (!rules) return view;
+  const patch = (p: BoxPlayerView): BoxPlayerView => {
+    const id = p.live?.sleeperId;
+    if (!p.live || !id || p.pts === '—' || p.line.includes('yet to play')) return p;
+    const s = trimStats(stats[id]);
+    return {
+      ...p,
+      byline: statLine(p.live.position, s),
+      breakdown: scoreBreakdown(p.live.position, s, rules, p.ptsExact ?? Number(p.pts)),
+    };
+  };
+  const patchRows = (rows: BoxRowView[]) => rows.map((r) => ({ ...r, home: patch(r.home), away: patch(r.away) }));
+  return { ...view, starters: patchRows(view.starters), bench: patchRows(view.bench) };
 }
