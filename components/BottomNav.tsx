@@ -59,15 +59,21 @@ const tabStyle = (active: boolean): CSSProperties => ({
   cursor: 'pointer',
 });
 
-export default function BottomNav() {
+/**
+ * `fill` lets the bar grow into any space the screen's content leaves, so a
+ * short list ends right at the nav instead of above a blank band. The tabs
+ * keep their height and stay at the top of the bar.
+ */
+export default function BottomNav({ fill = false }: { fill?: boolean }) {
   const pathname = usePathname();
   return (
     <div
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3,1fr)',
+        alignContent: 'start',
         borderTop: '2px solid var(--color-text)',
-        flex: 'none',
+        flex: fill ? '1 0 auto' : 'none',
       }}
     >
       {TABS.map((tab) => {
