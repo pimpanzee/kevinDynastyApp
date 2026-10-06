@@ -41,7 +41,15 @@ simulated clock the site replays a past week and never calls the relay.
     "players": { "15337": [12.3, 1, 1800] } } } }
 ```
 
-`players` maps id → `[score, isStarter, gameSecondsRemaining]`. Season and
+`players` maps id → `[score, isStarter, gameSecondsRemaining]`.
+
+`GET /widget?franchise=ID[&week=N]` feeds the Home Screen widget (`widget/`):
+that franchise's matchup (score, projected final, players yet to play), win
+odds, and up to 8 recent key plays. It reads the site's `/widget.json`
+(`SITE_URL`) for matchups and rosters, the live scores above, and ESPN's
+public game summaries for touchdowns and big gains, re-read at most every 2
+minutes while games are on (a finished game is read once). `franchise`
+defaults to the league's default team, and `week` to the current week. Season and
 league come from configuration, never the caller. CORS is granted only to
 `ALLOWED_ORIGINS` in `wrangler.toml`.
 
