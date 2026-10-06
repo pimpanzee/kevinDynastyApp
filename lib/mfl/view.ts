@@ -163,7 +163,8 @@ function buildSide(
   yetToPlay: number,
   projectedFinal = projected,
 ): BuiltSide {
-  const name = ctx.league.franchises.find((f) => f.id === franchiseId)?.name ?? franchiseId;
+  const franchise = ctx.league.franchises.find((f) => f.id === franchiseId);
+  const name = franchise?.name ?? franchiseId;
   const record = standings.get(franchiseId)?.record ?? '0-0-0';
   return {
     live,
@@ -173,6 +174,7 @@ function buildSide(
     view: {
       franchiseId,
       name,
+      icon: franchise?.icon,
       num: phase === 'pre' ? fmtScore(projected) : fmtScore(live),
       sub: phase === 'pre' ? 'projected total' : fmtScore(projected),
       meta: sideMeta(record, phase === 'pre' ? yetToPlay : yetToPlay),

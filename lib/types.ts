@@ -23,6 +23,8 @@ export interface WeekOption {
 export interface SideView {
   franchiseId: string;
   name: string;
+  /** Franchise icon URL, when the owner has set one. */
+  icon?: string;
   /** Big number: live or final score, or the projected total pre-kickoff. */
   num: string;
   /** Small line beneath it — usually the projection. */
