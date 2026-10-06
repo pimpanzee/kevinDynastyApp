@@ -1,8 +1,8 @@
 /**
- * Mock device status bar. `label` is the contextual right-hand text (clock or
- * screen name). When the app is running on a simulated clock, the left slot
- * shows that date instead of the design's fixed 9:41 — otherwise there is no
- * way to tell which scenario you are looking at.
+ * The design's status strip. `label` is the contextual right-hand text (clock
+ * or screen name). On a simulated clock the left slot shows that date so you
+ * can tell which scenario you are looking at; otherwise it stays empty — the
+ * design's mock 9:41 just sat under the phone's real clock.
  */
 export default function StatusBar({
   label,
@@ -23,7 +23,7 @@ export default function StatusBar({
       }}
     >
       <span title={simulatedAt ? 'Simulated clock' : undefined}>
-        {simulatedAt ? `SIM ${simulatedAt}` : '9:41'}
+        {simulatedAt ? `SIM ${simulatedAt}` : ''}
       </span>
       <span>{label}</span>
     </div>
