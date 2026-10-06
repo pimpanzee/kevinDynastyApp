@@ -28,6 +28,16 @@ const CACHE_DIR = process.env.MFL_CACHE_DIR ?? join(process.cwd(), '.cache', 'mf
 /** Entries at or above this lifetime are worth persisting across restarts. */
 const PERSIST_THRESHOLD_MS = 60 * 60 * 1000;
 
+/**
+ * A static build is a snapshot. `next build` renders pages across several
+ * processes that share no memory, so during a build every entry goes to disk
+ * and lives at least this long — otherwise each process re-fetches the same
+ * rosters and projections, and a five-minute entry can lapse mid-build. The
+ * doubled traffic is what got the Pages build rate limited.
+ */
+export const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
+const BUILD_MIN_TTL_MS = 20 * 60 * 1000;
+
 export const TTL = {
   /** League settings are effectively static within a season. */
   LEAGUE: 24 * 60 * 60 * 1000,
@@ -80,11 +90,12 @@ async function writeDisk(key: string, entry: Entry): Promise<void> {
   }
 }
 
-export async function cached<T>(key: string, ttl: number, load: () => Promise<T>): Promise<T> {
+export async function cached<T>(key: string, requestedTtl: number, load: () => Promise<T>): Promise<T> {
+  const ttl = IS_BUILD ? Math.max(requestedTtl, BUILD_MIN_TTL_MS) : requestedTtl;
   const hit = memory.get(key);
   if (hit && hit.expires > Date.now()) return hit.value as T;
 
-  const persist = ttl >= PERSIST_THRESHOLD_MS;
+  const persist = IS_BUILD || ttl >= PERSIST_THRESHOLD_MS;
   if (persist) {
     const onDisk = await readDisk(key);
     if (onDisk) {
