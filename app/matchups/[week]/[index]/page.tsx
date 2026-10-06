@@ -1,23 +1,30 @@
 import { notFound } from 'next/navigation';
-import { getMatchupDetailView } from '@/lib/mfl/view';
+import { getMatchupDetailView, getWeekView } from '@/lib/mfl/view';
 import MatchupDetailScreen from './MatchupDetailScreen';
 
 /**
  * Matchup Detail. The week travels in the path so the back action returns to
  * the week the user drilled in from.
  */
-export const dynamic = 'force-dynamic';
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  const { weeks } = await getWeekView(undefined);
+  const params: Array<{ week: string; index: string }> = [];
+  for (const { n } of weeks) {
+    const { matchups } = await getWeekView(n);
+    for (const m of matchups) params.push({ week: String(n), index: String(m.index) });
+  }
+  return params;
+}
 
 export default async function MatchupDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ week: string; index: string }>;
-  searchParams: Promise<{ now?: string }>;
 }) {
   const { week, index } = await params;
-  const { now } = await searchParams;
-  const view = await getMatchupDetailView(Number(week), Number(index), now);
+  const view = await getMatchupDetailView(Number(week), Number(index));
   if (!view) notFound();
-  return <MatchupDetailScreen view={view} nowOverride={now ?? null} />;
+  return <MatchupDetailScreen view={view} />;
 }

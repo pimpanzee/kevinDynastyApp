@@ -20,6 +20,30 @@ database, NFL schedule and completed box scores are fetched and written to
 `.cache/mfl`. After that, pages render in well under a second and MFL is barely
 touched again.
 
+`npm run build` writes a fully static site to `out/` (about 90s from a cold
+cache); `npm start` serves it.
+
+## GitHub Pages
+
+The site is published to GitHub Pages by `.github/workflows/pages.yml`. Pages
+cannot run a server, so the app is a static export: every screen is rendered
+from MFL at build time, and the workflow rebuilds it on every push to `main`,
+every three hours, and on demand (Actions → Deploy to GitHub Pages → Run
+workflow).
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
+Actions.**
+
+League settings are read from repository variables (Settings → Secrets and
+variables → Actions → Variables), falling back to the `.env.example` values:
+`MFL_LEAGUE_ID`, `MFL_FRANCHISE_ID`, `MFL_SEASON`, `MFL_SIM_NOW`, `MFL_HOST`,
+`MFL_REQUEST_GAP_MS`. `MFL_APIKEY`, if needed, goes in as a secret. To follow
+the live 2026 season, set `MFL_SEASON=2026` and `MFL_SIM_NOW=live`.
+
+Because pages are prebuilt, the published site shows what MFL said at the last
+build — up to three hours old — and the matchup screens cover the weeks the
+week picker offers.
+
 ## The simulated clock
 
 The 2026 season has not kicked off, so against 2026 every score and standing is
@@ -33,18 +57,18 @@ MFL_SIM_NOW=2025-11-16T21:00:00Z
 
 `MFL_SIM_NOW` is treated as *now*. Nothing that had not happened by that
 instant reaches the UI — a later week is read from the schedule and projections
-only, and its results are never fetched. Any page also accepts `?now=<ISO>` to
-try a scenario without restarting:
+only, and its results are never fetched. Pages are rendered ahead of time, so
+to try another scenario change `MFL_SIM_NOW` and restart (or rebuild):
 
-| Scenario | URL |
+| Scenario | `MFL_SIM_NOW` |
 |---|---|
-| Week 11 not yet kicked off | `/matchups?week=11&now=2025-11-12T18:00:00Z` |
-| Early games under way | `/matchups?now=2025-11-16T18:30:00Z` |
-| Late afternoon, one side pulling clear | `/matchups?now=2025-11-16T21:00:00Z` |
-| Week complete | `/matchups?now=2025-11-19T12:00:00Z` |
+| Week 11 not yet kicked off | `2025-11-12T18:00:00Z` |
+| Early games under way | `2025-11-16T18:30:00Z` |
+| Late afternoon, one side pulling clear | `2025-11-16T21:00:00Z` |
+| Week complete | `2025-11-19T12:00:00Z` |
 
-To point the app at the live 2026 season, set `MFL_SEASON=2026` and clear
-`MFL_SIM_NOW`.
+To point the app at the live 2026 season, set `MFL_SEASON=2026` and set
+`MFL_SIM_NOW=live` (or clear it).
 
 ## Architecture
 
@@ -54,12 +78,13 @@ lib/mfl/client.ts  host discovery, JSON, auth, throttling, backoff
 lib/mfl/cache.ts   in-memory + on-disk cache, TTL per data volatility
 lib/mfl/*.ts       one module per endpoint family, returning clean types
 lib/mfl/view.ts    assembles the view models the screens render
-app/               server components fetch; client components hold local state
+app/               server components fetch at build; client components hold local state
 ```
 
-MFL blocks cross-domain browser access, so every read happens on the server —
-in a server component, or through `app/api/roster` for the franchise switcher,
-which swaps teams without leaving the page.
+MFL blocks cross-domain browser access, so every read happens at build time —
+in a server component, or in `app/api/roster/[franchise]`, which writes one
+roster JSON file per team for the franchise switcher to fetch, so it can swap
+teams without leaving the page.
 
 `lib/mfl/client.ts` is the only place that talks to MFL. It resolves the
 league's assigned host once (or takes `MFL_HOST`), attaches `JSON=1` and an

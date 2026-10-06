@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"require('fs').rmSync('.next/cache/fetch-cache',{recursive:true,force:true})\"",
     "build": "next build",
-    "start": "next start"
+    "start": "npx serve out"
   },
   "dependencies": {
     "next": "^15.5.4",

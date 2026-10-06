@@ -1,0 +1,72 @@
+name: Deploy to GitHub Pages
+
+# The site is a static export: MFL is read at build time, so it is rebuilt on
+# a schedule to pick up new scores, standings and roster moves.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # League settings come from repository variables when set
+      # (Settings → Secrets and variables → Actions → Variables), falling back
+      # to the values in .env.example.
+      MFL_LEAGUE_ID: ${{ vars.MFL_LEAGUE_ID || '63396' }}
+      MFL_FRANCHISE_ID: ${{ vars.MFL_FRANCHISE_ID || '0012' }}
+      MFL_SEASON: ${{ vars.MFL_SEASON || '2025' }}
+      MFL_SIM_NOW: ${{ vars.MFL_SIM_NOW || '2025-11-16T21:00:00Z' }}
+      MFL_HOST: ${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}
+      MFL_REQUEST_GAP_MS: ${{ vars.MFL_REQUEST_GAP_MS || '900' }}
+      MFL_APIKEY: ${{ secrets.MFL_APIKEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      # Reuse MFL responses between runs; lib/mfl/cache.ts expires each kind of
+      # data on its own TTL, so a warm cache only skips what is still fresh.
+      - uses: actions/cache@v4
+        with:
+          path: .cache/mfl
+          key: mfl-${{ github.run_id }}
+          restore-keys: mfl-
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -29,13 +29,15 @@ export const APIKEY = process.env.MFL_APIKEY ?? '';
  * Simulated "now", as an ISO timestamp. When set, the app treats this instant
  * as the present and refuses to surface anything that had not happened by then
  * — so a completed season can be replayed through its pre / live / final
- * states. Unset means use real wall-clock time.
+ * states. Unset (or `live`) means use real wall-clock time.
  *
  * Default lands mid-afternoon on the Week 11 Sunday of 2025: the early games
  * are final, the late slate has not kicked off. That is the live state the
  * designs were drawn against.
  */
-export const SIM_NOW = process.env.MFL_SIM_NOW ?? '2025-11-16T21:00:00Z';
+const simNow = process.env.MFL_SIM_NOW ?? '2025-11-16T21:00:00Z';
+/** `live` reads as unset — for CI, where an empty variable cannot be told from a missing one. */
+export const SIM_NOW = simNow === 'live' ? '' : simNow;
 
 /** Generic host. Used for host discovery and non-league-specific requests. */
 export const GENERIC_HOST = 'https://api.myfantasyleague.com';

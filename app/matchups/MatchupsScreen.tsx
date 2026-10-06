@@ -10,13 +10,7 @@ import ScoreHeader from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
 import type { MatchupView, WeekView } from '@/lib/types';
 
-export default function MatchupsScreen({
-  view,
-  nowOverride,
-}: {
-  view: WeekView;
-  nowOverride: string | null;
-}) {
+export default function MatchupsScreen({ view }: { view: WeekView }) {
   const router = useRouter();
   const [weekOpen, setWeekOpen] = useState(false);
 
@@ -24,12 +18,9 @@ export default function MatchupsScreen({
   const isFinal = view.phase === 'final';
   const isPre = view.phase === 'pre';
 
-  /** Keep any simulated-clock override across navigation. */
-  const withNow = (path: string) => (nowOverride ? `${path}${path.includes('?') ? '&' : '?'}now=${encodeURIComponent(nowOverride)}` : path);
-
   const pickWeek = (n: number) => {
     setWeekOpen(false);
-    if (n !== view.week) router.push(withNow(`/matchups?week=${n}`));
+    if (n !== view.week) router.push(`/matchups/${n}/`);
   };
 
   const mine = view.matchups[0];
@@ -91,7 +82,7 @@ export default function MatchupsScreen({
 
         {mine && (
           <Link
-            href={withNow(`/matchups/${view.week}/0`)}
+            href={`/matchups/${view.week}/0/`}
             style={{
               display: 'block',
               borderTop: '2px solid var(--color-divider)',
@@ -119,7 +110,7 @@ export default function MatchupsScreen({
         </div>
 
         {rest.map((m) => (
-          <GameRow key={m.index} matchup={m} finalWeek={isFinal} pre={isPre} href={withNow(`/matchups/${view.week}/${m.index}`)} />
+          <GameRow key={m.index} matchup={m} finalWeek={isFinal} pre={isPre} href={`/matchups/${view.week}/${m.index}/`} />
         ))}
 
         <div style={{ height: 20 }} />
