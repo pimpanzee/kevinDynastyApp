@@ -47,14 +47,16 @@ const TABS: Array<{ href: string; label: string; icon: ReactNode }> = [
 
 /**
  * Icon, label and spacing scale with the bar's height (container query units,
- * `cqh`), clamped so a standard 51px bar gets exactly the original 20px icons
- * and 9px labels, and a bar grown to fill a short screen gets larger ones.
+ * `cqh`), so the sizes follow BAR_H if it is ever changed again.
  */
 const ICON = 'clamp(20px, 30cqh, 34px)';
-const LABEL = 'clamp(9px, 9cqh, 12px)';
+const LABEL = 'clamp(9px, 11cqh, 12px)';
 const GAP = 'clamp(3px, 5cqh, 8px)';
-/** Content height of a standard bar; the 2px top rule sits on top of it. */
-const BAR_H = 51;
+/**
+ * Content height of the bar (the 2px top rule sits on top of it): one tall,
+ * fixed height on every tab, so the bar never changes as you switch tabs.
+ */
+const BAR_H = 98;
 
 const tabStyle = (active: boolean): CSSProperties => ({
   display: 'flex',
@@ -69,12 +71,7 @@ const tabStyle = (active: boolean): CSSProperties => ({
   cursor: 'pointer',
 });
 
-/**
- * `fill` lets the bar grow into any space the screen's content leaves, so a
- * short list ends right at the nav instead of above a blank band; the tabs
- * then stretch with it and their icons and labels grow to suit.
- */
-export default function BottomNav({ fill = false }: { fill?: boolean }) {
+export default function BottomNav() {
   const pathname = usePathname();
   return (
     <div
@@ -87,7 +84,8 @@ export default function BottomNav({ fill = false }: { fill?: boolean }) {
         // A size container so the tabs can scale with its height. It cannot
         // size itself from content, so the standard height is set explicitly.
         containerType: 'size',
-        ...(fill ? { flex: `1 0 ${BAR_H}px`, minHeight: BAR_H } : { flex: 'none', height: BAR_H }),
+        flex: 'none',
+        height: BAR_H,
       }}
     >
       {TABS.map((tab) => {

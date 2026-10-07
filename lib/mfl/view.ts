@@ -14,7 +14,7 @@ import { currentWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs
 import { getProjections, getSeasonPoints } from './scores';
 import { scoreBreakdown, statLine, type Breakdown, type RuleSet, type Stats } from '@/lib/scoring';
 import { getScoringRules, getSleeperIds, getWeekStats, sleeperStatsUrl } from '@/lib/stats/sleeper';
-import { computeStandings, gamesBack, sortDivision, type StandingsRow } from './standings';
+import { computeStandings, gamesBack, sortDivision, vpBack, type StandingsRow } from './standings';
 
 /**
  * Assembles MFL responses into the view models the screens render.
@@ -742,6 +742,9 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
         streak: row.streak,
         avgPf: fmtScore(row.avgPf),
         avgPa: fmtScore(row.avgPa),
+        vp: ctx.league.victoryPoints ? row.vp : null,
+        vpBack: leader ? vpBack(row, leader) : '—',
+        icon: ctx.league.franchises.find((f) => f.id === row.franchiseId)?.icon ?? null,
       })),
     };
   });

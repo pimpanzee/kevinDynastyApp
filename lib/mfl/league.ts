@@ -30,6 +30,15 @@ export interface League {
   groups: Array<{ id: string; label: string; franchiseIds: string[] }>;
   /** Starting-lineup requirements, used to project a best lineup. */
   lineup: { min: number; max: number; positions: Record<string, { min: number; max: number }> };
+  /**
+   * Victory-point scoring, when the league uses it (standingsSort leads with
+   * VICTORY_POINTS): points for a head-to-head win/loss/tie, plus `buckets` —
+   * the week's scorers split into equal groups by score, highest first, each
+   * worth its points ("1 0": the top half earns 1). Null when not in use.
+   */
+  victoryPoints: {
+    win: number; loss: number; tie: number; buckets: number[]; startWeek: number; endWeek: number;
+  } | null;
 }
 
 interface RawLeague {
@@ -45,6 +54,13 @@ interface RawLeague {
     conferences?: { conference?: RawConf | RawConf[] };
     divisions?: { division?: RawDiv | RawDiv[] };
     starters?: { count?: string; position?: RawPos | RawPos[] };
+    standingsSort?: string;
+    victoryPointsWin?: string;
+    victoryPointsLoss?: string;
+    victoryPointsTie?: string;
+    victoryPointsBuckets?: string;
+    victoryPointsStartWeek?: string;
+    victoryPointsEndWeek?: string;
   };
 }
 interface RawFranchise { id?: string; name?: string; division?: string; conference?: string; icon?: string; logo?: string }
@@ -118,6 +134,16 @@ export async function getLeague(season: string = SEASON): Promise<League> {
     startWeek: num(lg.startWeek, 1),
     endWeek: num(lg.endWeek, 17),
     lastRegularSeasonWeek: num(lg.lastRegularSeasonWeek, 14),
+    victoryPoints: /VICTORY_POINTS/.test(lg.standingsSort ?? '')
+      ? {
+          win: num(lg.victoryPointsWin, 1),
+          loss: num(lg.victoryPointsLoss, 0),
+          tie: num(lg.victoryPointsTie, 0),
+          buckets: (lg.victoryPointsBuckets ?? '').trim().split(/\s+/).filter(Boolean).map(Number),
+          startWeek: num(lg.victoryPointsStartWeek, 1),
+          endWeek: num(lg.victoryPointsEndWeek, num(lg.lastRegularSeasonWeek, 14)),
+        }
+      : null,
     salaryCap: num(lg.salaryCapAmount),
     usesSalaries: lg.usesSalaries === '1',
     franchises,

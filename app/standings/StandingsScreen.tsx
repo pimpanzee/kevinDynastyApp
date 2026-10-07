@@ -6,6 +6,7 @@ import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
 import { Chevron, SectionTitle, StatCell, StickySectionHeader } from '@/components/ListChrome';
 import PhoneFrame from '@/components/PhoneFrame';
 import StatusBar from '@/components/StatusBar';
+import TeamAvatar from '@/components/TeamAvatar';
 import type { StandingsView } from '@/lib/types';
 
 export default function StandingsScreen({ view }: { view: StandingsView }) {
@@ -17,7 +18,7 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
       <StatusBar label="STANDINGS" simulatedAt={view.simulatedAt} />
       <HeaderBar right={<HeaderLabel>STANDINGS</HeaderLabel>} />
 
-      <div style={{ flex: 1, overflow: 'auto', paddingBottom: 16 }}>
+      <div style={{ flex: 1, overflow: 'auto' }}>
         {view.groups.map((group, gi) => (
           <div key={group.label}>
             <StickySectionHeader padding="14px 14px 8px">
@@ -38,19 +39,29 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 0', cursor: 'pointer' }}
                   >
                     {/* Rank is position within the division, as designed. */}
-                    <span style={{ width: 16, flex: 'none', font: '800 11px var(--font-heading)', color: 'var(--color-neutral-600)', textAlign: 'right' }}>
+                    <span style={{ width: 12, flex: 'none', font: '800 11px var(--font-heading)', color: 'var(--color-neutral-600)', textAlign: 'right' }}>
                       {t.rank}
                     </span>
+                    <TeamAvatar name={t.name} icon={t.icon} size={24} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ font: '600 14px/1.2 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {t.name}
                       </div>
                     </div>
-                    <div style={{ font: '800 13px var(--font-heading)', fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{t.record}</div>
+                    {t.vp !== null ? (
+                      <div style={{ flex: 'none', textAlign: 'right' }}>
+                        <div style={{ font: '800 13px var(--font-heading)', fontVariantNumeric: 'tabular-nums' }}>
+                          {t.vp} <span style={{ font: '800 9px var(--font-heading)', letterSpacing: '.08em', color: 'var(--color-neutral-600)' }}>VP</span>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: 'var(--color-neutral-600)', fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>{t.record}</div>
+                      </div>
+                    ) : (
+                      <div style={{ font: '800 13px var(--font-heading)', fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{t.record}</div>
+                    )}
                     <Chevron open={isOpen} size={9} />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4, padding: '9px 14px 12px 58px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4, padding: '9px 14px 12px 70px' }}>
                     <StatCell label="PF" labelSize={8.5} value={t.pf} valueFont="800 12px var(--font-heading)" />
                     <StatCell label="PA" labelSize={8.5} value={t.pa} valueFont="800 12px var(--font-heading)" />
                     <StatCell label="DIV" labelSize={8.5} value={t.div} valueFont="800 12px var(--font-heading)" />
@@ -61,11 +72,13 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
                   {isOpen && (
                     <div style={{
                       display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4,
-                      borderTop: '1px solid var(--color-divider)', margin: '0 14px 0 58px',
+                      borderTop: '1px solid var(--color-divider)', margin: '0 14px 0 70px',
                       padding: '9px 0 13px', color: 'var(--color-neutral-700)',
                     }}>
                       <StatCell label="PCT" labelSize={8.5} value={t.pct} valueFont="600 11.5px var(--font-body)" />
-                      <StatCell label="GB" labelSize={8.5} value={t.gb} valueFont="600 11.5px var(--font-body)" />
+                      {t.vp !== null
+                        ? <StatCell label="VP BACK" labelSize={8.5} value={t.vpBack} valueFont="600 11.5px var(--font-body)" />
+                        : <StatCell label="GB" labelSize={8.5} value={t.gb} valueFont="600 11.5px var(--font-body)" />}
                       <StatCell label="STRK" labelSize={8.5} value={t.streak} valueFont="600 11.5px var(--font-body)" />
                       <StatCell label="AVG PF" labelSize={8.5} value={t.avgPf} valueFont="600 11.5px var(--font-body)" />
                       <StatCell label="AVG PA" labelSize={8.5} value={t.avgPa} valueFont="600 11.5px var(--font-body)" />
@@ -77,7 +90,6 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
           </div>
         ))}
 
-        <div style={{ height: 8 }} />
       </div>
 
       <BottomNav />

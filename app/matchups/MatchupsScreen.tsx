@@ -94,8 +94,7 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
         </div>
       )}
 
-      {/* Sized to its content, up to the space available; the nav takes the rest. */}
-      <div style={{ flex: '0 1 auto', minHeight: 0, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflow: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '12px 14px 6px' }}>
           {isLive && <span style={{ width: 6, height: 6, background: 'var(--color-accent)', animation: 'blip 1.4s infinite' }} />}
           <span style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: isLive ? 'var(--color-accent)' : 'var(--color-neutral-600)' }}>
@@ -142,7 +141,7 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
 
       </div>
 
-      <BottomNav fill />
+      <BottomNav />
     </PhoneFrame>
   );
 }
