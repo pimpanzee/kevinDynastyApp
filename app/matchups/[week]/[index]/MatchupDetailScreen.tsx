@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
+import InjuryTag from '@/components/InjuryTag';
 import PhoneFrame from '@/components/PhoneFrame';
 import ScoreHeader from '@/components/ScoreHeader';
 import ScoreSheet from '@/components/ScoreSheet';
@@ -147,7 +148,10 @@ function PlayerSide({
 
   const name = (
     <div style={{ minWidth: 0, flex: 1, textAlign: away ? 'right' : undefined }}>
-      <div style={{ fontSize: nameSize, fontWeight: 600, color: nameTone, ...clip }}>{player.name}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: away ? 'flex-end' : undefined }}>
+        <div style={{ fontSize: nameSize, fontWeight: 600, color: nameTone, minWidth: 0, ...clip }}>{player.name}</div>
+        <InjuryTag tag={player.injury} />
+      </div>
       <div style={{ ...sub, ...clip }}>{player.line}</div>
     </div>
   );

@@ -88,6 +88,8 @@ export interface BoxPlayerView {
   byline?: string;
   /** How the stats became points, for the tap-to-open sheet. */
   breakdown?: Breakdown;
+  /** NFL injury designation: Q, D, O or IR. */
+  injury?: string;
   /** For patching the row from live scores; absent on an empty slot. */
   live?: { id: string; team: string; kickoff: string; position: string; sleeperId?: string };
 }
@@ -126,6 +128,8 @@ export interface RosterPlayerView {
   name: string;
   /** "SEA · WR" */
   teamPos: string;
+  /** NFL injury designation: Q, D, O or IR. */
+  injury?: string;
   salaryFmt: string;
   yearsLabel: string;
   /** Expand row: projected points for the current week. */
