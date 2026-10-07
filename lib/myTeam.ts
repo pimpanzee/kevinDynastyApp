@@ -11,7 +11,15 @@ import type { WeekView } from '@/lib/types';
  */
 
 const KEY = 'gridlock:team';
+/** Name and icon of the chosen team, so the header can show it without a lookup. */
+const META_KEY = 'gridlock:teamMeta';
 const EVENT = 'gridlock:team';
+
+export interface TeamMeta {
+  id: string;
+  name: string;
+  icon: string | null;
+}
 
 export function readTeam(): string | null {
   try {
@@ -21,9 +29,19 @@ export function readTeam(): string | null {
   }
 }
 
-export function saveTeam(id: string): void {
+function readMeta(): TeamMeta | null {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    return raw ? (JSON.parse(raw) as TeamMeta) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveTeam(id: string, meta?: Omit<TeamMeta, 'id'>): void {
   try {
     localStorage.setItem(KEY, id);
+    if (meta) localStorage.setItem(META_KEY, JSON.stringify({ id, ...meta }));
   } catch {
     // Private browsing or storage blocked: the choice just won't persist.
   }
@@ -66,4 +84,46 @@ export function personalizeWeek(view: WeekView, team: string): WeekView {
     playersLeft: view.phase === 'final' || !side ? '' : `${ytp} YET TO PLAY`,
     weeks: view.weeks.map((w) => ({ ...w, note: w.notes ? (w.notes[team] ?? '') : w.note })),
   };
+}
+
+/**
+ * The team the viewer has explicitly chosen, with its name and icon, or null
+ * before they've picked one. A choice saved before names and icons were kept
+ * is filled in once from the site's /widget.json.
+ */
+export function useChosenTeam(): TeamMeta | null {
+  const [chosen, setChosen] = useState<TeamMeta | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const read = () => {
+      const id = readTeam();
+      if (!id) return setChosen(null);
+      const meta = readMeta();
+      if (meta?.id === id) return setChosen(meta);
+      setChosen({ id, name: '', icon: null });
+      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/widget.json`)
+        .then((r) => r.json())
+        .then((ctx: { franchises?: Record<string, { name: string; icon?: string }> }) => {
+          const f = ctx.franchises?.[id];
+          if (!f || cancelled) return;
+          const filled = { id, name: f.name, icon: f.icon ?? null };
+          try {
+            localStorage.setItem(META_KEY, JSON.stringify(filled));
+          } catch {
+            // Not persisted; looked up again next time.
+          }
+          setChosen(filled);
+        })
+        .catch(() => {});
+    };
+    read();
+    window.addEventListener(EVENT, read);
+    window.addEventListener('storage', read);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(EVENT, read);
+      window.removeEventListener('storage', read);
+    };
+  }, []);
+  return chosen;
 }
