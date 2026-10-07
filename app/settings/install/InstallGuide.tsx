@@ -43,7 +43,7 @@ export default function InstallGuide() {
         <Step>Open <strong>pimpanzee.github.io/kevinDynastyApp</strong> in <strong>Safari</strong>. Other browsers and in-app browsers (texts, Instagram) can&apos;t install it.</Step>
         <Step>Tap the Share button {ShareIcon} (bottom of the screen, or top right on iPad).</Step>
         <Step>Scroll down and tap <strong>Add to Home Screen</strong>.</Step>
-        <Step>Keep the name GRIDLOCK and tap <strong>Add</strong>.</Step>
+        <Step>Keep the name The Liam and tap <strong>Add</strong>.</Step>
         <Step>Open it from the new icon. It runs full screen, without Safari&apos;s bars.</Step>
       </Steps>
     </>
@@ -71,7 +71,7 @@ export default function InstallGuide() {
           </div>
         )}
         <p style={{ margin: '14px 14px 0', fontSize: 13, lineHeight: 1.45 }}>
-          Add GRIDLOCK to your Home Screen and it opens like an app: full screen, one tap away, with live scores on game day.
+          Add The Liam to your Home Screen and it opens like an app: full screen, one tap away, with live scores on game day.
         </p>
 
         {platform === 'android' ? <>{android}{iphone}</> : <>{iphone}{android}</>}
@@ -79,7 +79,7 @@ export default function InstallGuide() {
         <SectionLabel>GOOD TO KNOW</SectionLabel>
         <ul style={{ margin: 0, padding: '0 14px 0 34px', fontSize: 12.5, lineHeight: 1.5, color: 'var(--color-neutral-800)' }}>
           <li style={{ marginBottom: 8 }}><strong>It updates itself.</strong> New features and scores load whenever you open it; no need to re-add it.</li>
-          <li style={{ marginBottom: 8 }}><strong>Seeing Safari&apos;s bars?</strong> That icon is an old bookmark. Delete it and add GRIDLOCK again with the steps above.</li>
+          <li style={{ marginBottom: 8 }}><strong>Seeing Safari&apos;s bars?</strong> That icon is an old bookmark. Delete it and add The Liam again with the steps above.</li>
           <li style={{ marginBottom: 8 }}><strong>Pick your team inside the app.</strong> The installed app keeps its own settings, separate from Safari: Settings ⚙ → Your team.</li>
         </ul>
       </div>

@@ -3,10 +3,10 @@ import UpdateCheck from '@/components/UpdateCheck';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'GRIDLOCK',
+  title: 'The Liam',
   description: 'Dynasty fantasy football league hub',
   // Saved to the Home Screen, open full-screen rather than as a Safari tab.
-  appleWebApp: { capable: true, title: 'GRIDLOCK', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'The Liam', statusBarStyle: 'default' },
   // Next emits only the newer `mobile-web-app-capable`; older iOS reads this.
   other: { 'apple-mobile-web-app-capable': 'yes' },
 };
