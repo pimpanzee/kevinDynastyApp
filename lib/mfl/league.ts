@@ -15,6 +15,8 @@ export interface Franchise {
   isMine: boolean;
   /** Owner-uploaded square icon (or, failing that, the logo). */
   icon?: string;
+  /** MFL's short name for the franchise, e.g. "Tuna". */
+  abbrev: string;
 }
 
 export interface League {
@@ -63,7 +65,7 @@ interface RawLeague {
     victoryPointsEndWeek?: string;
   };
 }
-interface RawFranchise { id?: string; name?: string; division?: string; conference?: string; icon?: string; logo?: string }
+interface RawFranchise { id?: string; name?: string; abbrev?: string; division?: string; conference?: string; icon?: string; logo?: string }
 
 /** Owners paste any URL; keep web images only, and load them over https. */
 function imageUrl(...candidates: Array<string | undefined>): string | undefined {
@@ -101,6 +103,7 @@ export async function getLeague(season: string = SEASON): Promise<League> {
       conferenceId: f.conference ?? divConf.get(divisionId) ?? '',
       isMine: f.id === FRANCHISE_ID,
       icon: imageUrl(f.icon, f.logo),
+      abbrev: (f.abbrev ?? '').trim(),
     };
   });
 

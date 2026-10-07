@@ -108,6 +108,21 @@ const fmtPer = (n: number) => n.toFixed(Math.max(2, (String(n).split('.')[1] ?? 
  * the gap shows as its own row so the table always adds up to the score.
  */
 export function scoreBreakdown(position: string, stats: Stats, rules: RuleSet, official: number): Breakdown {
+  const rows = scoredRows(position, stats, rules);
+  const sum = round2(rows.reduce((t, r) => t + r.value, 0));
+  const gap = round2(official - sum);
+  if (Math.abs(gap) >= 0.01) rows.push({ label: 'Other', stat: '', per: '', points: fmtPts(gap), value: gap });
+
+  return { rows: rows.map(({ value: _, ...r }) => r), total: fmtPts(official) };
+}
+
+/** Fantasy points for a stat line under the league's rules — for projections, which MFL can't explain. */
+export function scorePoints(position: string, stats: Stats, rules: RuleSet): number {
+  return round2(scoredRows(position, stats, rules).reduce((t, r) => t + r.value, 0));
+}
+
+/** Each rule a stat line earns points under, with its points. */
+function scoredRows(position: string, stats: Stats, rules: RuleSet): Array<BreakdownRow & { value: number }> {
   const group = rules.find((g) => g.positions.includes(position));
   const def = isDefence(position);
   const sources = def ? DEFENCE_SOURCES : PLAYER_SOURCES;
@@ -149,11 +164,7 @@ export function scoreBreakdown(position: string, stats: Stats, rules: RuleSet, o
     });
   }
 
-  const sum = round2(rows.reduce((t, r) => t + r.value, 0));
-  const gap = round2(official - sum);
-  if (Math.abs(gap) >= 0.01) rows.push({ label: 'Other', stat: '', per: '', points: fmtPts(gap), value: gap });
-
-  return { rows: rows.map(({ value: _, ...r }) => r), total: fmtPts(official) };
+  return rows;
 }
 
 /** Box-score byline, e.g. "32/52 CMP, 412 YD, 1 TD, 1 INT". Empty when there is nothing to say. */

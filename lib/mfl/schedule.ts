@@ -13,6 +13,8 @@ export interface NflGame {
   /** Kickoff, in epoch ms. */
   kickoff: number;
   teams: [string, string];
+  /** The home side, when MFL marks one. */
+  home?: string;
 }
 
 export interface NflWeek {
@@ -30,7 +32,7 @@ interface RawWeek {
 }
 interface RawGame {
   kickoff?: string;
-  team?: Array<{ id?: string }>;
+  team?: Array<{ id?: string; isHome?: string }>;
 }
 
 /** The whole season's schedule in one request, cached for a day. */
@@ -49,8 +51,10 @@ export async function getNflSchedule(season: string = SEASON): Promise<NflWeek[]
       week: num(w.week),
       games: asArray(w.matchup)
         .map((g) => {
-          const teams = asArray(g.team).map((t) => t.id ?? '');
-          return { kickoff: num(g.kickoff) * 1000, teams: [teams[0] ?? '', teams[1] ?? ''] as [string, string] };
+          const raw = asArray(g.team);
+          const teams = raw.map((t) => t.id ?? '');
+          const home = raw.find((t) => t.isHome === '1')?.id;
+          return { kickoff: num(g.kickoff) * 1000, teams: [teams[0] ?? '', teams[1] ?? ''] as [string, string], home };
         })
         .filter((g) => g.kickoff > 0),
     }))
