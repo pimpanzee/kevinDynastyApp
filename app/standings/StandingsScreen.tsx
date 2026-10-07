@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import BottomNav from '@/components/BottomNav';
+import FadedTeamLogo from '@/components/FadedTeamLogo';
 import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
 import { SectionTitle, StickySectionHeader } from '@/components/ListChrome';
 import PhoneFrame from '@/components/PhoneFrame';
@@ -155,34 +156,10 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
  * end on balanced lines (a third for long names). Row order gives the division rank.
  */
 function TeamCell({ team, mine }: { team: StandingsTeamView; mine: boolean }) {
-  const [failed, setFailed] = useState(false);
   const long = team.name.length > 22;
-  const fade = 'linear-gradient(to right, #000 15%, transparent 88%)';
   return (
     <div style={{ position: 'relative', height: ROW_H, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-      {team.icon && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element -- remote, unknown-size owner images in a static export
-        <img
-          src={team.icon}
-          alt=""
-          aria-hidden
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          style={{
-            position: 'absolute', top: 0, left: 0, height: '100%', aspectRatio: '1', objectFit: 'cover',
-            opacity: 0.45, maskImage: fade, WebkitMaskImage: fade,
-          }}
-        />
-      ) : (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute', left: 8, font: '800 18px var(--font-heading)', color: 'var(--color-neutral-300)',
-          }}
-        >
-          {initials(team.name)}
-        </span>
-      )}
+      <FadedTeamLogo name={team.name} icon={team.icon} />
       {mine && <span aria-hidden style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--color-accent)' }} />}
       <span
         style={{
@@ -203,13 +180,4 @@ function TeamCell({ team, mine }: { team: StandingsTeamView; mine: boolean }) {
       </span>
     </div>
   );
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter((w) => /^[A-Za-z]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('');
 }

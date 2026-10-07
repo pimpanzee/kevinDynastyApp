@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import BottomNav from '@/components/BottomNav';
+import FadedTeamLogo from '@/components/FadedTeamLogo';
 import HeaderBar from '@/components/HeaderBar';
 import MedianRace from '@/components/MedianRace';
 import PhoneFrame from '@/components/PhoneFrame';
 import ScoreHeader, { NO_SCORE } from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
+import TeamWatermarks from '@/components/TeamWatermarks';
 import { barWidth } from '@/lib/format';
 import { applyLiveToWeek } from '@/lib/live';
 import { personalizeWeek, useMyTeam } from '@/lib/myTeam';
@@ -16,6 +18,9 @@ import type { MatchupView, Phase, SideView, WeekView } from '@/lib/types';
 import { useLive } from '@/lib/useLive';
 
 type GameState = 'future' | 'active' | 'past';
+
+/** Height of one team's line in an Around the League row; its logo fills it. */
+const LINE_H = 40;
 
 /** Per matchup: a game decided early in a live week is already past. */
 function gameState(phase: Phase, m: MatchupView): GameState {
@@ -110,19 +115,23 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
             href={`/matchups/${view.week}/${mine.index}/`}
             style={{
               display: 'block',
+              position: 'relative',
+              overflow: 'hidden',
               borderTop: '2px solid var(--color-divider)',
               borderBottom: '2px solid var(--color-divider)',
-              padding: '12px 14px 14px',
               cursor: 'pointer',
             }}
           >
-            <ScoreHeader
-              home={{ name: mine.home.name, meta: mine.home.meta, ...scoreLines(mine.home, mineState) }}
-              away={{ name: mine.away.name, meta: mine.away.meta, ...scoreLines(mine.away, mineState) }}
-              win={mineState === 'past' ? null : [mine.home.win, mine.away.win]}
-              bar={mine.bar}
-              awayTone={mineState === 'past' ? 'var(--color-neutral-600)' : 'var(--color-neutral-800)'}
-            />
+            <TeamWatermarks home={mine.home.icon} away={mine.away.icon} />
+            <div style={{ position: 'relative', padding: '12px 14px 14px' }}>
+              <ScoreHeader
+                home={{ name: mine.home.name, meta: mine.home.meta, ...scoreLines(mine.home, mineState) }}
+                away={{ name: mine.away.name, meta: mine.away.meta, ...scoreLines(mine.away, mineState) }}
+                win={mineState === 'past' ? null : [mine.home.win, mine.away.win]}
+                bar={mine.bar}
+                awayTone={mineState === 'past' ? 'var(--color-neutral-600)' : 'var(--color-neutral-800)'}
+              />
+            </div>
           </Link>
         )}
 
@@ -161,10 +170,14 @@ function GameRow({
   const line = (side: SideView, colour: string, first: boolean) => {
     const { num, sub } = scoreLines(side, state);
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px', gap: 10, alignItems: 'center', marginTop: first ? undefined : 8 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0 }}>
-          <span style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: colour, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{side.name}</span>
-          <span style={{ fontSize: 11.5, color: 'var(--color-neutral-600)', whiteSpace: 'nowrap' }}>{side.meta}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px', gap: 10, alignItems: 'center', marginTop: first ? undefined : 4 }}>
+        {/* Team logo at the row's left edge fading under the name, as on Standings. */}
+        <div style={{ position: 'relative', height: LINE_H, overflow: 'hidden', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <FadedTeamLogo name={side.name} icon={side.icon} />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0, marginLeft: 40, textShadow: '0 0 6px var(--color-bg), 0 0 2px var(--color-bg)' }}>
+            <span style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: colour, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{side.name}</span>
+            <span style={{ fontSize: 11.5, color: 'var(--color-neutral-600)', whiteSpace: 'nowrap' }}>{side.meta}</span>
+          </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ font: '800 18px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: state === 'future' ? 'var(--color-neutral-400)' : colour }}>{num}</div>
@@ -179,7 +192,7 @@ function GameRow({
   };
 
   return (
-    <Link href={href} style={{ display: 'block', borderBottom: '1px solid var(--color-divider)', padding: '10px 14px', cursor: 'pointer' }}>
+    <Link href={href} style={{ display: 'block', borderBottom: '1px solid var(--color-divider)', padding: '6px 14px 8px', cursor: 'pointer' }}>
       {line(matchup.home, hCol, true)}
       {line(matchup.away, aCol, false)}
 
