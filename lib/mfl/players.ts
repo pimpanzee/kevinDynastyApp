@@ -12,6 +12,8 @@ export interface Player {
   id: string;
   /** Display name, reordered from MFL's "Last, First" storage. */
   name: string;
+  /** "Josh Allen" — for search and the Players screen. */
+  fullName: string;
   position: string;
   team: string;
 }
@@ -26,6 +28,12 @@ function displayName(stored: string): string {
   const [last, first] = stored.split(',').map((s) => s.trim());
   if (!first) return stored.trim();
   return `${first.charAt(0)}. ${last}`;
+}
+
+/** "Smith-Njigba, Jaxon" → "Jaxon Smith-Njigba". */
+function fullName(stored: string): string {
+  const [last, first] = stored.split(',').map((s) => s.trim());
+  return first ? `${first} ${last}` : stored.trim();
 }
 
 /** Team defences come back as "Bills, Buffalo" with a TM* position. */
@@ -48,6 +56,7 @@ export async function getPlayers(season: string = SEASON): Promise<Map<string, P
     map.set(p.id, {
       id: p.id,
       name: isTeamUnit(position) ? stored.split(',')[0].trim() : displayName(stored),
+      fullName: fullName(stored),
       position,
       team: p.team ?? '',
     });
@@ -55,7 +64,7 @@ export async function getPlayers(season: string = SEASON): Promise<Map<string, P
   return map;
 }
 
-const UNKNOWN: Player = { id: '', name: 'Unknown player', position: '', team: '' };
+const UNKNOWN: Player = { id: '', name: 'Unknown player', fullName: 'Unknown player', position: '', team: '' };
 
 export function lookup(players: Map<string, Player>, id: string): Player {
   return players.get(id) ?? { ...UNKNOWN, id };

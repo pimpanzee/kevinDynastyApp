@@ -177,3 +177,55 @@ export interface StandingsView {
   myFranchiseId: string;
   simulatedAt: string | null;
 }
+
+/* ── Players ─────────────────────────────────────────────────────────────── */
+
+/** The stats the Players screen shows, keyed as Sleeper names them. */
+export type PlayerStatKey =
+  | 'pass_yd' | 'pass_td' | 'pass_int'
+  | 'rush_att' | 'rush_yd' | 'rush_td'
+  | 'rec_tgt' | 'rec' | 'rec_yd' | 'rec_td';
+
+export type PlayerStats = Partial<Record<PlayerStatKey, number>>;
+
+export interface PlayerGame {
+  /** "@ BUF" away, "BUF" at home. */
+  opp: string;
+  /** "SUN 1:00 ET" */
+  kickoff: string;
+}
+
+export interface PlayerRow {
+  id: string;
+  name: string;
+  pos: 'QB' | 'RB' | 'WR' | 'TE';
+  nflTeam: string;
+  bye: number | null;
+  injury?: string;
+  /** The franchise rostering him (taxi and IR included); absent when available. */
+  owner?: string;
+  /** The projection week's game; null on his bye. */
+  next: PlayerGame | null;
+  /** Last week's game; null on his bye. */
+  last: PlayerGame | null;
+  /** Projected points in league scoring, null with no projection, and the line behind them. */
+  proj: { pts: number | null; stats: PlayerStats };
+  /** Last week: null when he didn't play. Points are MFL's. */
+  lastWeek: { pts: number; stats: PlayerStats } | null;
+  /** Season to date: games played, MFL's points, stat totals. */
+  season: { gp: number; pts: number; stats: PlayerStats };
+}
+
+export interface PlayersData {
+  /** The week projections are for: the next one not yet finished. */
+  projWeek: number;
+  /** The most recent finished week, or null before week 1 ends. */
+  lastWeek: number | null;
+  /** False when Sleeper has no projections for projWeek yet. */
+  hasProj: boolean;
+  franchises: Array<{ id: string; abbrev: string; name: string }>;
+  /** The build's default team; the viewer's own choice replaces it in the browser. */
+  myFranchiseId: string;
+  players: PlayerRow[];
+  builtAt: string;
+}

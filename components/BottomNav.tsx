@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 
 /**
- * Three-tab bottom bar. The active tab is derived from the current path, so
+ * Four-tab bottom bar. The active tab is derived from the current path, so
  * there is no per-page `active` prop that can drift out of sync.
  *
  * Matchup Detail deliberately does not render this bar — it is a drill-in,
@@ -28,6 +28,13 @@ const RostersIcon = (
   </svg>
 );
 
+const PlayersIcon = (
+  <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </svg>
+);
+
 const StandingsIcon = (
   <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10 12h11" />
@@ -42,6 +49,7 @@ const StandingsIcon = (
 const TABS: Array<{ href: string; label: string; icon: ReactNode }> = [
   { href: '/matchups', label: 'MATCHUPS', icon: MatchupsIcon },
   { href: '/rosters', label: 'ROSTERS', icon: RostersIcon },
+  { href: '/players', label: 'PLAYERS', icon: PlayersIcon },
   { href: '/standings', label: 'STANDINGS', icon: StandingsIcon },
 ];
 
@@ -77,7 +85,7 @@ export default function BottomNav() {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3,1fr)',
+        gridTemplateColumns: `repeat(${TABS.length},1fr)`,
         gridTemplateRows: '1fr',
         borderTop: '2px solid var(--color-text)',
         boxSizing: 'content-box',
