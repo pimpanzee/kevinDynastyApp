@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
 import { Chevron, SectionTitle, StatCell, StickySectionHeader } from '@/components/ListChrome';
 import PhoneFrame from '@/components/PhoneFrame';
 import StatusBar from '@/components/StatusBar';
+import { useMyTeam } from '@/lib/myTeam';
 import type { RosterPlayerView, RosterView } from '@/lib/types';
 
 export default function RostersScreen({ initial }: { initial: RosterView }) {
@@ -38,6 +39,15 @@ export default function RostersScreen({ initial }: { initial: RosterView }) {
     }
   };
 
+  // The page is prebuilt on the league's default team; open on the viewer's own.
+  const defaultTeam = initial.franchises.find((f) => f.isMine)?.id ?? initial.franchiseId;
+  const team = useMyTeam(defaultTeam);
+  useEffect(() => {
+    if (team !== initial.franchiseId) selectFranchise(team);
+    // Only when the chosen team changes, not on every switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team]);
+
   return (
     <PhoneFrame style={{ position: 'relative' }}>
       <StatusBar label="ROSTERS" simulatedAt={view.simulatedAt} />
@@ -63,7 +73,7 @@ export default function RostersScreen({ initial }: { initial: RosterView }) {
             {loading ? 'LOADING…' : `${view.footer.count} PLAYERS`}
           </div>
         </div>
-        {view.isMine && (
+        {view.franchiseId === team && (
           <span className="tag tag-outline" style={{ fontSize: 8.5, whiteSpace: 'nowrap', flex: 'none' }}>YOUR TEAM</span>
         )}
         <span style={{ font: '800 11px var(--font-heading)', color: 'var(--color-neutral-600)' }}>▾</span>
@@ -159,7 +169,7 @@ export default function RostersScreen({ initial }: { initial: RosterView }) {
                     {f.id === view.franchiseId ? '✓' : ''}
                   </span>
                   <span style={{ flex: 1, font: '600 13.5px var(--font-body)' }}>{f.name}</span>
-                  {f.isMine && <span className="tag tag-outline" style={{ fontSize: 8 }}>YOU</span>}
+                  {f.id === team && <span className="tag tag-outline" style={{ fontSize: 8 }}>YOU</span>}
                 </div>
               ))}
             </div>

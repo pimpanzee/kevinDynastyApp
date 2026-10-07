@@ -8,6 +8,7 @@ import ScoreSheet from '@/components/ScoreSheet';
 import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
 import { applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
+import { useMyTeam } from '@/lib/myTeam';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView } from '@/lib/types';
 import { useLive, useLiveStats } from '@/lib/useLive';
 
@@ -18,6 +19,8 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
   const live = useLive(built.week, built.liveWindow);
   const stats = useLiveStats(built.scoring?.statsUrl, built.liveWindow);
   const scored = live ? applyLiveToDetail(built, live) : built;
+  const team = useMyTeam(built.myFranchiseId);
+  const isMine = built.home.franchiseId === team || built.away.franchiseId === team;
   const view = stats ? applyStatsToDetail(scored, stats) : scored;
 
   // Held by position rather than as a copy, so an open sheet follows live updates.
@@ -51,7 +54,7 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
         <Link href={pageHref(view.index - 1)} aria-label="Previous matchup" style={pagerStyle('right')}>‹</Link>
         <div style={{ textAlign: 'center', font: '800 9.5px var(--font-heading)', letterSpacing: '.12em', color: 'var(--color-neutral-600)' }}>
           MATCHUP {view.index + 1} OF {view.total}
-          {view.isMine ? ' · YOURS' : ''}
+          {isMine ? ' · YOURS' : ''}
         </div>
         <Link href={pageHref(view.index + 1)} aria-label="Next matchup" style={pagerStyle('left')}>›</Link>
       </div>

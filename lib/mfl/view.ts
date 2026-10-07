@@ -96,7 +96,7 @@ function projectionMap(
 }
 
 /** Weeks the picker offers: next, current, and the two most recent. */
-function weekOptions(ctx: Context, results: Map<number, string>): WeekOption[] {
+function weekOptions(ctx: Context, { notes: results, byTeam }: WeekNotes): WeekOption[] {
   const { league, current } = ctx;
   const candidates = [current + 1, current, current - 1, current - 2].filter(
     (n) => n >= league.startWeek && n <= league.endWeek,
@@ -107,6 +107,7 @@ function weekOptions(ctx: Context, results: Map<number, string>): WeekOption[] {
       n,
       label: `Week ${n}${status === 'current' ? ' · current' : status === 'future' ? ' · next' : ''}`,
       note: results.get(n) ?? '',
+      notes: byTeam.get(n),
       status,
     };
   });
@@ -320,8 +321,15 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
 }
 
 /** The user's own result in each recent week, for the picker's right column. */
-async function weekNotes(ctx: Context): Promise<Map<number, string>> {
+interface WeekNotes {
+  notes: Map<number, string>;
+  /** Finished weeks: every franchise's result, keyed by franchise id. */
+  byTeam: Map<number, Record<string, string>>;
+}
+
+async function weekNotes(ctx: Context): Promise<WeekNotes> {
   const notes = new Map<number, string>();
+  const byTeam = new Map<number, Record<string, string>>();
   const weeks = [ctx.current + 1, ctx.current, ctx.current - 1, ctx.current - 2].filter(
     (n) => n >= ctx.league.startWeek && n <= ctx.league.endWeek,
   );
@@ -338,6 +346,16 @@ async function weekNotes(ctx: Context): Promise<Map<number, string>> {
       continue;
     }
     const results = await getWeeklyResults(n);
+    const all: Record<string, string> = {};
+    for (const m of results ?? []) {
+      for (const me of m) {
+        const them = m.find((s) => s !== me);
+        if (!them) continue;
+        const outcome = me.score > them.score ? 'W' : me.score < them.score ? 'L' : 'T';
+        all[me.franchiseId] = `${outcome} ${fmtScore(me.score)}–${fmtScore(them.score)}`;
+      }
+    }
+    byTeam.set(n, all);
     const matchup = results?.find((m) => m.some((s) => s.franchiseId === FRANCHISE_ID));
     if (!matchup) {
       notes.set(n, '');
@@ -348,7 +366,7 @@ async function weekNotes(ctx: Context): Promise<Map<number, string>> {
     const outcome = me.score > them.score ? 'W' : me.score < them.score ? 'L' : 'T';
     notes.set(n, `${outcome} ${fmtScore(me.score)}–${fmtScore(them.score)}`);
   }
-  return notes;
+  return { notes, byTeam };
 }
 
 /* ── Matchup detail ─────────────────────────────────────────────────────── */
@@ -569,6 +587,7 @@ export async function getMatchupDetailView(
     bar: decided ? scoreBar(h.live, a.live) : phase === 'pre' ? winPct(h.projected, a.projected)[0] : barWidth(home.view.win),
     starters: pairRows(homeEntries.starters, awayEntries.starters, false),
     bench: pairRows(homeEntries.bench, awayEntries.bench, true),
+    myFranchiseId: FRANCHISE_ID,
     simulatedAt: ctx.simulatedAt,
     liveWindow: pollWindow,
     scoring: pollWindow && scoring ? { rules: scoring.rules, statsUrl: sleeperStatsUrl(week) } : undefined,
