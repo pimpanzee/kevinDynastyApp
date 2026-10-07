@@ -1,4 +1,4 @@
-// GRIDLOCK — Home Screen widget for Scriptable (https://scriptable.app).
+// The Liam — Home Screen widget for Scriptable (https://scriptable.app).
 // Your live matchup score, win odds, and the latest touchdowns and big plays
 // by players in it. Setup: widget/README.md.
 //
@@ -282,7 +282,7 @@ async function build(data, family) {
 function errorWidget(message) {
   const w = new ListWidget();
   w.backgroundColor = C.bg;
-  text(w, 'GRIDLOCK', Font.heavySystemFont(11), C.accent);
+  text(w, 'THE LIAM', Font.heavySystemFont(11), C.accent);
   w.addSpacer(4);
   text(w, message, Font.regularSystemFont(11), C.muted, { lines: 4 });
   w.refreshAfterDate = new Date(Date.now() + 10 * 60000);

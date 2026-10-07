@@ -9,7 +9,7 @@ const GearIcon = (
 );
 
 /**
- * GRIDLOCK wordmark bar with a right-aligned control or label slot, and the
+ * THE LIAM wordmark bar with a right-aligned control or label slot, and the
  * Settings gear. Settings screens pass `back` instead, for a back arrow.
  */
 export default function HeaderBar({ right, back }: { right?: ReactNode; back?: string }) {
@@ -29,8 +29,8 @@ export default function HeaderBar({ right, back }: { right?: ReactNode; back?: s
           ←
         </Link>
       )}
-      <span style={{ font: '800 17px/1 var(--font-heading)', letterSpacing: '-.02em' }}>
-        GRIDLOCK
+      <span style={{ font: '800 17px/1 var(--font-heading)', letterSpacing: '-.02em', wordSpacing: '.18em', whiteSpace: 'nowrap' }}>
+        THE LIAM
       </span>
       {right !== undefined && <span style={{ marginLeft: 'auto' }}>{right}</span>}
       {!back && (

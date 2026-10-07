@@ -23,18 +23,18 @@ one is your opponent's. Tapping the widget opens the matchup in the app.
 1. Install **Scriptable** from the App Store.
 2. On your phone, open <https://pimpanzee.github.io/kevinDynastyApp/widget/>
    and tap **Copy script**. In Scriptable, tap **+**, paste, and name it
-   `GRIDLOCK`. Tap ▶ to preview it. (The page carries
+   `The Liam`. Tap ▶ to preview it. (The page carries
    [`gridlock-widget.js`](gridlock-widget.js), read at build time.)
 3. On the Home Screen, long-press → **Edit Home Screen** → **+** →
    **Scriptable**, then pick a size and add it.
-4. Long-press the new widget → **Edit Widget** → **Script: GRIDLOCK**.
+4. Long-press the new widget → **Edit Widget** → **Script: The Liam**.
 5. Optional, for another team: set **Parameter** to a franchise id (`0005`)
    or part of a team name (`Tuna`). Blank shows the league's default team.
 
 For the Lock Screen: long-press the Lock Screen → **Customize** → **Lock
 Screen**, tap the widget row under the clock (or the line above it) →
 **Scriptable**, pick a shape, then tap the added widget and choose **Script:
-GRIDLOCK**. Lock Screen widgets are drawn in one tint by iOS.
+The Liam**. Lock Screen widgets are drawn in one tint by iOS.
 
 ## How fresh it is
 

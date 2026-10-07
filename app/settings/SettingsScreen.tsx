@@ -83,7 +83,7 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
 
         <SectionLabel>GUIDES</SectionLabel>
         <div style={{ borderTop: '1px solid var(--color-divider)' }}>
-          <GuideLink href="/settings/install/" title="Install the app" sub="Add GRIDLOCK to your Home Screen" />
+          <GuideLink href="/settings/install/" title="Install the app" sub="Add The Liam to your Home Screen" />
           <GuideLink href="/widget/" title="Home Screen widget" sub="Live score and key plays on your Home or Lock Screen" />
         </div>
       </div>

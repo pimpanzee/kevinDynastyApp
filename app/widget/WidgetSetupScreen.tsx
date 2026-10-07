@@ -9,11 +9,11 @@ import { useMyTeam } from '@/lib/myTeam';
 const STEPS = [
   'Install Scriptable (free) from the App Store.',
   'Tap Copy script below.',
-  'In Scriptable, tap +, paste, and name the script GRIDLOCK. Tap ▶ to preview.',
+  'In Scriptable, tap +, paste, and name the script The Liam. Tap ▶ to preview.',
   'Long-press your Home Screen → + → Scriptable, pick a size and add it.',
-  'Long-press the widget → Edit Widget → Script: GRIDLOCK.',
+  'Long-press the widget → Edit Widget → Script: The Liam.',
   'Still in Edit Widget, set Parameter to your team’s id, shown below, so the widget follows your team.',
-  'Lock Screen: long-press the Lock Screen → Customize → Lock Screen → tap the widget area (or the line above the clock) → Scriptable, then tap the added widget and choose Script: GRIDLOCK.',
+  'Lock Screen: long-press the Lock Screen → Customize → Lock Screen → tap the widget area (or the line above the clock) → Scriptable, then tap the added widget and choose Script: The Liam.',
 ];
 
 export default function WidgetSetupScreen({

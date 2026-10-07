@@ -11,8 +11,8 @@ const base = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'GRIDLOCK',
-    short_name: 'GRIDLOCK',
+    name: 'The Liam',
+    short_name: 'The Liam',
     description: 'Dynasty fantasy football league hub',
     id: `${base}/`,
     start_url: `${base}/matchups/`,
