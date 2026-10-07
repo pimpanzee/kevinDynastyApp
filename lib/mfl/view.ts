@@ -8,6 +8,7 @@ import { formatClock, formatKickoff, isSimulated, resolveNow } from './clock';
 import { getLeague, type League } from './league';
 import { bestLineup, sumPoints } from './lineup';
 import { getLeagueSchedule, getWeeklyResults, type ResultSide } from './matchups';
+import { getInjuries } from './injuries';
 import { getPlayers, lookup, type Player } from './players';
 import { getRosters, getSalaryAdjustments } from './rosters';
 import { currentWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
@@ -392,6 +393,7 @@ interface BoxEntry {
   sleeperId?: string;
   byline?: string;
   breakdown?: Breakdown;
+  injury?: string;
 }
 
 const EMPTY_ENTRY = { name: '', line: '', pts: '', proj: '' };
@@ -399,7 +401,7 @@ const EMPTY_ENTRY = { name: '', line: '', pts: '', proj: '' };
 function boxPlayer(e: BoxEntry): BoxPlayerView {
   return {
     name: e.name, line: e.line, pts: e.pts, ptsExact: e.ptsExact, proj: e.proj,
-    byline: e.byline, breakdown: e.breakdown,
+    byline: e.byline, breakdown: e.breakdown, injury: e.injury,
     live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId },
   };
 }
@@ -428,10 +430,12 @@ export async function getMatchupDetailView(
   const ctx = await loadContext(nowOverride);
   const phase = weekPhase(ctx.nfl, week, ctx.now);
 
-  const [schedule, standings, rosters] = await Promise.all([
+  const [schedule, standings, rosters, injuries] = await Promise.all([
     getLeagueSchedule(),
     standingsAsOfNow(ctx),
     getRosters(SEASON, week),
+    // That week's report; weeks ahead read the latest one.
+    getInjuries(week <= ctx.current ? week : undefined),
   ]);
 
   const pairs = schedule.get(week) ?? [];
@@ -491,6 +495,7 @@ export async function getMatchupDetailView(
           pts: fmtScore(points),
           ptsExact: points,
           proj: projOf(playerId),
+          injury: injuries.get(playerId),
           sort: positionRank(player.position) * 1000 - points,
           ...scoringDetail(scoring, playerId, player.position, points, state, ctx),
         };
@@ -523,6 +528,7 @@ export async function getMatchupDetailView(
         sleeperId: scoring?.ids[playerId],
         pts: '—',
         proj: projOf(playerId),
+        injury: injuries.get(playerId),
         sort: positionRank(player.position) * 1000 - (projections.get(playerId) ?? 0),
       };
     };
@@ -654,7 +660,11 @@ export async function getRosterView(franchiseId?: string, nowOverride?: string |
   const ctx = await loadContext(nowOverride);
   const target = franchiseId && ctx.league.franchises.some((f) => f.id === franchiseId) ? franchiseId : FRANCHISE_ID;
 
-  const [rosters, adjustments] = await Promise.all([getRosters(SEASON, ctx.current), getSalaryAdjustments()]);
+  const [rosters, adjustments, injuries] = await Promise.all([
+    getRosters(SEASON, ctx.current),
+    getSalaryAdjustments(),
+    getInjuries(),
+  ]);
   const slots = rosters.get(target) ?? [];
   const ids = slots.map((s) => s.playerId);
 
@@ -670,6 +680,7 @@ export async function getRosterView(franchiseId?: string, nowOverride?: string |
       playerId: slot.playerId,
       name: player.name,
       teamPos: `${player.team} · ${player.position}`,
+      injury: injuries.get(slot.playerId),
       salaryFmt: fmtMoney(slot.salary),
       yearsLabel: `${slot.contractYear}yr`,
       proj: fmtScore(projections.get(slot.playerId) ?? 0),
