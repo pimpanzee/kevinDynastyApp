@@ -169,5 +169,7 @@ export interface StandingsTeamView {
 
 export interface StandingsView {
   groups: Array<{ label: string; teams: StandingsTeamView[] }>;
+  /** The build's default franchise; the viewer's own choice replaces it in the browser. */
+  myFranchiseId: string;
   simulatedAt: string | null;
 }

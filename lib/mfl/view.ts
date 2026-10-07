@@ -749,7 +749,7 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
     };
   });
 
-  return { groups, simulatedAt: ctx.simulatedAt };
+  return { groups, myFranchiseId: FRANCHISE_ID, simulatedAt: ctx.simulatedAt };
 }
 
 /* ── Home Screen widget ─────────────────────────────────────────────────── */
