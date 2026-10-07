@@ -16,6 +16,8 @@ export interface WeekOption {
   label: string;
   /** Right-hand note: "LIVE", "THU 8:15", or the user's result that week. */
   note: string;
+  /** For a finished week, every franchise's result, so a chosen team can be shown. */
+  notes?: Record<string, string>;
   status: WeekStatus;
 }
 
@@ -111,6 +113,8 @@ export interface MatchupDetailView {
   bar: string;
   starters: BoxRowView[];
   bench: BoxRowView[];
+  /** The build's default team; the browser may substitute the user's choice. */
+  myFranchiseId: string;
   simulatedAt: string | null;
   liveWindow: Array<[number, number]> | null;
   /** While games can be live: what the browser needs to rescore fresh stats. */
