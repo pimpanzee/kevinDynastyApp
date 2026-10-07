@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import TeamAvatar from '@/components/TeamAvatar';
+import { useChosenTeam } from '@/lib/myTeam';
 
 const GearIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -10,9 +14,11 @@ const GearIcon = (
 
 /**
  * THE LIAM wordmark bar with a right-aligned control or label slot, and the
- * Settings gear. Settings screens pass `back` instead, for a back arrow.
+ * way into Settings: a gear, or once the viewer has picked a team, that team's
+ * icon. Settings screens pass `back` instead, for a back arrow.
  */
 export default function HeaderBar({ right, back }: { right?: ReactNode; back?: string }) {
+  const team = useChosenTeam();
   return (
     <div
       style={{
@@ -36,13 +42,13 @@ export default function HeaderBar({ right, back }: { right?: ReactNode; back?: s
       {!back && (
         <Link
           href="/settings/"
-          aria-label="Settings"
+          aria-label={team?.name ? `Settings (${team.name})` : 'Settings'}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
-            marginLeft: right === undefined ? 'auto' : 0, marginRight: -6, color: 'var(--color-neutral-700)',
+            marginLeft: right === undefined ? 'auto' : 0, marginRight: team ? -2 : -6, color: 'var(--color-neutral-700)',
           }}
         >
-          {GearIcon}
+          {team ? <TeamAvatar name={team.name || '?'} icon={team.icon} size={28} /> : GearIcon}
         </Link>
       )}
     </div>
