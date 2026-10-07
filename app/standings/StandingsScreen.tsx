@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
 import { SectionTitle, StickySectionHeader } from '@/components/ListChrome';
@@ -11,8 +11,8 @@ import type { StandingsTeamView, StandingsView } from '@/lib/types';
 
 /**
  * One table per division. The team column stays put while the stats scroll
- * sideways — inside the table, not the page — and every division scrolls
- * together so their columns stay lined up.
+ * sideways — inside the table, not the page. Each division scrolls on its
+ * own; every table carries its own column headers.
  */
 
 interface Column {
@@ -60,23 +60,20 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
   const hasVp = view.groups.some((g) => g.teams.some((t) => t.vp !== null));
   const cols = columns(hasVp);
 
-  // Keep every division's table at the same horizontal offset.
-  const scrollers = useRef<Array<HTMLDivElement | null>>([]);
-  const [scrolled, setScrolled] = useState(false);
-  const onScroll = (from: HTMLDivElement) => {
-    for (const el of scrollers.current) {
-      if (el && el !== from && el.scrollLeft !== from.scrollLeft) el.scrollLeft = from.scrollLeft;
-    }
-    setScrolled(from.scrollLeft > 0);
+  // Which divisions' tables are scrolled sideways, for the frozen column's shadow.
+  const [scrolled, setScrolled] = useState<Record<number, boolean>>({});
+  const onScroll = (gi: number, el: HTMLDivElement) => {
+    const now = el.scrollLeft > 0;
+    if (now !== !!scrolled[gi]) setScrolled((s) => ({ ...s, [gi]: now }));
   };
 
   // The frozen column casts a shadow once stats slide under it.
-  const frozen = (bg: string): CSSProperties => ({
+  const frozen = (gi: number, bg: string): CSSProperties => ({
     position: 'sticky',
     left: 0,
     zIndex: 1,
     background: bg,
-    boxShadow: scrolled ? '6px 0 8px -6px rgba(0,0,0,.28)' : 'inset -1px 0 0 var(--color-divider)',
+    boxShadow: scrolled[gi] ? '6px 0 8px -6px rgba(0,0,0,.28)' : 'inset -1px 0 0 var(--color-divider)',
     transition: 'box-shadow .15s',
   });
 
@@ -93,14 +90,13 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
             </StickySectionHeader>
 
             <div
-              ref={(el) => { scrollers.current[gi] = el; }}
-              onScroll={(e) => onScroll(e.currentTarget)}
+              onScroll={(e) => onScroll(gi, e.currentTarget)}
               style={{ overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none' }}
             >
               <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ ...headCell, ...frozen('var(--color-bg)'), width: TEAM_W, minWidth: TEAM_W, maxWidth: TEAM_W, textAlign: 'left', paddingLeft: 14 }}>
+                    <th style={{ ...headCell, ...frozen(gi, 'var(--color-bg)'), width: TEAM_W, minWidth: TEAM_W, maxWidth: TEAM_W, textAlign: 'left', paddingLeft: 14 }}>
                       TEAM
                     </th>
                     {cols.map((c) => (
@@ -118,7 +114,7 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
                     const cell: CSSProperties = { borderBottom: '1px solid var(--color-divider)', background: bg };
                     return (
                       <tr key={t.franchiseId} aria-current={mine ? 'true' : undefined}>
-                        <th scope="row" style={{ ...cell, ...frozen(bg), padding: 0, width: TEAM_W, minWidth: TEAM_W, maxWidth: TEAM_W, textAlign: 'left', fontWeight: 'normal' }}>
+                        <th scope="row" style={{ ...cell, ...frozen(gi, bg), padding: 0, width: TEAM_W, minWidth: TEAM_W, maxWidth: TEAM_W, textAlign: 'left', fontWeight: 'normal' }}>
                           <TeamCell team={t} mine={mine} />
                         </th>
                         {cols.map((c) => (
