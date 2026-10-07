@@ -160,6 +160,11 @@ export interface StandingsTeamView {
   streak: string;
   avgPf: string;
   avgPa: string;
+  /** Victory points, when the league uses them; null otherwise. */
+  vp: number | null;
+  /** Victory points behind the division leader. */
+  vpBack: string;
+  icon: string | null;
 }
 
 export interface StandingsView {
