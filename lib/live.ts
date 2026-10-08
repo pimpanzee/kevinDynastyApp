@@ -159,3 +159,111 @@ export function applyStatsToDetail(view: MatchupDetailView, stats: Record<string
   const patchRows = (rows: BoxRowView[]) => rows.map((r) => ({ ...r, home: patch(r.home), away: patch(r.away) }));
   return { ...view, starters: patchRows(view.starters), bench: patchRows(view.bench) };
 }
+
+/* ── Lineups ────────────────────────────────────────────────────────────── */
+
+/**
+ * The relay's liveScoring marks each player starter or bench as soon as an
+ * owner sets a lineup — before kickoff too — so lineup changes reach the page
+ * within minutes instead of waiting for the next build. These re-split the
+ * prebuilt rows (and, before kickoff, the projected totals) to match.
+ */
+
+/** A franchise's current starters, or null when it hasn't set any. */
+function startersOf(f: LiveFranchise | undefined): Set<string> | null {
+  if (!f) return null;
+  const ids = Object.entries(f.players).filter(([, [, starter]]) => starter).map(([id]) => id);
+  return ids.length ? new Set(ids) : null;
+}
+
+/** Before kickoff: projected total, YTP and odds from the submitted starters. */
+function preSide(side: SideView, starters: Set<string> | null): { view: SideView; projected: number } | null {
+  if (!starters || !side.projections) return null;
+  const projected = Number([...starters].reduce((t, id) => t + (side.projections![id] ?? 0), 0).toFixed(2));
+  const record = side.meta.split(' · ')[0];
+  return {
+    projected,
+    view: { ...side, num: fmtScore(projected), scoreValue: projected, meta: `${record} · ${starters.size} YTP` },
+  };
+}
+
+export function applyLineupsToWeek(view: WeekView, live: LiveData): WeekView {
+  if (live.week !== view.week || view.phase !== 'pre') return view;
+  const matchups = view.matchups.map((m): MatchupView => {
+    const h = preSide(m.home, startersOf(live.franchises[m.home.franchiseId]));
+    const a = preSide(m.away, startersOf(live.franchises[m.away.franchiseId]));
+    if (!h && !a) return m;
+    const home = h?.view ?? m.home;
+    const away = a?.view ?? m.away;
+    [home.win, away.win] = winPct(home.scoreValue, away.scoreValue);
+    return { ...m, home, away };
+  });
+  return { ...view, matchups };
+}
+
+const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE'];
+const positionRank = (pos: string) => {
+  const i = POSITION_ORDER.indexOf(pos);
+  return i === -1 ? POSITION_ORDER.length : i;
+};
+
+/** Pair the two sides into home | POS | away rows, as the server does. */
+function pairRows(home: BoxPlayerView[], away: BoxPlayerView[], bench: boolean): BoxRowView[] {
+  const empty: BoxPlayerView = { name: '', line: '', pts: '', proj: '' };
+  const rows: BoxRowView[] = [];
+  for (let i = 0; i < Math.max(home.length, away.length); i++) {
+    const h = home[i];
+    const a = away[i];
+    const hp = h?.live?.position ?? '';
+    const ap = a?.live?.position ?? '';
+    const pos = bench ? 'BN' : h && a ? (hp === ap ? hp : `${hp}/${ap}`) : hp || ap;
+    rows.push({ pos, home: h ?? empty, away: a ?? empty });
+  }
+  return rows;
+}
+
+export function applyLineupsToDetail(view: MatchupDetailView, live: LiveData): MatchupDetailView {
+  if (live.week !== view.week || view.phase === 'final') return view;
+  const homeStarters = startersOf(live.franchises[view.home.franchiseId]);
+  const awayStarters = startersOf(live.franchises[view.away.franchiseId]);
+  if (!homeStarters && !awayStarters) return view;
+
+  const pre = view.phase === 'pre';
+  const points = (p: BoxPlayerView) =>
+    pre ? Number(p.proj.replace(/[^\d.-]/g, '')) || 0 : (p.ptsExact ?? (Number(p.pts) || 0));
+  const order = (a: BoxPlayerView, b: BoxPlayerView) =>
+    positionRank(a.live?.position ?? '') - positionRank(b.live?.position ?? '') || points(b) - points(a);
+
+  const split = (side: 'home' | 'away', starters: Set<string> | null) => {
+    const all = [...view.starters, ...view.bench].map((r) => r[side]).filter((p) => p.live);
+    if (!starters) {
+      return {
+        starters: view.starters.map((r) => r[side]).filter((p) => p.name),
+        bench: view.bench.map((r) => r[side]).filter((p) => p.name),
+      };
+    }
+    return {
+      starters: all.filter((p) => starters.has(p.live!.id)).sort(order),
+      bench: all.filter((p) => !starters.has(p.live!.id)).sort(order),
+    };
+  };
+  const home = split('home', homeStarters);
+  const away = split('away', awayStarters);
+
+  const next: MatchupDetailView = {
+    ...view,
+    starters: pairRows(home.starters, away.starters, false),
+    bench: pairRows(home.bench, away.bench, true),
+  };
+  if (pre) {
+    const h = preSide(view.home, homeStarters);
+    const a = preSide(view.away, awayStarters);
+    next.home = h?.view ?? view.home;
+    next.away = a?.view ?? view.away;
+    const [hw, aw] = winPct(next.home.scoreValue, next.away.scoreValue);
+    next.home = { ...next.home, win: hw };
+    next.away = { ...next.away, win: aw };
+    next.bar = hw;
+  }
+  return next;
+}

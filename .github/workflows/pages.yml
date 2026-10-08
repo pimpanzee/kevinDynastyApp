@@ -1,12 +1,13 @@
 name: Deploy to GitHub Pages
 
 # The site is a static export: MFL is read at build time, so it is rebuilt on
-# a schedule to pick up new scores, standings and roster moves.
+# a schedule to pick up new scores, standings and roster moves. Hourly;
+# lineups and live scores don't wait for it (they come through worker/).
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '17 */3 * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:

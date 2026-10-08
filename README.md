@@ -28,7 +28,7 @@ cache); `npm start` serves it.
 The site is published to GitHub Pages by `.github/workflows/pages.yml`. Pages
 cannot run a server, so the app is a static export: every screen is rendered
 from MFL at build time, and the workflow rebuilds it on every push to `main`,
-every three hours, and on demand (Actions → Deploy to GitHub Pages → Run
+every hour, and on demand (Actions → Deploy to GitHub Pages → Run
 workflow).
 
 One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
@@ -41,8 +41,10 @@ variables → Actions → Variables), falling back to the `.env.example` values:
 the live 2026 season, set `MFL_SEASON=2026` and `MFL_SIM_NOW=live`.
 
 Because pages are prebuilt, the published site shows what MFL said at the last
-build — up to three hours old — and the matchup screens cover the weeks the
-week picker offers.
+build — up to an hour old — and the matchup screens cover the weeks the
+week picker offers. Lineups and live scores are the exception: until a week is
+over, the matchup screens read them from the live relay (worker/) every minute
+or two, so a lineup change shows within a couple of minutes.
 
 ## Home Screen widget
 

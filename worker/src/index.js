@@ -22,7 +22,7 @@ const MAX_WEEK = 22;
 const BACKOFF_MS = 2 * 60 * 1000;
 /** How often to re-read ESPN's play-by-play for games in progress. */
 const PLAYS_TTL_MS = 2 * 60 * 1000;
-/** How often to re-read the site's widget context (rebuilt every few hours). */
+/** How often to re-read the site's widget context (rebuilt hourly). */
 const CONTEXT_TTL_MS = 10 * 60 * 1000;
 /** Plays the widget shows at most. */
 const MAX_PLAYS = 8;

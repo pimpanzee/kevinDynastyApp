@@ -12,7 +12,7 @@ import ScoreHeader, { NO_SCORE } from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
 import { barWidth } from '@/lib/format';
-import { applyLiveToWeek } from '@/lib/live';
+import { applyLineupsToWeek, applyLiveToWeek } from '@/lib/live';
 import { personalizeWeek, useMyTeam } from '@/lib/myTeam';
 import type { MatchupView, Phase, SideView, WeekView } from '@/lib/types';
 import { useLive } from '@/lib/useLive';
@@ -41,7 +41,9 @@ function scoreLines(side: SideView, state: GameState): { num: string; sub: strin
 export default function MatchupsScreen({ view: built }: { view: WeekView }) {
   const live = useLive(built.week, built.liveWindow);
   const team = useMyTeam(built.myFranchiseId);
-  const view = personalizeWeek(live ? applyLiveToWeek(built, live) : built, team);
+  // Scores once games are under way; lineups (and pre-game projections) any time.
+  const scored = live?.started ? applyLiveToWeek(built, live) : built;
+  const view = personalizeWeek(live ? applyLineupsToWeek(scored, live) : scored, team);
   const router = useRouter();
   const [weekOpen, setWeekOpen] = useState(false);
 
