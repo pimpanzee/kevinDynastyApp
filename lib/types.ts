@@ -229,3 +229,43 @@ export interface PlayersData {
   players: PlayerRow[];
   builtAt: string;
 }
+
+/* ── Player card ─────────────────────────────────────────────────────────── */
+
+export interface PlayerCardWeek {
+  week: number;
+  /** "@ BUF" away, "BUF" at home; null on his bye. */
+  opp: string | null;
+  /** True for weeks not yet played. */
+  future: boolean;
+  /** Null when he didn't play (or the week is ahead). */
+  game: {
+    /** MFL's points, in this league's scoring. */
+    fpts: number;
+    /** Position rank that week by MFL points. */
+    rank: number | null;
+    /** Share of the team's offensive snaps, 0–100. */
+    snp: number | null;
+    /** Sleeper stat keys; zeros omitted. */
+    stats: Record<string, number>;
+  } | null;
+}
+
+export interface PlayerCardData {
+  id: string;
+  name: string;
+  pos: 'QB' | 'RB' | 'WR' | 'TE';
+  nflTeam: string;
+  jersey?: number;
+  /** Sleeper's headshot; the card falls back to initials if it fails. */
+  headshot?: string;
+  bio: { age?: number; height?: number; weight?: number; exp?: number };
+  injury?: string;
+  bye: number | null;
+  /** Franchise name, or absent when he's on waivers. */
+  owner?: { id: string; name: string };
+  /** Rostered players only. `code` is MFL's contractStatus, shown as-is. */
+  contract?: { salary: number; years: number; code: string; status: 'Active' | 'Taxi' | 'IR' };
+  season: { gp: number; fpts: number; rank: number | null };
+  log: PlayerCardWeek[];
+}
