@@ -1,8 +1,9 @@
 # The Liam
 
 A mobile-web hub for the MyFantasyLeague dynasty league **The Kevin** (league
-`63396`). Four screens — weekly matchups, a matchup box score, franchise
-rosters and league standings — built to the Modernist design handoff in
+`63396`). Weekly matchups, a matchup box score, franchise rosters, a player
+browser and league standings, plus a More tab (the in-season transaction log,
+settings and guides) — built to the Modernist design handoff in
 `design_handoff_gridlock/` and wired to the live MFL API.
 
 ## Running it

@@ -269,3 +269,62 @@ export interface PlayerCardData {
   season: { gp: number; fpts: number; rank: number | null };
   log: PlayerCardWeek[];
 }
+
+/* ── Transactions ────────────────────────────────────────────────────────── */
+
+export interface TxPlayer {
+  type: 'player';
+  id: string;
+  /** "Jonathan Taylor", or "Unknown player" for an id the player database lacks. */
+  name: string;
+  /** Empty when unknown. */
+  pos: string;
+  nflTeam: string;
+  injury?: string;
+  /** Whether a player card was built for him, so the name can open it. */
+  card: boolean;
+}
+
+export interface TxPick {
+  type: 'pick';
+  /** "2027 1st · Nosmo King's" */
+  label: string;
+}
+
+export type TxAsset = TxPlayer | TxPick;
+
+/**
+ * One in-season roster move. For IR and taxi moves, `drops` went onto IR or
+ * the taxi squad and `adds` came back off it to the active roster.
+ */
+export interface TxMove {
+  id: string;
+  kind: 'waivers' | 'add' | 'drop' | 'trade' | 'ir' | 'taxi';
+  /** Epoch seconds. Waiver claims from one run share the run's timestamp. */
+  timestamp: number;
+  /** The franchise that made the move; for a trade, the first side. */
+  franchiseId: string;
+  adds: TxPlayer[];
+  drops: TxPlayer[];
+  /** Winning blind bid, in dollars. */
+  bid?: number;
+  trade?: { sides: Array<{ franchiseId: string; gave: TxAsset[] }> };
+  byCommish?: boolean;
+  /** The NFL week the move counts toward: the week being played, or the next one between weeks. */
+  week: number;
+  /** "WED OCT 7" (ET). */
+  day: string;
+  /** "WED OCT 7 · 7:00 PM" (ET). */
+  when: string;
+}
+
+export interface TransactionsData {
+  /** The NFL week in progress or up next at build time — "THIS WEEK". */
+  currentWeek: number;
+  franchises: Array<{ id: string; name: string; abbrev: string; icon: string | null }>;
+  /** The build's default team; the viewer's own choice replaces it in the browser. */
+  myFranchiseId: string;
+  /** Newest first. */
+  moves: TxMove[];
+  builtAt: string;
+}
