@@ -7,6 +7,10 @@
   --color-text: #201e1d;
   --color-accent: #ec3013;
   --color-accent-2: #e15b47;
+  /* Game-log shading on the player card: above, near and below a player's own average. */
+  --color-good-tint: #d6e9cc;
+  --color-mid-tint: #f1e4b5;
+  --color-bad-tint: #f0cdc6;
   --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
 
   /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the

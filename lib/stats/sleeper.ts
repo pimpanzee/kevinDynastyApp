@@ -158,10 +158,13 @@ export async function getScoringRules(season: string = SEASON): Promise<RuleSet>
   return parseRules(asArray(body.rules?.positionRules));
 }
 
+/** Kept beyond the scoring keys: games played, return counts and snaps, for the player card. */
+const TABLE_EXTRA = ['gp', 'kr', 'pr', 'off_snp', 'tm_off_snp'];
+
 /**
  * A whole Sleeper table — one week's stats or projections, or season-to-date
  * stats when `week` is null — keyed by Sleeper id and trimmed to the keys
- * scoring uses plus games played.
+ * scoring uses plus TABLE_EXTRA.
  */
 export async function getSleeperTable(
   kind: 'stats' | 'projections',
@@ -170,7 +173,7 @@ export async function getSleeperTable(
   season: string = SEASON,
 ): Promise<Record<string, Stats>> {
   return cached(
-    `sleeper:${kind}:${season}:${week ?? 'season'}`,
+    `sleeper2:${kind}:${season}:${week ?? 'season'}`,
     settled ? TTL.FINAL_RESULTS : TTL.LIVE,
     async () => {
       const body = await getJson<Record<string, Stats>>(
@@ -179,7 +182,7 @@ export async function getSleeperTable(
       const trimmed: Record<string, Stats> = {};
       for (const [id, s] of Object.entries(body)) {
         const t = trimStats(s);
-        if (s.gp !== undefined) t.gp = s.gp;
+        for (const k of TABLE_EXTRA) if (s[k] !== undefined) t[k] = s[k];
         if (Object.keys(t).length) trimmed[id] = t;
       }
       return trimmed;

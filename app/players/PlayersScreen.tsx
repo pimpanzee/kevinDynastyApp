@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav';
 import HeaderBar from '@/components/HeaderBar';
 import InjuryTag from '@/components/InjuryTag';
 import PhoneFrame from '@/components/PhoneFrame';
+import { PlayerLink } from '@/components/PlayerCard';
 import StatusBar from '@/components/StatusBar';
 import { useMyTeam } from '@/lib/myTeam';
 import { NFL_COLORS } from '@/lib/nflColors';
@@ -297,7 +298,7 @@ function Row({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ font: '600 13.5px/1.2 var(--font-body)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {player.name}
+              <PlayerLink playerId={player.id}>{player.name}</PlayerLink>
             </span>
             <InjuryTag tag={player.injury} />
           </div>

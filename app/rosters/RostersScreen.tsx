@@ -6,6 +6,7 @@ import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
 import { Chevron, SectionTitle, StatCell, StickySectionHeader } from '@/components/ListChrome';
 import InjuryTag from '@/components/InjuryTag';
 import PhoneFrame from '@/components/PhoneFrame';
+import { PlayerLink } from '@/components/PlayerCard';
 import StatusBar from '@/components/StatusBar';
 import { useMyTeam } from '@/lib/myTeam';
 import type { RosterPlayerView, RosterView } from '@/lib/types';
@@ -204,7 +205,7 @@ function PlayerRow({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ font: '600 13.5px/1.2 var(--font-body)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {player.name}
+              <PlayerLink playerId={player.playerId}>{player.name}</PlayerLink>
             </div>
             <InjuryTag tag={player.injury} />
           </div>

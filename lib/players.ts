@@ -37,7 +37,7 @@ function shown(s: Stats | undefined, round: boolean): PlayerStats {
 }
 
 /** MFL fantasy points for every player who scored in `week` (a number, or YTD). */
-async function mflScores(week: number | 'YTD', settled: boolean): Promise<Map<string, number>> {
+export async function mflScores(week: number | 'YTD', settled: boolean): Promise<Map<string, number>> {
   const body = await mflGet<{ playerScores?: { playerScore?: Array<{ id?: string; score?: string }> | { id?: string; score?: string } } }>(
     'playerScores',
     { params: { W: week }, ttl: settled ? TTL.FINAL_RESULTS : TTL.STANDINGS, cacheKey: `scores-all:${SEASON}:${week}` },

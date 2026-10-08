@@ -69,3 +69,32 @@ const UNKNOWN: Player = { id: '', name: 'Unknown player', fullName: 'Unknown pla
 export function lookup(players: Map<string, Player>, id: string): Player {
   return players.get(id) ?? { ...UNKNOWN, id };
 }
+
+export interface PlayerDetails {
+  jersey?: number;
+  /** Inches. */
+  height?: number;
+  /** Pounds. */
+  weight?: number;
+  /** Epoch seconds. */
+  birthdate?: number;
+  draftYear?: number;
+}
+
+/** Bio fields from the detailed player export, by MFL id. Shares the cached export the Sleeper join reads. */
+export async function getPlayerDetails(season: string = SEASON): Promise<Map<string, PlayerDetails>> {
+  const body = await mflGet<{ players?: { player?: RawDetails | RawDetails[] } }>('players', {
+    params: { DETAILS: 1 },
+    ttl: TTL.PLAYERS,
+    season,
+    cacheKey: `players-details:${season}`,
+  });
+  const n = (v?: string) => (v && Number(v) > 0 ? Number(v) : undefined);
+  const out = new Map<string, PlayerDetails>();
+  for (const p of asArray(body.players?.player)) {
+    if (!p.id) continue;
+    out.set(p.id, { jersey: n(p.jersey), height: n(p.height), weight: n(p.weight), birthdate: n(p.birthdate), draftYear: n(p.draft_year) });
+  }
+  return out;
+}
+interface RawDetails { id?: string; jersey?: string; height?: string; weight?: string; birthdate?: string; draft_year?: string }

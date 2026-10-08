@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { PlayerCardProvider } from '@/components/PlayerCard';
 import UpdateCheck from '@/components/UpdateCheck';
 import './globals.css';
 
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {children}
+        <PlayerCardProvider>{children}</PlayerCardProvider>
         <UpdateCheck />
       </body>
     </html>
