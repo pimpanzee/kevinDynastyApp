@@ -75,17 +75,20 @@ interface RawResultSide {
 interface RawResultPlayer { id?: string; score?: string; status?: string }
 
 /**
- * Box scores for one week. Returns null when the week has not been played —
- * MFL answers with an error rather than an empty body, which is not a failure.
+ * Box scores for one week. Before kickoff they carry each franchise's
+ * submitted lineup (starters, no points yet). Returns null when MFL has
+ * nothing for the week — it answers with an error, which is not a failure.
+ *
+ * `settled`: the week is over. Only then is it cached hard; until then
+ * lineups and scores still change.
  */
-export async function getWeeklyResults(week: number, season: string = SEASON): Promise<ResultSide[][] | null> {
+export async function getWeeklyResults(week: number, settled = true, season: string = SEASON): Promise<ResultSide[][] | null> {
   try {
     const body = await mflGet<RawResults>('weeklyResults', {
       params: { W: week },
-      // A finished week never changes, so it can be cached hard.
-      ttl: TTL.FINAL_RESULTS,
+      ttl: settled ? TTL.FINAL_RESULTS : TTL.LIVE,
       season,
-      cacheKey: `weeklyResults:${season}:${week}`,
+      cacheKey: `weeklyResults2:${season}:${week}${settled ? '' : ':open'}`,
     });
 
     const matchups = asArray(body.weeklyResults?.matchup);
