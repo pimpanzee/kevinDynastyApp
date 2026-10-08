@@ -11,7 +11,7 @@ import { getLeagueSchedule, getWeeklyResults, type ResultSide } from './matchups
 import { getInjuries } from './injuries';
 import { getPlayers, lookup, type Player } from './players';
 import { getRosters, getSalaryAdjustments } from './rosters';
-import { currentWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
+import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
 import { getProjections, getSeasonPoints } from './scores';
 import { scoreBreakdown, statLine, type Breakdown, type RuleSet, type Stats } from '@/lib/scoring';
 import { getScoringRules, getSleeperIds, getWeekStats, sleeperStatsUrl } from '@/lib/stats/sleeper';
@@ -35,6 +35,8 @@ interface Context {
   players: Map<string, Player>;
   nfl: NflWeek[];
   current: number;
+  /** The week Matchups opens on: `current`, or the next one from the Wednesday before it. */
+  display: number;
   /** Highest week with every game finished — the standings cut-off. */
   completed: number;
 }
@@ -49,6 +51,7 @@ async function loadContext(nowOverride?: string | null): Promise<Context> {
     players,
     nfl,
     current: currentWeek(nfl, now.getTime()),
+    display: displayWeek(nfl, now.getTime()),
     completed: lastCompletedWeek(nfl, now.getTime()),
   };
 }
@@ -99,7 +102,8 @@ function projectionMap(
 
 /** Weeks the picker offers: next, current, and the two most recent. */
 function weekOptions(ctx: Context, { notes: results, byTeam }: WeekNotes): WeekOption[] {
-  const { league, current } = ctx;
+  // Centred on the week Matchups opens on, which turns over on Wednesdays.
+  const { league, display: current } = ctx;
   const candidates = [current + 1, current, current - 1, current - 2].filter(
     (n) => n >= league.startWeek && n <= league.endWeek,
   );
@@ -190,7 +194,7 @@ function buildSide(
 /** Everything needed to render one week's matchups. */
 export async function getWeekView(week: number | undefined, nowOverride?: string | null): Promise<WeekView> {
   const ctx = await loadContext(nowOverride);
-  const target = week && Number.isFinite(week) ? week : ctx.current;
+  const target = week && Number.isFinite(week) ? week : ctx.display;
   const phase = weekPhase(ctx.nfl, target, ctx.now);
 
   const [schedule, standings, rosters] = await Promise.all([
@@ -338,7 +342,7 @@ interface WeekNotes {
 async function weekNotes(ctx: Context): Promise<WeekNotes> {
   const notes = new Map<number, string>();
   const byTeam = new Map<number, Record<string, string>>();
-  const weeks = [ctx.current + 1, ctx.current, ctx.current - 1, ctx.current - 2].filter(
+  const weeks = [ctx.display + 1, ctx.display, ctx.display - 1, ctx.display - 2].filter(
     (n) => n >= ctx.league.startWeek && n <= ctx.league.endWeek,
   );
 

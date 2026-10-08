@@ -1,6 +1,6 @@
 import { SEASON } from '@/lib/config';
 import { TTL } from './cache';
-import { asArray, mflGet, num } from './client';
+import { asArray, MflError, mflGet, num } from './client';
 
 /**
  * Franchise rosters, including this league's dynasty contract fields (salary,
@@ -31,12 +31,21 @@ interface RawSlot {
 
 /** All franchises' rosters in one request, keyed by franchise id. */
 export async function getRosters(season: string = SEASON, week?: number): Promise<Map<string, RosterSlot[]>> {
-  const body = await mflGet<RawRosters>('rosters', {
-    params: { W: week },
-    ttl: TTL.ROSTERS,
-    season,
-    cacheKey: `rosters:${season}:${week ?? 'current'}`,
-  });
+  const read = (w?: number) =>
+    mflGet<RawRosters>('rosters', {
+      params: { W: w },
+      ttl: TTL.ROSTERS,
+      season,
+      cacheKey: `rosters:${season}:${w ?? 'current'}`,
+    });
+  let body: RawRosters;
+  try {
+    body = await read(week);
+  } catch (e) {
+    // MFL has no rosters for weeks past its upcoming one; today's are the best guess.
+    if (week === undefined || !(e instanceof MflError) || !/invalid week/i.test(e.message)) throw e;
+    body = await read();
+  }
 
   const out = new Map<string, RosterSlot[]>();
   for (const f of asArray(body.rosters?.franchise)) {
