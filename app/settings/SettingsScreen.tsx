@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
+import MenuLink, { menuRowStyle as rowStyle } from '@/components/MenuLink';
 import PhoneFrame from '@/components/PhoneFrame';
 import StatusBar from '@/components/StatusBar';
 import TeamAvatar from '@/components/TeamAvatar';
@@ -26,12 +26,6 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 export function TeamBadge({ team, size = 30 }: { team: FranchiseOption; size?: number }) {
   return <TeamAvatar name={team.name} icon={team.icon} size={size} />;
 }
-
-const rowStyle = {
-  display: 'flex', alignItems: 'center', gap: 12, minHeight: 52, padding: '8px 14px', width: '100%',
-  cursor: 'pointer', background: 'none', borderWidth: '0 0 1px', borderStyle: 'solid', borderColor: 'var(--color-divider)',
-  textAlign: 'left' as const, color: 'var(--color-text)', font: 'inherit',
-};
 
 export default function SettingsScreen({ franchises, defaultTeam }: { franchises: FranchiseOption[]; defaultTeam: string }) {
   const team = useMyTeam(defaultTeam);
@@ -96,22 +90,10 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
 
         <SectionLabel>GUIDES</SectionLabel>
         <div style={{ borderTop: '1px solid var(--color-divider)' }}>
-          <GuideLink href="/settings/install/" title="Install the app" sub="Add The Liam to your Home Screen" />
-          <GuideLink href="/widget/" title="Home Screen widget" sub="Live score and key plays on your Home or Lock Screen" />
+          <MenuLink href="/settings/install/" title="Install the app" sub="Add The Liam to your Home Screen" />
+          <MenuLink href="/widget/" title="Home Screen widget" sub="Live score and key plays on your Home or Lock Screen" />
         </div>
       </div>
     </PhoneFrame>
-  );
-}
-
-function GuideLink({ href, title, sub }: { href: string; title: string; sub: string }) {
-  return (
-    <Link href={href} style={rowStyle}>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>{title}</span>
-        <span style={{ display: 'block', fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 2 }}>{sub}</span>
-      </span>
-      <span aria-hidden style={{ font: '800 14px var(--font-heading)', color: 'var(--color-neutral-600)' }}>›</span>
-    </Link>
   );
 }

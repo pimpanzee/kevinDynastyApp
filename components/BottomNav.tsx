@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 
 /**
- * Four-tab bottom bar. The active tab is derived from the current path, so
- * there is no per-page `active` prop that can drift out of sync.
+ * Five-tab bottom bar. The active tab is derived from the current path, so
+ * there is no per-page `active` prop that can drift out of sync; every page
+ * under /more/ lights the More tab.
  *
  * Matchup Detail deliberately does not render this bar — it is a drill-in,
  * not a tab (see the handoff README).
@@ -46,11 +47,20 @@ const StandingsIcon = (
   </svg>
 );
 
+const MoreIcon = (
+  <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="5" cy="12" r="1.25" />
+    <circle cx="12" cy="12" r="1.25" />
+    <circle cx="19" cy="12" r="1.25" />
+  </svg>
+);
+
 const TABS: Array<{ href: string; label: string; icon: ReactNode }> = [
   { href: '/matchups', label: 'MATCHUPS', icon: MatchupsIcon },
   { href: '/rosters', label: 'ROSTERS', icon: RostersIcon },
   { href: '/players', label: 'PLAYERS', icon: PlayersIcon },
   { href: '/standings', label: 'STANDINGS', icon: StandingsIcon },
+  { href: '/more', label: 'MORE', icon: MoreIcon },
 ];
 
 /**
@@ -72,7 +82,8 @@ const tabStyle = (active: boolean): CSSProperties => ({
   alignItems: 'center',
   justifyContent: 'center',
   gap: GAP,
-  padding: '0 4px',
+  padding: '0 2px',
+  minWidth: 0,
   borderTop: `3px solid ${active ? 'var(--color-accent)' : 'transparent'}`,
   marginTop: -3,
   color: active ? 'var(--color-text)' : 'var(--color-neutral-600)',
@@ -85,7 +96,8 @@ export default function BottomNav() {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${TABS.length},1fr)`,
+        // minmax(0, …): a long label can't widen its column past a fifth.
+        gridTemplateColumns: `repeat(${TABS.length},minmax(0,1fr))`,
         gridTemplateRows: '1fr',
         borderTop: '2px solid var(--color-text)',
         boxSizing: 'content-box',
