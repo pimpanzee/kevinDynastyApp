@@ -21,8 +21,9 @@ import { computeStandings, gamesBack, sortDivision, vpBack, type StandingsRow } 
  * Assembles MFL responses into the view models the screens render.
  *
  * The governing rule is the simulated clock: nothing that had not happened by
- * `now` may reach the UI. A week after `now` is read from the schedule and
- * projections only — its results are never fetched — and the week containing
+ * `now` may reach the UI. A week after `now` is read from the schedule,
+ * projections and the submitted lineups only — its box scores' points are
+ * never used — and the week containing
  * `now` has its box score gated player by player on whether that player's NFL
  * game had kicked off yet.
  */
@@ -199,7 +200,9 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
   ]);
 
   const pairs = schedule.get(target) ?? [];
-  const results = phase === 'pre' ? null : await getWeeklyResults(target);
+  // Before kickoff MFL's box scores hold just the submitted lineups.
+  const boxes = await getWeeklyResults(target, phase === 'final');
+  const results = phase === 'pre' ? null : boxes;
 
   const nflWeek = ctx.nfl.find((w) => w.week === target);
   const kickoffs = teamKickoffs(nflWeek);
@@ -210,7 +213,7 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
   const projections = await getProjections(target, allPlayerIds);
 
   const byFranchise = new Map<string, ResultSide>();
-  for (const m of results ?? []) for (const side of m) byFranchise.set(side.franchiseId, side);
+  for (const m of boxes ?? []) for (const side of m) byFranchise.set(side.franchiseId, side);
 
   const build = (franchiseId: string): BuiltSide => {
     const result = byFranchise.get(franchiseId);
@@ -248,7 +251,9 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
       );
     }
 
-    // Upcoming week: no lineup has been submitted, so project the best legal one.
+    // Upcoming week: the lineup the owner submitted, or, if none is set,
+    // the best legal one by projection.
+    const submitted = submittedStarters(result);
     const pool = (rosters.get(franchiseId) ?? [])
       .filter((s) => s.status === 'ROSTER')
       .map((s) => ({
@@ -256,7 +261,9 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
         position: lookup(ctx.players, s.playerId).position,
         points: projections.get(s.playerId) ?? 0,
       }));
-    const lineup = bestLineup(pool, ctx.league.lineup);
+    const lineup = submitted
+      ? pool.filter((p) => submitted.has(p.id))
+      : bestLineup(pool, ctx.league.lineup);
     return buildSide(franchiseId, ctx, standings, 'pre', 0, sumPoints(lineup), lineup.length);
   };
 
@@ -374,6 +381,12 @@ async function weekNotes(ctx: Context): Promise<WeekNotes> {
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE'];
 
+/** A franchise's submitted starters for a week not yet played, or null if it hasn't set any. */
+function submittedStarters(result: ResultSide | undefined): Set<string> | null {
+  const ids = result?.players.filter((p) => p.started).map((p) => p.playerId) ?? [];
+  return ids.length ? new Set(ids) : null;
+}
+
 function positionRank(pos: string): number {
   const i = POSITION_ORDER.indexOf(pos);
   return i === -1 ? POSITION_ORDER.length : i;
@@ -448,7 +461,9 @@ export async function getMatchupDetailView(
   const mi = Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), ordered.length - 1);
   const pair = ordered[mi];
 
-  const results = phase === 'pre' ? null : await getWeeklyResults(week);
+  // Before kickoff MFL's box scores hold just the submitted lineups.
+  const boxes = await getWeeklyResults(week, phase === 'final');
+  const results = phase === 'pre' ? null : boxes;
   const nflWeek = ctx.nfl.find((w) => w.week === week);
   const kickoffs = teamKickoffs(nflWeek);
 
@@ -456,7 +471,7 @@ export async function getMatchupDetailView(
   const projections = await getProjections(week, allPlayerIds);
 
   const byFranchise = new Map<string, ResultSide>();
-  for (const m of results ?? []) for (const side of m) byFranchise.set(side.franchiseId, side);
+  for (const m of boxes ?? []) for (const side of m) byFranchise.set(side.franchiseId, side);
 
   const pollWindow = liveWindow(ctx, week, phase);
   // Played weeks score their box-score players; a week that can still go live
@@ -507,14 +522,14 @@ export async function getMatchupDetailView(
       return { starters, bench };
     }
 
-    // Upcoming: project a lineup; nobody has points yet.
+    // Upcoming: the submitted lineup (or a projected one if none is set); nobody has points yet.
     const slots = (rosters.get(franchiseId) ?? []).filter((s) => s.status === 'ROSTER');
     const pool = slots.map((s) => ({
       id: s.playerId,
       position: lookup(ctx.players, s.playerId).position,
       points: projections.get(s.playerId) ?? 0,
     }));
-    const starting = new Set(bestLineup(pool, ctx.league.lineup).map((p) => p.id));
+    const starting = submittedStarters(result) ?? new Set(bestLineup(pool, ctx.league.lineup).map((p) => p.id));
     const toEntry = (playerId: string): BoxEntry => {
       const player = lookup(ctx.players, playerId);
       const kickoff = kickoffs.get(player.team);
