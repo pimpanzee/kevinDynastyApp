@@ -661,7 +661,9 @@ export async function getRosterView(franchiseId?: string, nowOverride?: string |
   const target = franchiseId && ctx.league.franchises.some((f) => f.id === franchiseId) ? franchiseId : FRANCHISE_ID;
 
   const [rosters, adjustments, injuries] = await Promise.all([
-    getRosters(SEASON, ctx.current),
+    // MFL's latest rosters, not the current week's: between weeks that would
+    // be last week's snapshot, missing every move made since.
+    getRosters(SEASON),
     getSalaryAdjustments(),
     getInjuries(),
   ]);
