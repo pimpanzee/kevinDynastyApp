@@ -12,36 +12,47 @@ const LIVE_URL = process.env.NEXT_PUBLIC_LIVE_URL ?? '';
  * whoever asks, so polling faster than that only re-reads its copy.
  */
 const POLL_MS = 60 * 1000;
+/** Between games only lineups change; every couple of minutes is plenty. */
+const IDLE_POLL_MS = 2 * 60 * 1000;
+
+/** What useLive returns: the relay's data, and whether any game had kicked off when it was read. */
+export type LiveRead = LiveData & { started: boolean };
 
 /**
- * Latest live scores for `week`, polled while one of `spans` (games being
- * played) contains now and the tab is visible. Null before the first game, on
- * a simulated clock (no spans), or when no relay is configured.
+ * Latest liveScoring for `week` from the relay, polled while the tab is
+ * visible and the week isn't over: every minute while one of `spans` (games
+ * being played) contains now, every two otherwise — between games it still
+ * carries lineup changes. Null on a finished week, a simulated clock (no
+ * spans), or when no relay is configured.
  */
-export function useLive(week: number, spans: Array<[number, number]> | null): LiveData | null {
-  const [live, setLive] = useState<LiveData | null>(null);
+export function useLive(week: number, spans: Array<[number, number]> | null): LiveRead | null {
+  const [live, setLive] = useState<LiveRead | null>(null);
 
   useEffect(() => {
     if (!LIVE_URL || !spans) return;
     let cancelled = false;
     const controller = new AbortController();
 
-    const poll = async () => {
+    const inPlay = () => spans.some(([start, end]) => Date.now() >= start && Date.now() <= end);
+    let last = 0;
+    const poll = async (force = false) => {
       const now = Date.now();
-      if (document.hidden || !spans.some(([start, end]) => now >= start && now <= end)) return;
+      if (document.hidden) return;
+      if (!force && now - last < (inPlay() ? POLL_MS : IDLE_POLL_MS) - 1000) return;
+      last = now;
       try {
         const res = await fetch(`${LIVE_URL.replace(/\/$/, '')}/live?week=${week}`, { signal: controller.signal });
         if (!res.ok) return;
         const data = (await res.json()) as LiveData;
-        if (!cancelled && data.week === week) setLive(data);
+        if (!cancelled && data.week === week) setLive({ ...data, started: now >= spans[0][0] });
       } catch {
-        // A missed poll just leaves the last scores up; the next one retries.
+        // A missed poll just leaves the last data up; the next one retries.
       }
     };
 
-    poll();
-    const timer = setInterval(poll, POLL_MS);
-    const onVisible = () => { if (!document.hidden) poll(); };
+    poll(true);
+    const timer = setInterval(() => poll(), POLL_MS);
+    const onVisible = () => { if (!document.hidden) poll(true); };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;

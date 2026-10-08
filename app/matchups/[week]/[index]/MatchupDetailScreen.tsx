@@ -9,7 +9,7 @@ import ScoreHeader from '@/components/ScoreHeader';
 import ScoreSheet from '@/components/ScoreSheet';
 import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
-import { applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
+import { applyLineupsToDetail, applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
 import { useMyTeam } from '@/lib/myTeam';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView } from '@/lib/types';
 import { useLive, useLiveStats } from '@/lib/useLive';
@@ -20,7 +20,9 @@ type Open = { bench: boolean; row: number; side: 'home' | 'away' } | null;
 export default function MatchupDetailScreen({ view: built }: { view: MatchupDetailView }) {
   const live = useLive(built.week, built.liveWindow);
   const stats = useLiveStats(built.scoring?.statsUrl, built.liveWindow);
-  const scored = live ? applyLiveToDetail(built, live) : built;
+  // Scores once games are under way; lineups (and pre-game projections) any time.
+  const lived = live?.started ? applyLiveToDetail(built, live) : built;
+  const scored = live ? applyLineupsToDetail(lived, live) : lived;
   const team = useMyTeam(built.myFranchiseId);
   const isMine = built.home.franchiseId === team || built.away.franchiseId === team;
   const view = stats ? applyStatsToDetail(scored, stats) : scored;
