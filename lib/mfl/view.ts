@@ -813,7 +813,8 @@ export interface WidgetContext {
 
 export async function getWidgetContext(): Promise<WidgetContext> {
   const ctx = await loadContext();
-  const week = ctx.current;
+  // The same week Matchups opens on: the next one from the Wednesday before it.
+  const week = ctx.display;
   const [schedule, rosters] = await Promise.all([getLeagueSchedule(), getRosters(SEASON, week)]);
   // Same id list as the week view, so the projections come out of its cache.
   const allPlayerIds = [...rosters.values()].flat().map((s) => s.playerId);
