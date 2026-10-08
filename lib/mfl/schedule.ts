@@ -133,3 +133,41 @@ export function lastCompletedWeek(schedule: NflWeek[], now: number): number {
   }
   return last;
 }
+
+const ET = 'America/New_York';
+
+/** The ET calendar date (y, m 0-based, d, weekday 0=Sun) of an instant. */
+function etDate(ms: number): { y: number; m: number; d: number; dow: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: ET, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short',
+  }).formatToParts(ms);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday'));
+  return { y: Number(get('year')), m: Number(get('month')) - 1, d: Number(get('day')), dow };
+}
+
+/** Epoch ms of 00:00 ET on the given ET calendar date. */
+function etMidnight(y: number, m: number, d: number): number {
+  const guess = Date.UTC(y, m, d, 5); // 00:00 EST; corrected below for EDT
+  const shown = etDate(guess);
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: ET, hour: 'numeric', hourCycle: 'h23' }).format(guess));
+  return shown.d === d ? guess - hour * 60 * 60 * 1000 : guess;
+}
+
+/**
+ * The week the Matchups screen opens on. It moves to the next week at
+ * 00:00 ET on the Wednesday before that week's first kickoff (the Wednesday
+ * before Thursday Night Football), once every game of the current week is
+ * over — rather than waiting for Thursday's kickoff.
+ */
+export function displayWeek(schedule: NflWeek[], now: number): number {
+  const current = currentWeek(schedule, now);
+  const next = schedule.find((w) => w.week === current + 1);
+  if (!next || lastCompletedWeek(schedule, now) < current) return current;
+  const firstKick = Math.min(...next.games.map((g) => g.kickoff));
+  const k = etDate(firstKick);
+  const back = (k.dow - 3 + 7) % 7; // days back to that week's Wednesday
+  const wed = new Date(Date.UTC(k.y, k.m, k.d - back));
+  const flip = etMidnight(wed.getUTCFullYear(), wed.getUTCMonth(), wed.getUTCDate());
+  return now >= flip ? current + 1 : current;
+}
