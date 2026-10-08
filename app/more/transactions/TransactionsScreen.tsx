@@ -16,13 +16,24 @@ import type { TransactionsData, TxAsset, TxMove, TxPlayer } from '@/lib/types';
 
 /**
  * The league's in-season moves, newest first and read-only: waiver runs,
- * free-agent adds and drops, trades, IR and taxi moves. One team filter;
- * every player name opens the player card.
+ * free-agent adds and drops, trades, IR and taxi moves. Filtered by team
+ * and by kind of move; every player name opens the player card.
  */
 
 type Team = TransactionsData['franchises'][number];
 /** 'all', 'mine', or a franchise id. */
 type Filter = string;
+type Kind = 'ALL' | 'TRADES' | 'WAIVERS' | 'DROPS' | 'IR' | 'TAXI';
+
+const KINDS: Kind[] = ['ALL', 'TRADES', 'WAIVERS', 'DROPS', 'IR', 'TAXI'];
+/** Free-agent moves (drops, and the odd add/drop) count as DROPS. */
+const KIND_OF: Record<TxMove['kind'], Kind> = {
+  trade: 'TRADES', waivers: 'WAIVERS', add: 'DROPS', drop: 'DROPS', ir: 'IR', taxi: 'TAXI',
+};
+/** "No trades for Tuna Fish yet." */
+const NOUN: Record<Kind, string> = {
+  ALL: 'moves', TRADES: 'trades', WAIVERS: 'waiver claims', DROPS: 'drops', IR: 'IR moves', TAXI: 'taxi moves',
+};
 
 const PAGE = 100;
 const MINE_BG = 'color-mix(in srgb, var(--color-accent) 6%, var(--color-bg))';
@@ -71,9 +82,11 @@ export default function TransactionsScreen() {
 
   const myTeam = useMyTeam(data?.myFranchiseId ?? '');
   const [filter, setFilter] = useState<Filter>('all');
+  const [kind, setKind] = useState<Kind>('ALL');
+  const [teamOpen, setTeamOpen] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   // A new filter starts back at the top of the list.
-  useEffect(() => { setLimit(PAGE); }, [filter]);
+  useEffect(() => { setLimit(PAGE); }, [filter, kind]);
 
   // Owner icons are big remote images (one animated GIF is ~12MB). They're
   // asked for only once the feed has painted — a second animation frame
@@ -96,52 +109,72 @@ export default function TransactionsScreen() {
 
   const selected = filter === 'mine' ? myTeam : filter === 'all' ? null : filter;
   const moves = useMemo(
-    () => (data ? (selected ? data.moves.filter((m) => involves(m, selected)) : data.moves) : []),
-    [data, selected],
+    () => (data?.moves ?? []).filter((m) => (!selected || involves(m, selected)) && (kind === 'ALL' || KIND_OF[m.kind] === kind)),
+    [data, selected, kind],
   );
   const shown = useMemo(() => sections(moves.slice(0, limit)), [moves, limit]);
 
-  const chips: Array<{ id: Filter; label: string }> = [
-    { id: 'all', label: 'ALL' },
-    { id: 'mine', label: 'MY TEAM' },
-    ...(data?.franchises ?? []).map((f) => ({ id: f.id, label: f.abbrev.toUpperCase() })),
+  const options: Array<{ id: Filter; label: string; team?: Team }> = [
+    { id: 'all', label: 'All teams' },
+    { id: 'mine', label: `My team · ${team(myTeam).name}`, team: team(myTeam) },
+    ...(data?.franchises ?? []).map((f) => ({ id: f.id, label: f.name, team: team(f.id) })),
   ];
+  const current = options.find((o) => o.id === filter) ?? options[0]!;
+  const pickTeam = (id: Filter) => { setFilter(id); setTeamOpen(false); };
 
   return (
     <PhoneFrame>
       <StatusBar label="TRANSACTIONS" />
       <HeaderBar right={<HeaderLabel>TRANSACTIONS</HeaderLabel>} />
 
-      <div
-        role="radiogroup"
-        aria-label="Team"
-        style={{ flex: 'none', overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none', borderBottom: '2px solid var(--color-text)' }}
-      >
-        <div style={{ display: 'flex', gap: 6, padding: '10px 14px', width: 'max-content' }}>
-          {chips.map((c) => {
-            const on = c.id === filter;
-            const name = c.id === 'all' ? 'All teams' : c.id === 'mine' ? 'My team' : team(c.id).name;
-            return (
-              <button
-                key={c.id}
-                role="radio"
-                aria-checked={on}
-                title={name}
-                onClick={() => setFilter(c.id)}
-                style={{
-                  height: 30, padding: '0 11px', cursor: 'pointer', whiteSpace: 'nowrap',
-                  background: on ? 'var(--color-accent)' : 'none',
-                  color: on ? 'var(--color-bg)' : 'var(--color-text)',
-                  border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-divider)'}`,
-                  font: '800 11px var(--font-heading)', letterSpacing: '.06em',
-                }}
-              >
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
+      <div style={{ flex: 'none', padding: '10px 14px', borderBottom: '2px solid var(--color-text)', display: 'grid', gap: 8 }}>
+        <button
+          onClick={() => setTeamOpen((v) => !v)}
+          aria-expanded={teamOpen}
+          aria-haspopup="listbox"
+          aria-label={`Team: ${current.label}`}
+          disabled={!data}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, height: 36, width: '100%', padding: '0 10px',
+            background: 'none', border: '1px solid var(--color-divider)', cursor: 'pointer', color: 'var(--color-text)',
+            textAlign: 'left',
+          }}
+        >
+          {current.team && <TeamAvatar name={current.team.name} icon={current.team.icon} size={22} />}
+          <span style={{ flex: 1, minWidth: 0, font: '600 13.5px var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {current.label}
+          </span>
+          <span style={{ fontSize: 8 }}>▼</span>
+        </button>
+        <Seg name="Kind of move" value={kind} options={KINDS} onChange={(v) => setKind(v as Kind)} />
       </div>
+
+      {teamOpen && (
+        <div
+          role="listbox"
+          aria-label="Team"
+          style={{ flex: 'none', maxHeight: '50dvh', overflowY: 'auto', borderBottom: '2px solid var(--color-divider)', background: 'var(--color-neutral-200)' }}
+        >
+          {options.map((o) => (
+            <div
+              key={o.id}
+              role="option"
+              aria-selected={o.id === filter}
+              tabIndex={0}
+              onClick={() => pickTeam(o.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickTeam(o.id); } }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 14px',
+                borderBottom: '1px solid var(--color-divider)', fontSize: 12.5, cursor: 'pointer',
+              }}
+            >
+              {o.team ? <TeamAvatar name={o.team.name} icon={o.team.icon} size={24} /> : <span style={{ width: 24, flex: 'none' }} />}
+              <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+              <span style={{ font: '800 12px var(--font-heading)', color: 'var(--color-accent)' }}>{o.id === filter ? '✓' : ''}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {error ? (
@@ -149,7 +182,7 @@ export default function TransactionsScreen() {
         ) : !data ? (
           <Skeleton />
         ) : moves.length === 0 ? (
-          <Empty name={selected ? team(selected).name : null} />
+          <Empty name={selected ? team(selected).name : null} noun={NOUN[kind]} />
         ) : (
           <>
             {shown.map((sec) => (
@@ -192,6 +225,24 @@ export default function TransactionsScreen() {
 }
 
 /* ── Pieces ────────────────────────────────────────────────────────────── */
+
+/** The design system's segmented control, as radio buttons (as on the Players screen). */
+function Seg({ name, value, options, onChange }: { name: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  return (
+    <div className="seg" role="radiogroup" aria-label={name} style={{ display: 'flex', borderRadius: 0 }}>
+      {options.map((o) => (
+        <label
+          key={o}
+          className="seg-opt"
+          style={{ flex: 1, justifyContent: 'center', padding: '6px 2px', font: '800 10px var(--font-heading)', letterSpacing: '.04em' }}
+        >
+          <input type="radio" name={name} checked={value === o} onChange={() => onChange(o)} />
+          {o}
+        </label>
+      ))}
+    </div>
+  );
+}
 
 /** Small all-caps secondary text: positions, times, labels. */
 function Meta({ children, style }: { children: ReactNode; style?: CSSProperties }) {
@@ -415,12 +466,12 @@ function Skeleton() {
   );
 }
 
-function Empty({ name }: { name: string | null }) {
+function Empty({ name, noun }: { name: string | null; noun: string }) {
   return (
     <div style={{ padding: '24px 14px' }}>
       <div style={{ font: '800 11px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)' }}>NO MOVES</div>
       <p style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.5, color: 'var(--color-neutral-700)' }}>
-        {name ? `No moves for ${name} yet.` : 'No in-season moves yet.'}
+        {name ? `No ${noun} for ${name} yet.` : `No in-season ${noun} yet.`}
       </p>
     </div>
   );
