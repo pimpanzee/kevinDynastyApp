@@ -67,6 +67,8 @@ function liveSide(side: SideView, f: LiveFranchise | undefined): LiveSide | null
       sub: fmtScore(projected || f.score),
       meta: `${record} · ${f.ytp} YTP`,
       scoreValue: f.score,
+      projectedFinal: f.score + remaining,
+      done: f.ytp === 0 && f.playing === 0 && f.secondsRemaining === 0,
     },
   };
 }

@@ -15,8 +15,10 @@ import type { WeekView } from '@/lib/types';
  * collide are spread apart along one row and a leader line runs from each to
  * its exact score on the baseline.
  *
- * Reads the same scores the matchup rows show, so it follows the live overlay
- * and, before kickoff, the projections.
+ * Before kickoff it races the projections. Once games are under way each
+ * team is placed by its projected final (points banked plus what its starters
+ * still to play are projected to add) until all its players are done, when
+ * its actual score takes over. It follows the live overlay throughout.
  */
 
 interface Team {
@@ -114,7 +116,12 @@ export default function MedianRace({ view }: { view: WeekView }) {
     () =>
       view.matchups
         .flatMap((m) => [m.home, m.away])
-        .map((s) => ({ id: s.franchiseId, name: s.name, score: s.scoreValue, icon: s.icon }))
+        .map((s) => ({
+          id: s.franchiseId,
+          name: s.name,
+          score: !s.done && s.projectedFinal !== undefined ? s.projectedFinal : s.scoreValue,
+          icon: s.icon,
+        }))
         .sort((a, b) => b.score - a.score),
     [view.matchups],
   );
@@ -143,7 +150,7 @@ export default function MedianRace({ view }: { view: WeekView }) {
       : `${fmtScore(lastIn.score - t.score)} back of ${ordinal(qualifiers).toLowerCase()}`;
 
   const pick = teams.find((t) => t.id === selected) ?? null;
-  const phaseLabel = view.phase === 'pre' ? 'PROJECTED' : view.phase === 'live' ? 'LIVE' : 'FINAL';
+  const phaseLabel = view.phase === 'pre' ? 'PROJECTED' : view.phase === 'live' ? 'LIVE · PROJECTED' : 'FINAL';
 
   /** Nearest icon to the pointer, so a tap anywhere on the track picks one. */
   const nearest = (clientX: number) => {

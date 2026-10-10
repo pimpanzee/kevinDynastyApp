@@ -282,6 +282,12 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
     }
     const isMine = pair.franchiseIds.includes(FRANCHISE_ID);
     const decided = phase === 'final' || (phase === 'live' && home.yetToPlay === 0 && away.yetToPlay === 0);
+    if (phase !== 'pre') {
+      for (const s of [home, away]) {
+        s.view.projectedFinal = s.projectedFinal;
+        s.view.done = phase === 'final' || (s.yetToPlay === 0 && s.projectedFinal - s.live < 0.01);
+      }
+    }
 
     if (decided) {
       home.view.win = home.live >= away.live ? 'W' : 'L';
