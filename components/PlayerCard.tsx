@@ -216,6 +216,7 @@ function Sheet({ id, onClose }: { id: string; onClose: () => void }) {
           ) : (
             <>
               {data.contract && <Contract c={data.contract} />}
+              {data.espnId && <News espnId={data.espnId} />}
               <GameLog p={data} />
             </>
           )}
@@ -310,6 +311,117 @@ function Contract({ c }: { c: NonNullable<PlayerCardData['contract']> }) {
         <StatCell label="CONTRACT" value={c.code || '—'} valueFont="800 14px var(--font-heading)" />
         <StatCell label="STATUS" value={c.status} valueFont="800 14px var(--font-heading)" />
       </div>
+    </div>
+  );
+}
+
+/* ── News ───────────────────────────────────────────────────────────── */
+
+interface NewsItem { id: number; headline: string; story?: string; published: string; type?: string }
+
+/**
+ * Read when the card opens, so it's always current: through the live relay
+ * (worker/, which caches it briefly), or straight from ESPN without one.
+ */
+const RELAY = (process.env.NEXT_PUBLIC_LIVE_URL ?? '').replace(/\/$/, '');
+const newsUrl = (espnId: string) =>
+  RELAY
+    ? `${RELAY}/news?player=${encodeURIComponent(espnId)}`
+    : `https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?limit=6&playerId=${encodeURIComponent(espnId)}`;
+const newsCache = new Map<string, NewsItem[]>();
+
+/** "2h ago", "Yesterday", "Mon Oct 5". */
+function ago(iso: string): string {
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms)) return '';
+  const min = Math.round(ms / 60000);
+  if (min < 60) return `${Math.max(1, min)}m ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h}h ago`;
+  if (h < 48) return 'Yesterday';
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' }).format(Date.parse(iso));
+}
+
+function News({ espnId }: { espnId: string }) {
+  const [items, setItems] = useState<NewsItem[] | null>(newsCache.get(espnId) ?? null);
+  const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState<number | null>(null);
+  const [all, setAll] = useState(false);
+
+  useEffect(() => {
+    if (newsCache.has(espnId)) return;
+    let cancelled = false;
+    fetch(newsUrl(espnId))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((body: { feed?: NewsItem[] }) => {
+        const feed = (body.feed ?? []).filter((n) => n.headline);
+        newsCache.set(espnId, feed);
+        if (!cancelled) setItems(feed);
+      })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [espnId]);
+
+  const shown = (items ?? []).slice(0, all ? 6 : 2);
+  return (
+    <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-divider)' }}>
+      <SectionTitle>NEWS</SectionTitle>
+      {failed ? (
+        <p style={{ marginTop: 8, fontSize: 12, color: 'var(--color-neutral-600)' }}>News couldn&apos;t load right now.</p>
+      ) : !items ? (
+        <div aria-busy="true" style={{ display: 'grid', gap: 6, marginTop: 8, animation: 'blip 1.6s infinite' }}>
+          <span style={{ height: 12, width: '90%', background: 'var(--color-neutral-200)' }} />
+          <span style={{ height: 12, width: '70%', background: 'var(--color-neutral-200)' }} />
+        </div>
+      ) : items.length === 0 ? (
+        <p style={{ marginTop: 8, fontSize: 12, color: 'var(--color-neutral-600)' }}>No recent news.</p>
+      ) : (
+        <>
+          {shown.map((n) => {
+            const isOpen = open === n.id;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => setOpen(isOpen ? null : n.id)}
+                aria-expanded={isOpen}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 0, padding: '9px 0 0',
+                  color: 'inherit', font: 'inherit', cursor: n.story ? 'pointer' : 'default',
+                }}
+              >
+                <div style={{ font: '800 9px var(--font-heading)', letterSpacing: '.08em', color: 'var(--color-neutral-600)' }}>
+                  {ago(n.published).toUpperCase()}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.35, marginTop: 2 }}>{n.headline}</div>
+                {n.story && (
+                  <div
+                    style={{
+                      fontSize: 12.5, lineHeight: 1.45, color: 'var(--color-neutral-700)', marginTop: 3,
+                      ...(isOpen ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }),
+                    }}
+                  >
+                    {n.story}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+          {items.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setAll((v) => !v)}
+              style={{
+                marginTop: 8, background: 'none', border: 0, padding: 0, cursor: 'pointer',
+                font: '800 10px var(--font-heading)', letterSpacing: '.08em', color: 'var(--color-accent-700)',
+              }}
+            >
+              {all ? 'SHOW LESS' : `MORE NEWS (${Math.min(items.length, 6) - 2})`}
+            </button>
+          )}
+          <div style={{ marginTop: 8, fontSize: 9.5, color: 'var(--color-neutral-500)' }}>via ESPN{items[0]?.type ? ` · ${items[0].type}` : ''}</div>
+        </>
+      )}
     </div>
   );
 }

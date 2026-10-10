@@ -7,6 +7,10 @@
  * keeps the latest copy in memory and refreshes it at most once per
  * CACHE_SECONDS, so MFL's traffic is flat no matter how many people watch.
  *
+ * GET /news?player=ESPN_ID is a player's latest news from ESPN for the
+ * player card, trimmed and cached for NEWS_TTL_S (ESPN's API can't be relied
+ * on from the browser directly).
+ *
  * GET /widget?franchise=ID feeds the Home Screen widget (widget/): that
  * franchise's matchup with scores, projections and win odds, plus the latest
  * key plays (touchdowns and big gains) by players in it, from ESPN.
@@ -26,16 +30,26 @@ const PLAYS_TTL_MS = 2 * 60 * 1000;
 const CONTEXT_TTL_MS = 10 * 60 * 1000;
 /** Plays the widget shows at most. */
 const MAX_PLAYS = 8;
+/** How long a player's news is cached at the edge. */
+const NEWS_TTL_S = 600;
+const ESPN_NEWS = 'https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players';
+
 /** A full NFL game, as MFL counts gameSecondsRemaining. */
 const GAME_SECONDS = 3600;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const cors = corsHeaders(request.headers.get('Origin'), env);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     const url = new URL(request.url);
     if (request.method !== 'GET') return json({ error: 'Not found' }, 404, cors);
+
+    if (url.pathname === '/news') {
+      const player = url.searchParams.get('player') ?? '';
+      if (!/^\d{1,10}$/.test(player)) return json({ error: 'Bad player' }, 400, cors);
+      return news(player, cors, ctx);
+    }
 
     let target;
     if (url.pathname === '/live') {
@@ -59,6 +73,30 @@ export default {
     return new Response(res.body, { status: res.status, headers });
   },
 };
+
+/** A player's latest ESPN news, trimmed to what the card shows and cached at the edge. */
+async function news(player, cors, ctx) {
+  const cache = caches.default;
+  const key = new Request(`https://news.cache/${player}`);
+  let res = await cache.match(key);
+  if (!res) {
+    try {
+      const upstream = await fetch(`${ESPN_NEWS}?limit=6&playerId=${player}`, { headers: { Accept: 'application/json' } });
+      if (!upstream.ok) return json({ error: `ESPN news failed (${upstream.status})` }, 502, cors);
+      const body = await upstream.json();
+      const feed = (body.feed ?? [])
+        .filter((n) => n.headline)
+        .map((n) => ({ id: n.id, headline: n.headline, story: n.story ?? '', published: n.published, type: n.type ?? '' }));
+      res = json({ feed }, 200, { 'Cache-Control': `public, max-age=${NEWS_TTL_S}` });
+      ctx?.waitUntil(cache.put(key, res.clone()));
+    } catch (e) {
+      return json({ error: e.message }, 502, cors);
+    }
+  }
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
+}
 
 function validWeek(week) {
   return Number.isInteger(week) && week >= 1 && week <= MAX_WEEK;
