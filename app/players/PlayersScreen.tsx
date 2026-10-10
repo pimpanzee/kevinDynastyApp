@@ -362,7 +362,7 @@ function Avatar({ name, team }: { name: string; team: string }) {
       aria-hidden
       style={{
         width: 30, height: 30, flex: 'none', borderRadius: '50%', display: 'grid', placeItems: 'center',
-        background: NFL_COLORS[team] ?? 'var(--color-neutral-600)', color: '#fff',
+        background: NFL_COLORS[team] ?? 'var(--color-neutral-600)', color: '#fff', boxShadow: 'var(--avatar-ring, none)',
         font: '800 10.5px var(--font-heading)', letterSpacing: '.02em',
       }}
     >

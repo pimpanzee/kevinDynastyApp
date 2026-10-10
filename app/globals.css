@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
 
 :root {
+  --scrim: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
   --color-bg: #f3f2f2;
   --color-surface: #eae9e9;
   --color-text: #201e1d;
@@ -65,6 +66,109 @@
   --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
   --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
   --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+}
+
+/* Dark theme: Settings → Appearance sets data-theme on <html> ("dark" or
+   "light"); with neither, it follows the phone. Same roles, retuned for a dark
+   ground: neutrals and accent ramps run the other way, so a "-100" tint is
+   still the faint one and a "-700" text tone still reads against the page. */
+:root[data-theme="dark"] {
+  --color-bg: #161514;
+  --color-surface: #211f1e;
+  --color-text: #ece9e7;
+  --color-accent: #ff5a3c;
+  --color-accent-2: #ef6853;
+  --color-good-tint: #22341d;
+  --color-mid-tint: #3a3216;
+  --color-bad-tint: #401e18;
+  --color-divider: color-mix(in srgb, #ece9e7 28%, transparent);
+
+  --color-neutral-100: #1e1c1b;
+  --color-neutral-200: #2a2726;
+  --color-neutral-300: #3a3736;
+  --color-neutral-400: #565252;
+  --color-neutral-500: #77726f;
+  --color-neutral-600: #a39e9b;
+  --color-neutral-700: #bfbab7;
+  --color-neutral-800: #d7d3d0;
+  --color-neutral-900: #ebe8e6;
+
+  --color-accent-100: #3a1610;
+  --color-accent-200: #4e1b12;
+  --color-accent-300: #6f2214;
+  --color-accent-400: #a32b15;
+  --color-accent-500: #e0401f;
+  --color-accent-600: #ff5a3c;
+  --color-accent-700: #ff8a73;
+  --color-accent-800: #ffb3a3;
+  --color-accent-900: #ffd9d0;
+
+  --color-accent-2-100: #351711;
+  --color-accent-2-200: #4a1d15;
+  --color-accent-2-300: #6a2a1f;
+  --color-accent-2-400: #9a3b2c;
+  --color-accent-2-500: #d6563f;
+  --color-accent-2-600: #f07a66;
+  --color-accent-2-700: #ff9a88;
+  --color-accent-2-800: #ffc0b3;
+  --color-accent-2-900: #ffe0d9;
+
+  --shadow-sm: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent);
+  --shadow-md: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent), 0 4px 14px rgba(0, 0, 0, .5);
+  --shadow-lg: 0 0 0 1px color-mix(in srgb, #ece9e7 10%, transparent), 0 14px 36px rgba(0, 0, 0, .6);
+  color-scheme: dark;
+  --avatar-ring: inset 0 0 0 1px rgba(255, 255, 255, .18);
+  --scrim: rgba(0, 0, 0, .6);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #161514;
+    --color-surface: #211f1e;
+    --color-text: #ece9e7;
+    --color-accent: #ff5a3c;
+    --color-accent-2: #ef6853;
+    --color-good-tint: #22341d;
+    --color-mid-tint: #3a3216;
+    --color-bad-tint: #401e18;
+    --color-divider: color-mix(in srgb, #ece9e7 28%, transparent);
+
+    --color-neutral-100: #1e1c1b;
+    --color-neutral-200: #2a2726;
+    --color-neutral-300: #3a3736;
+    --color-neutral-400: #565252;
+    --color-neutral-500: #77726f;
+    --color-neutral-600: #a39e9b;
+    --color-neutral-700: #bfbab7;
+    --color-neutral-800: #d7d3d0;
+    --color-neutral-900: #ebe8e6;
+
+    --color-accent-100: #3a1610;
+    --color-accent-200: #4e1b12;
+    --color-accent-300: #6f2214;
+    --color-accent-400: #a32b15;
+    --color-accent-500: #e0401f;
+    --color-accent-600: #ff5a3c;
+    --color-accent-700: #ff8a73;
+    --color-accent-800: #ffb3a3;
+    --color-accent-900: #ffd9d0;
+
+    --color-accent-2-100: #351711;
+    --color-accent-2-200: #4a1d15;
+    --color-accent-2-300: #6a2a1f;
+    --color-accent-2-400: #9a3b2c;
+    --color-accent-2-500: #d6563f;
+    --color-accent-2-600: #f07a66;
+    --color-accent-2-700: #ff9a88;
+    --color-accent-2-800: #ffc0b3;
+    --color-accent-2-900: #ffe0d9;
+
+    --shadow-sm: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent);
+    --shadow-md: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent), 0 4px 14px rgba(0, 0, 0, .5);
+    --shadow-lg: 0 0 0 1px color-mix(in srgb, #ece9e7 10%, transparent), 0 14px 36px rgba(0, 0, 0, .6);
+    color-scheme: dark;
+    --avatar-ring: inset 0 0 0 1px rgba(255, 255, 255, .18);
+    --scrim: rgba(0, 0, 0, .6);
+  }
 }
 
 body {
@@ -240,7 +344,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .dialog-backdrop {
   position: fixed; inset: 0; display: grid; place-items: center;
   padding: var(--space-4);
-  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  background: var(--scrim);
 }
 .dialog {
   width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);

@@ -155,7 +155,7 @@ function Sheet({ id, onClose }: { id: string; onClose: () => void }) {
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
-        background: 'color-mix(in srgb, var(--color-neutral-900) 50%, transparent)',
+        background: 'var(--scrim)',
       }}
     >
       <div
@@ -280,7 +280,7 @@ function Headshot({ p }: { p: PlayerCardData }) {
     <span
       style={{
         width: 72, height: 72, flex: 'none', borderRadius: '50%', overflow: 'hidden', display: 'grid', placeItems: 'center',
-        background: NFL_COLORS[p.nflTeam] ?? 'var(--color-neutral-600)', color: '#fff', font: '800 22px var(--font-heading)',
+        background: NFL_COLORS[p.nflTeam] ?? 'var(--color-neutral-600)', color: '#fff', boxShadow: 'var(--avatar-ring, none)', font: '800 22px var(--font-heading)',
       }}
     >
       {p.headshot && !failed ? (

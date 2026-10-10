@@ -34,7 +34,7 @@ export default function ScoreSheet({
       onClick={onClose}
       style={{
         position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'flex-end',
-        background: 'color-mix(in srgb, var(--color-neutral-900) 50%, transparent)',
+        background: 'var(--scrim)',
       }}
     >
       <div
