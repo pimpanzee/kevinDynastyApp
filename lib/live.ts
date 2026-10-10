@@ -177,7 +177,7 @@ export function applyStatsToDetail(view: MatchupDetailView, stats: Record<string
  */
 
 /** A franchise's current starters, or null when it hasn't set any. */
-function startersOf(f: LiveFranchise | undefined): Set<string> | null {
+export function startersOf(f: LiveFranchise | undefined): Set<string> | null {
   if (!f) return null;
   const ids = Object.entries(f.players).filter(([, [, starter]]) => starter).map(([id]) => id);
   return ids.length ? new Set(ids) : null;

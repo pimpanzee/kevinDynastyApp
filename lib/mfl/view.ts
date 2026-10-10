@@ -9,6 +9,7 @@ import { getLeague, type League } from './league';
 import { bestLineup, sumPoints } from './lineup';
 import { getLeagueSchedule, getWeeklyResults, type ResultSide } from './matchups';
 import { getInjuries } from './injuries';
+import { lineupIssue, type LineupProblem } from '@/lib/lineupAlerts';
 import { getPlayers, lookup, type Player } from './players';
 import { getRosters, getSalaryAdjustments } from './rosters';
 import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
@@ -219,11 +220,15 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
   const byFranchise = new Map<string, ResultSide>();
   for (const m of boxes ?? []) for (const side of m) byFranchise.set(side.franchiseId, side);
 
+  // Each side's starters, for lineup alerts.
+  const starterIds = new Map<string, string[]>();
+
   const build = (franchiseId: string): BuiltSide => {
     const result = byFranchise.get(franchiseId);
 
     if (phase !== 'pre' && result) {
       const starters = result.players.filter((p) => p.started);
+      starterIds.set(franchiseId, starters.map((p) => p.playerId));
       let live = 0;
       let yetToPlay = 0;
       // What the players still to come are projected to add, so the win
@@ -268,6 +273,7 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
     const lineup = submitted
       ? pool.filter((p) => submitted.has(p.id))
       : bestLineup(pool, ctx.league.lineup);
+    starterIds.set(franchiseId, lineup.map((p) => p.id));
     return buildSide(franchiseId, ctx, standings, 'pre', 0, sumPoints(lineup), lineup.length);
   };
 
@@ -327,9 +333,33 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
 
   const kickoffLabel = nflWeek ? formatKickoff(Math.min(...nflWeek.games.map((g) => g.kickoff))) : '';
 
+  // For the week being played (or next up), flag every rostered player
+  // unlikely to score, so the browser can warn about the user's starters
+  // (live lineups included). Later weeks are skipped: the injury report and
+  // projections are about this week's games.
+  let lineupAlerts: WeekView['lineupAlerts'];
+  if (phase !== 'final' && target === ctx.display) {
+    const injuries = await getInjuries(target <= ctx.current ? target : undefined);
+    const problems: Record<string, LineupProblem> = {};
+    for (const slots of rosters.values()) {
+      for (const s of slots) {
+        const player = lookup(ctx.players, s.playerId);
+        const kickoff = kickoffs.get(player.team) ?? null;
+        const issue = lineupIssue({
+          injury: injuries.get(s.playerId),
+          bye: kickoff === null,
+          proj: projections.get(s.playerId) ?? null,
+        });
+        if (issue) problems[s.playerId] = { name: player.name, issue, kickoff };
+      }
+    }
+    lineupAlerts = { starters: Object.fromEntries(starterIds), problems };
+  }
+
   return {
     week: target,
     phase,
+    lineupAlerts,
     leagueName: ctx.league.name,
     clock: formatClock(new Date(ctx.now)),
     head: phase === 'live' ? 'LIVE' : phase === 'final' ? 'FINAL' : `KICKOFF ${kickoffLabel}`,

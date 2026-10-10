@@ -82,6 +82,14 @@ export interface WeekView {
   simulatedAt: string | null;
   /** [start, end] spans in ms while games are being played — when to poll. */
   liveWindow: Array<[number, number]> | null;
+  /**
+   * Until a week is over: each franchise's starters as of the build, and every
+   * rostered player flagged as unlikely to score (lib/lineupAlerts.ts).
+   */
+  lineupAlerts?: {
+    starters: Record<string, string[]>;
+    problems: Record<string, import('@/lib/lineupAlerts').LineupProblem>;
+  };
 }
 
 export interface BoxPlayerView {
@@ -335,4 +343,50 @@ export interface TransactionsData {
   /** Newest first. */
   moves: TxMove[];
   builtAt: string;
+}
+
+/* ── Cap & picks ────────────────────────────────────────────────────────── */
+
+export interface CapPlayer {
+  id: string;
+  name: string;
+  pos: string;
+  salary: number;
+}
+
+export interface CapTeam {
+  id: string;
+  name: string;
+  abbrev: string;
+  icon?: string;
+  /** Salary counting against the cap: active roster and IR, not the taxi squad. */
+  salary: number;
+  adj: number;
+  room: number;
+  /** Already committed for the next two seasons, at today's salaries. */
+  next: number;
+  after: number;
+  /** Contracts in their final year (counting players only). */
+  expiring: CapPlayer[];
+  expiringTotal: number;
+  counts: { roster: number; taxi: number; ir: number };
+}
+
+export interface CapView {
+  cap: number;
+  season: number;
+  limits: { roster: number; taxi: number; ir: number };
+  teams: CapTeam[];
+  myFranchiseId: string;
+}
+
+export interface PickBoardView {
+  years: Array<{
+    year: string;
+    rounds: number;
+    /** One row per original owner: the franchise holding each round's pick (null if MFL lists none). */
+    rows: Array<{ original: string; owners: Array<string | null> }>;
+  }>;
+  franchises: Array<{ id: string; name: string; abbrev: string; icon?: string }>;
+  myFranchiseId: string;
 }
