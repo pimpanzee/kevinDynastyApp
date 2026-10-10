@@ -7,6 +7,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import StatusBar from '@/components/StatusBar';
 import TeamAvatar from '@/components/TeamAvatar';
 import { readTeam, saveTeam, useMyTeam } from '@/lib/myTeam';
+import { useTheme, type Theme } from '@/lib/theme';
 
 export interface FranchiseOption {
   id: string;
@@ -88,6 +89,9 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
           Saved on this device. The installed Home Screen app keeps its own settings, so pick your team there too.
         </p>
 
+        <SectionLabel>APPEARANCE</SectionLabel>
+        <Appearance />
+
         <SectionLabel>GUIDES</SectionLabel>
         <div style={{ borderTop: '1px solid var(--color-divider)' }}>
           <MenuLink href="/settings/install/" title="Install the app" sub="Add The Liam to your Home Screen" />
@@ -95,5 +99,30 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
         </div>
       </div>
     </PhoneFrame>
+  );
+}
+
+/** System / Light / Dark, as the design system's segmented control. */
+function Appearance() {
+  const [theme, setTheme] = useTheme();
+  const options: Array<[Theme, string]> = [['system', 'SYSTEM'], ['light', 'LIGHT'], ['dark', 'DARK']];
+  return (
+    <div style={{ padding: '0 14px' }}>
+      <div className="seg" role="radiogroup" aria-label="Appearance" style={{ display: 'flex', borderRadius: 0 }}>
+        {options.map(([value, label]) => (
+          <label
+            key={value}
+            className="seg-opt"
+            style={{ flex: 1, justifyContent: 'center', padding: '8px 4px', font: '800 10.5px var(--font-heading)', letterSpacing: '.06em' }}
+          >
+            <input type="radio" name="appearance" checked={theme === value} onChange={() => setTheme(value)} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <p style={{ margin: '8px 0 0', fontSize: 10.5, lineHeight: 1.45, color: 'var(--color-neutral-600)' }}>
+        System follows your phone&apos;s light or dark setting.
+      </p>
+    </div>
   );
 }

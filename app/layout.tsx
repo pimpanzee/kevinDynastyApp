@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { PlayerCardProvider } from '@/components/PlayerCard';
 import UpdateCheck from '@/components/UpdateCheck';
+import { THEME_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,12 +16,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#f3f2f2',
+  // Follows the phone; a theme forced in Settings rewrites these (lib/theme.ts).
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f3f2f2' },
+    { media: '(prefers-color-scheme: dark)', color: '#161514' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // data-theme is set before hydration by THEME_SCRIPT, so React mustn't complain about it.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <PlayerCardProvider>{children}</PlayerCardProvider>
         <UpdateCheck />
