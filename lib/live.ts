@@ -1,4 +1,4 @@
-import { barWidth, fmtScore, formatClock, scoreBar, winPct } from '@/lib/format';
+import { barWidth, fmtScore, formatClock, scoreBar, shareLeft, winPct } from '@/lib/format';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, SideView, WeekView } from '@/lib/types';
 import { scoreBreakdown, statLine, trimStats, type Stats } from '@/lib/scoring';
 
@@ -32,6 +32,9 @@ const GAME_SECONDS = 3600;
 interface LiveSide {
   view: SideView;
   live: number;
+  /** Starters' full projection, and what of it is still to be played. */
+  projected: number;
+  remaining: number;
   projectedFinal: number;
   ytp: number;
   done: boolean;
@@ -53,6 +56,8 @@ function liveSide(side: SideView, f: LiveFranchise | undefined): LiveSide | null
   const record = side.meta.split(' · ')[0];
   return {
     live: f.score,
+    projected,
+    remaining,
     projectedFinal: f.score + remaining,
     ytp: f.ytp,
     done: f.ytp === 0 && f.playing === 0 && f.secondsRemaining === 0,
@@ -76,7 +81,7 @@ function scoreMatchup(home: SideView, away: SideView, live: LiveData) {
     h.view.win = h.live >= a.live ? 'W' : 'L';
     a.view.win = a.live > h.live ? 'W' : 'L';
   } else {
-    [h.view.win, a.view.win] = winPct(h.projectedFinal, a.projectedFinal);
+    [h.view.win, a.view.win] = winPct(h.projectedFinal, a.projectedFinal, shareLeft(h.remaining + a.remaining, h.projected + a.projected));
   }
   return { h, a, decided, bar: decided ? scoreBar(h.live, a.live) : barWidth(h.view.win) };
 }
