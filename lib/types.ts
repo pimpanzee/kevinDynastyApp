@@ -37,6 +37,14 @@ export interface SideView {
   win: string;
   scoreValue: number;
   /**
+   * Once games are under way: points banked plus what the starters still to
+   * play are projected to add. The top-6 race ranks by this until the side
+   * is `done`.
+   */
+  projectedFinal?: number;
+  /** Every starter's game is over, so `scoreValue` is the side's final score. */
+  done?: boolean;
+  /**
    * Projected points for every rostered player, by id — present only while
    * the week can still go live, for the browser's live overlay.
    */
