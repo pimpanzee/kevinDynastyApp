@@ -1,5 +1,8 @@
 import { SEASON } from '@/lib/config';
+import { scorePoints, type Stats } from '@/lib/scoring';
+import { getScoringRules, getSleeperIds, getSleeperTable } from '@/lib/stats/sleeper';
 import { TTL } from './cache';
+import { getPlayers } from './players';
 import { asArray, isNotYetAvailable, mflGet, num } from './client';
 
 /**
@@ -8,38 +11,31 @@ import { asArray, isNotYetAvailable, mflGet, num } from './client';
  * per player.
  */
 
-interface RawProjected {
-  projectedScores?: { playerScore?: RawScore | RawScore[] };
-}
 interface RawPlayerScores {
   playerScores?: { playerScore?: RawScore | RawScore[] };
 }
 interface RawScore { id?: string; score?: string; isAvailable?: string }
 
 /**
- * Projected points for the given players in one week. MFL requires an explicit
- * PLAYERS list, so this is chunked to keep URLs a sane length.
+ * Projected points for the given players (MFL ids) in one week: Sleeper's
+ * projected stats scored with this league's rules — the same projections the
+ * Players tab shows. MFL's own were less accurate for this league. A player
+ * Sleeper doesn't project (or projects not to play) gets none.
  */
 export async function getProjections(week: number, playerIds: string[], season: string = SEASON): Promise<Map<string, number>> {
   const out = new Map<string, number>();
-  const CHUNK = 100;
-
-  for (let i = 0; i < playerIds.length; i += CHUNK) {
-    const chunk = playerIds.slice(i, i + CHUNK);
-    try {
-      const body = await mflGet<RawProjected>('projectedScores', {
-        params: { W: week, PLAYERS: chunk.join(',') },
-        ttl: TTL.SCHEDULE,
-        season,
-        cacheKey: `proj:${season}:${week}:${chunk[0]}:${chunk.length}`,
-      });
-      for (const s of asArray(body.projectedScores?.playerScore)) {
-        if (s.id) out.set(s.id, num(s.score));
-      }
-    } catch (e) {
-      // Projections are a nice-to-have; a missing week should not blank a screen.
-      if (!isNotYetAvailable(e)) throw e;
-    }
+  const [table, sleeperIds, rules, players] = await Promise.all([
+    // Projections are a nice-to-have; a missing week should not blank a screen.
+    getSleeperTable('projections', week, false, season).catch(() => ({}) as Record<string, Stats>),
+    getSleeperIds(season),
+    getScoringRules(season),
+    getPlayers(season),
+  ]);
+  for (const id of playerIds) {
+    const s = table[sleeperIds[id]];
+    const position = players.get(id)?.position;
+    if (!s || !position || (s.gp ?? 1) <= 0) continue;
+    out.set(id, scorePoints(position, s, rules));
   }
   return out;
 }

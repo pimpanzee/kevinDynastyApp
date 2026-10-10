@@ -1,5 +1,5 @@
 import { FRANCHISE_ID, GAME_DURATION_MS, SEASON } from '@/lib/config';
-import { barWidth, fmtMoney, fmtScore, scoreBar, winPct } from '@/lib/format';
+import { barWidth, fmtMoney, fmtScore, scoreBar, shareLeft, winPct } from '@/lib/format';
 import type {
   BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, Phase, RosterPlayerView, RosterView,
   SideView, StandingsView, WeekOption, WeekView,
@@ -287,7 +287,11 @@ export async function getWeekView(week: number | undefined, nowOverride?: string
       home.view.win = home.live >= away.live ? 'W' : 'L';
       away.view.win = away.live > home.live ? 'W' : 'L';
     } else {
-      const [h, a] = winPct(home.projectedFinal, away.projectedFinal);
+      const left = shareLeft(
+        home.projectedFinal - home.live + away.projectedFinal - away.live,
+        home.projected + away.projected,
+      );
+      const [h, a] = winPct(home.projectedFinal, away.projectedFinal, left);
       home.view.win = h;
       away.view.win = a;
     }
@@ -567,11 +571,18 @@ export async function getMatchupDetailView(
     const result = byFranchise.get(franchiseId);
     const starters = entries.starters;
     const live = starters.reduce((t, e) => t + (e.pts === '—' ? 0 : Number(e.pts)), 0);
-    const projected = starters.reduce((t, e) => t + Number(e.proj.replace('proj ', '')), 0);
+    const projOf = (e: BoxEntry) => Number(e.proj.replace('proj ', '')) || 0;
+    const projected = starters.reduce((t, e) => t + projOf(e), 0);
     const yetToPlay = starters.filter((e) => e.line.includes('yet to play') || e.pts === '—').length;
+    // Still to come: all of a starter yet to play, about half of one in play.
+    const remaining = starters.reduce(
+      (t, e) => t + (e.pts === '—' || e.line.includes('yet to play') ? projOf(e) : e.line.includes('in play') ? projOf(e) / 2 : 0),
+      0,
+    );
     return {
       live: phase === 'final' && result ? result.score : Number(live.toFixed(2)),
       projected: Number(projected.toFixed(2)),
+      remaining,
       yetToPlay,
     };
   };
@@ -587,7 +598,11 @@ export async function getMatchupDetailView(
     home.view.win = h.live >= a.live ? 'W' : 'L';
     away.view.win = a.live > h.live ? 'W' : 'L';
   } else {
-    const [hw, aw] = winPct(h.projected, a.projected);
+    // Before kickoff, the projections; once under way, points banked plus
+    // what's still to come, with the uncertainty of what's left.
+    const [hw, aw] = phase === 'pre'
+      ? winPct(h.projected, a.projected)
+      : winPct(h.live + h.remaining, a.live + a.remaining, shareLeft(h.remaining + a.remaining, h.projected + a.projected));
     home.view.win = hw;
     away.view.win = aw;
   }

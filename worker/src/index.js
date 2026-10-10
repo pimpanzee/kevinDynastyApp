@@ -246,6 +246,7 @@ export class LiveScores {
         icon: ctx.franchises[id]?.icon ?? null,
         score: round(score),
         projected: round(projected),
+        remaining,
         projectedFinal: round(score + remaining),
         ytp: f?.ytp ?? null,
         playing: f?.playing ?? null,
@@ -264,7 +265,9 @@ export class LiveScores {
         if (p) s.projected = s.projectedFinal = round(p);
       }
     }
-    const winMe = decided ? (a.score >= b.score ? 100 : 0) : winPct(a.projectedFinal || a.projected, b.projectedFinal || b.projected);
+    // Share of both sides' projected points still to be played: the odds firm up as games finish.
+    const left = state === 'pre' || a.projected + b.projected <= 0 ? 1 : (a.remaining + b.remaining) / (a.projected + b.projected);
+    const winMe = decided ? (a.score >= b.score ? 100 : 0) : winPct(a.projectedFinal || a.projected, b.projectedFinal || b.projected, left);
 
     const plays = [...games.values()]
       .flatMap((g) => g.events)
@@ -301,9 +304,17 @@ function normalCdf(z) {
   return 0.5 * (1 + sign * y);
 }
 
-/** Win probability from the projected margin, same model and clamp as the site. */
-function winPct(mine, theirs) {
-  return Math.max(3, Math.min(97, Math.round(normalCdf((mine - theirs) / 30) * 100)));
+/**
+ * Win probability from the projected margin, same model and clamp as the
+ * site (lib/format.ts): the spread shrinks with `left`, the share of both
+ * sides' projected points still to be played.
+ */
+function winPct(mine, theirs, left = 1) {
+  const share = Math.max(0, Math.min(1, left));
+  const sd = 30 * Math.sqrt(share);
+  const p = sd < 0.5 ? (mine === theirs ? 0.5 : mine > theirs ? 1 : 0) : normalCdf((mine - theirs) / sd);
+  const lo = share >= 1 ? 3 : 1;
+  return Math.max(lo, Math.min(100 - lo, Math.round(p * 100)));
 }
 
 /** MFL wraps single items as objects and everything as strings. */

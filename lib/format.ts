@@ -31,13 +31,24 @@ const MARGIN_SD = 30;
 
 /**
  * Win probability from the projected margin. MFL exposes no such figure, so
- * this is derived, not reported: a normal model over the projection
- * differential, clamped so the bar never reads as a lock. Indicative only.
+ * this is derived, not reported: a normal model over the projected final
+ * margin. `left` is the share of both sides' projected points still to be
+ * played (1 before kickoff, falling to 0): the uncertainty shrinks with it,
+ * since points already scored can't move. Clamped to 3–97% before kickoff
+ * and 1–99% once games are under way. Indicative only.
  */
-export function winPct(home: number, away: number): [string, string] {
-  const p = normalCdf((home - away) / MARGIN_SD);
-  const w = Math.max(3, Math.min(97, Math.round(p * 100)));
+export function winPct(home: number, away: number, left = 1): [string, string] {
+  const share = Math.max(0, Math.min(1, left));
+  const sd = MARGIN_SD * Math.sqrt(share);
+  const p = sd < 0.5 ? (home === away ? 0.5 : home > away ? 1 : 0) : normalCdf((home - away) / sd);
+  const lo = share >= 1 ? 3 : 1;
+  const w = Math.max(lo, Math.min(100 - lo, Math.round(p * 100)));
   return [`${w}%`, `${100 - w}%`];
+}
+
+/** Share of both sides' projected points still to be played, for winPct. */
+export function shareLeft(remaining: number, projected: number): number {
+  return projected > 0 ? remaining / projected : 1;
 }
 
 /** Bar split for a decided game, from the two final scores. */
