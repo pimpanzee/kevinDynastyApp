@@ -79,6 +79,8 @@ export interface PlayerDetails {
   /** Epoch seconds. */
   birthdate?: number;
   draftYear?: number;
+  /** ESPN's player id, for live news on the player card. */
+  espnId?: string;
 }
 
 /** Bio fields from the detailed player export, by MFL id. Shares the cached export the Sleeper join reads. */
@@ -93,8 +95,8 @@ export async function getPlayerDetails(season: string = SEASON): Promise<Map<str
   const out = new Map<string, PlayerDetails>();
   for (const p of asArray(body.players?.player)) {
     if (!p.id) continue;
-    out.set(p.id, { jersey: n(p.jersey), height: n(p.height), weight: n(p.weight), birthdate: n(p.birthdate), draftYear: n(p.draft_year) });
+    out.set(p.id, { jersey: n(p.jersey), height: n(p.height), weight: n(p.weight), birthdate: n(p.birthdate), draftYear: n(p.draft_year), espnId: p.espn_id || undefined });
   }
   return out;
 }
-interface RawDetails { id?: string; jersey?: string; height?: string; weight?: string; birthdate?: string; draft_year?: string }
+interface RawDetails { id?: string; jersey?: string; height?: string; weight?: string; birthdate?: string; draft_year?: string; espn_id?: string }

@@ -275,6 +275,8 @@ export interface PlayerCardData {
   jersey?: number;
   /** Sleeper's headshot; the card falls back to initials if it fails. */
   headshot?: string;
+  /** ESPN's player id: the card reads his latest news from ESPN when it opens. */
+  espnId?: string;
   bio: { age?: number; height?: number; weight?: number; exp?: number };
   injury?: string;
   bye: number | null;

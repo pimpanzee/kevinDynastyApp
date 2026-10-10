@@ -119,6 +119,7 @@ export async function getPlayerCard(id: string): Promise<PlayerCardData | null> 
     pos: p.position as PlayerCardData['pos'],
     nflTeam: p.team,
     jersey: d?.jersey,
+    espnId: d?.espnId,
     headshot: sid && /^\d+$/.test(sid) ? `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg` : undefined,
     bio: {
       age: d?.birthdate ? Math.floor(((ctx.now - d.birthdate * 1000) / YEAR_MS) * 10) / 10 : undefined,
