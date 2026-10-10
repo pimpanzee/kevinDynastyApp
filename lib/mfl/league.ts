@@ -27,6 +27,8 @@ export interface League {
   lastRegularSeasonWeek: number;
   salaryCap: number;
   usesSalaries: boolean;
+  /** Roster limits: active roster, taxi squad and injured reserve (0 = none). */
+  limits: { roster: number; taxi: number; ir: number };
   franchises: Franchise[];
   /** Ordered conference → division groups, for the standings screen. */
   groups: Array<{ id: string; label: string; franchiseIds: string[] }>;
@@ -52,6 +54,9 @@ interface RawLeague {
     lastRegularSeasonWeek?: string;
     salaryCapAmount?: string;
     usesSalaries?: string;
+    rosterSize?: string;
+    taxiSquad?: string;
+    injuredReserve?: string;
     franchises?: { franchise?: RawFranchise | RawFranchise[] };
     conferences?: { conference?: RawConf | RawConf[] };
     divisions?: { division?: RawDiv | RawDiv[] };
@@ -149,6 +154,7 @@ export async function getLeague(season: string = SEASON): Promise<League> {
       : null,
     salaryCap: num(lg.salaryCapAmount),
     usesSalaries: lg.usesSalaries === '1',
+    limits: { roster: num(lg.rosterSize), taxi: num(lg.taxiSquad), ir: num(lg.injuredReserve) },
     franchises,
     groups,
     lineup: { min: lineup.min, max: lineup.max, positions },

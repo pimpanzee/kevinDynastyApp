@@ -24,6 +24,18 @@ const PAGES: Array<{ href: string; title: string; sub: string; icon: ReactNode }
     icon: svg(<><path d="M4 8h14l-4-4" /><path d="M20 16H6l4 4" /></>),
   },
   {
+    href: '/more/cap/',
+    title: 'Cap sheet',
+    sub: 'Cap room, future commitments and expiring contracts for every team',
+    icon: svg(<><circle cx="12" cy="12" r="9" /><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.8 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v12" /></>),
+  },
+  {
+    href: '/more/picks/',
+    title: 'Draft picks',
+    sub: 'Who holds every future pick',
+    icon: svg(<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4M8 14h3M8 17h6" /></>),
+  },
+  {
     href: '/settings/',
     title: 'Settings',
     sub: 'Pick your team',

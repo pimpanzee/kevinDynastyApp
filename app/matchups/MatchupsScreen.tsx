@@ -12,7 +12,9 @@ import ScoreHeader, { NO_SCORE } from '@/components/ScoreHeader';
 import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
 import { barWidth } from '@/lib/format';
-import { applyLineupsToWeek, applyLiveToWeek } from '@/lib/live';
+import { applyLineupsToWeek, applyLiveToWeek, startersOf } from '@/lib/live';
+import { startersWithIssues } from '@/lib/lineupAlerts';
+import LineupAlert from '@/components/LineupAlert';
 import { personalizeWeek, useMyTeam } from '@/lib/myTeam';
 import type { MatchupView, Phase, SideView, WeekView } from '@/lib/types';
 import { useLive } from '@/lib/useLive';
@@ -46,6 +48,14 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
   const view = personalizeWeek(live ? applyLineupsToWeek(scored, live) : scored, team);
   const router = useRouter();
   const [weekOpen, setWeekOpen] = useState(false);
+
+  // Starters who won't score: the live lineup when the relay has one, else the build's.
+  const alerts = built.lineupAlerts
+    ? startersWithIssues(
+        [...(startersOf(live?.franchises[team]) ?? built.lineupAlerts.starters[team] ?? [])],
+        built.lineupAlerts.problems,
+      )
+    : [];
 
   const isLive = view.phase === 'live';
 
@@ -111,6 +121,8 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
             <span style={{ marginLeft: 'auto', fontSize: 9.5, color: 'var(--color-neutral-600)' }}>{view.playersLeft}</span>
           )}
         </div>
+
+        {mine && alerts.length > 0 && <LineupAlert alerts={alerts} href={`/matchups/${view.week}/${mine.index}/`} />}
 
         {mine && (
           <Link

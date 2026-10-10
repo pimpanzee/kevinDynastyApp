@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import InjuryTag from '@/components/InjuryTag';
+import LineupAlert from '@/components/LineupAlert';
 import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
 import ScoreHeader from '@/components/ScoreHeader';
@@ -10,6 +11,7 @@ import ScoreSheet from '@/components/ScoreSheet';
 import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
 import { applyLineupsToDetail, applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
+import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
 import { useMyTeam } from '@/lib/myTeam';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView } from '@/lib/types';
 import { useLive, useLiveStats } from '@/lib/useLive';
@@ -26,6 +28,13 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
   const team = useMyTeam(built.myFranchiseId);
   const isMine = built.home.franchiseId === team || built.away.franchiseId === team;
   const view = stats ? applyStatsToDetail(scored, stats) : scored;
+  const mySide = view.home.franchiseId === team ? 'home' : view.away.franchiseId === team ? 'away' : null;
+  const alerts = mySide && view.phase !== 'final'
+    ? view.starters.map((r) => r[mySide]).flatMap((p) => {
+        const issue = rowIssue(p);
+        return issue ? [{ name: p.name, issue }] : [];
+      })
+    : [];
 
   // Held by position rather than as a copy, so an open sheet follows live updates.
   const [open, setOpen] = useState<Open>(null);
@@ -76,6 +85,7 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
+        {alerts.length > 0 && <div style={{ paddingTop: 10 }}><LineupAlert alerts={alerts} /></div>}
         {view.starters.map((r, i) => (
           <PlayerRow key={`s-${i}-${r.home.name}-${r.away.name}`} row={r} onScore={(side) => setOpen({ bench: false, row: i, side })} />
         ))}
@@ -156,6 +166,11 @@ function PlayerSide({
           <PlayerLink playerId={player.live?.id}>{player.name}</PlayerLink>
         </div>
         <InjuryTag tag={player.injury} />
+        {!bench && (() => {
+          const issue = rowIssue(player);
+          // Injury designations already show as InjuryTag; flag the rest.
+          return issue === 'BYE' || issue === 'NO PROJ' ? <IssueTag label={issue === 'BYE' ? 'BYE' : 'NO PROJ'} /> : null;
+        })()}
       </div>
       <div style={{ ...sub, ...clip }}>{player.line}</div>
     </div>
@@ -204,5 +219,32 @@ function PlayerSide({
         </div>
       )}
     </div>
+  );
+}
+
+/** A starter's lineup problem, while his game hasn't kicked off. */
+function rowIssue(p: BoxPlayerView): LineupIssue | null {
+  if (!p.live || !p.name) return null;
+  const notStarted = p.pts === '—' || p.line.includes('yet to play');
+  if (!notStarted) return null;
+  return lineupIssue({
+    injury: p.injury,
+    bye: p.live.kickoff === 'TBD',
+    proj: Number(p.proj.replace(/[^\d.-]/g, '')) || 0,
+  });
+}
+
+/** BYE / NO PROJ beside a starter's name, styled like the injury tag. */
+function IssueTag({ label }: { label: string }) {
+  return (
+    <span
+      title={label === 'BYE' ? 'On bye this week' : 'Not projected to play'}
+      style={{
+        flex: 'none', font: '800 8.5px/1 var(--font-heading)', letterSpacing: '.04em', color: 'var(--color-accent-700)',
+        border: '1px solid var(--color-accent-700)', borderRadius: 3, padding: '2px 3px 1.5px',
+      }}
+    >
+      {label}
+    </span>
   );
 }
