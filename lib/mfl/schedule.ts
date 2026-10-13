@@ -75,6 +75,13 @@ export function teamKickoffs(week: NflWeek | undefined): Map<string, number> {
 }
 
 /**
+ * How long after the last kickoff a whole week counts as over. Longer than
+ * one game's run so overtime and delays don't end the week while a late game
+ * is still going (and the scores still live).
+ */
+const WEEK_SETTLE_MS = GAME_DURATION_MS + 45 * 60 * 1000;
+
+/**
  * Where a team's game sits relative to `now`. A game is treated as complete
  * once GAME_DURATION_MS has elapsed since kickoff — MFL exposes no historical
  * clock, so this is the honest approximation.
@@ -109,7 +116,7 @@ export function weekPhase(schedule: NflWeek[], week: number, now: number): 'pre'
   const last = Math.max(...w.games.map((g) => g.kickoff));
   // Every game kicked off and finished — the week is done even though it is
   // still the most recent one.
-  return now >= last + GAME_DURATION_MS ? 'final' : 'live';
+  return now >= last + WEEK_SETTLE_MS ? 'final' : 'live';
 }
 
 /** First kickoff of a week, for the "KICKOFF THU 8:15 ET" strip. */
@@ -127,7 +134,7 @@ export function firstKickoff(schedule: NflWeek[], week: number): number | undefi
 export function lastCompletedWeek(schedule: NflWeek[], now: number): number {
   let last = 0;
   for (const w of schedule) {
-    const done = w.games.every((g) => now >= g.kickoff + GAME_DURATION_MS);
+    const done = w.games.every((g) => now >= g.kickoff + WEEK_SETTLE_MS);
     if (!done) break;
     last = w.week;
   }

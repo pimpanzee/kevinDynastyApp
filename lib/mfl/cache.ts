@@ -90,8 +90,18 @@ async function writeDisk(key: string, entry: Entry): Promise<void> {
   }
 }
 
-export async function cached<T>(key: string, requestedTtl: number, load: () => Promise<T>): Promise<T> {
-  const ttl = IS_BUILD ? Math.max(requestedTtl, BUILD_MIN_TTL_MS) : requestedTtl;
+/**
+ * `ttlFor` sees what was loaded and may shorten its lifetime — for data that
+ * is only final once its contents say so.
+ */
+export async function cached<T>(
+  key: string,
+  requestedTtl: number,
+  load: () => Promise<T>,
+  ttlFor?: (value: T) => number,
+): Promise<T> {
+  const clamp = (t: number) => (IS_BUILD ? Math.max(t, BUILD_MIN_TTL_MS) : t);
+  const ttl = clamp(requestedTtl);
   const hit = memory.get(key);
   if (hit && hit.expires > Date.now()) return hit.value as T;
 
@@ -105,7 +115,7 @@ export async function cached<T>(key: string, requestedTtl: number, load: () => P
   }
 
   const value = await load();
-  const entry: Entry = { value, expires: Date.now() + ttl };
+  const entry: Entry = { value, expires: Date.now() + (ttlFor ? clamp(ttlFor(value)) : ttl) };
   memory.set(key, entry);
   if (persist) await writeDisk(key, entry);
   return value;
