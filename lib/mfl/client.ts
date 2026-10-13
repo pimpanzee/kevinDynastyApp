@@ -113,6 +113,8 @@ interface GetOptions {
   season?: string;
   /** Distinguishes cache entries when params alone are ambiguous. */
   cacheKey?: string;
+  /** Cache lifetime chosen from the response, overriding `ttl`. */
+  ttlFor?: (body: unknown) => number;
 }
 
 /**
@@ -132,7 +134,7 @@ export async function mflGet<T>(type: string, options: GetOptions = {}): Promise
 
   const key = options.cacheKey ?? `${season}:${type}:${query.toString()}`;
 
-  return cached(key, ttl, async () => {
+  return cached<T>(key, ttl, async () => {
     const host = league ? await resolveHost(season) : GENERIC_HOST;
     const url = `${host}/${season}/export?${query.toString()}`;
 
@@ -156,7 +158,7 @@ export async function mflGet<T>(type: string, options: GetOptions = {}): Promise
     }
 
     return body as T;
-  });
+  }, options.ttlFor);
 }
 
 /** Values arrive as strings, and singular results are not wrapped in arrays. */

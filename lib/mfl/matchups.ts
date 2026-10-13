@@ -58,6 +58,11 @@ export interface ResultSide {
   optPts: number;
   result: string;
   players: ResultPlayer[];
+  /**
+   * MFL hasn't posted the team totals yet (it reports 0 and a tie until it
+   * finalizes the week), so `score` is summed from the starters here.
+   */
+  provisional?: boolean;
 }
 
 interface RawResults {
@@ -75,6 +80,17 @@ interface RawResultSide {
 interface RawResultPlayer { id?: string; score?: string; status?: string }
 
 /**
+ * MFL leaves every team total at 0 (each side a tie) until it finalizes a
+ * week, though the player scores are already in. Spot that state: no team
+ * has a total, yet some starter has scored.
+ */
+function hasUnpostedTotals(body: RawResults): boolean {
+  const sides = asArray(body.weeklyResults?.matchup).flatMap((m) => asArray(m.franchise));
+  if (sides.length === 0 || sides.some((f) => num(f.score) !== 0)) return false;
+  return sides.some((f) => asArray(f.player).some((p) => p.status === 'starter' && num(p.score) !== 0));
+}
+
+/**
  * Box scores for one week. Before kickoff they carry each franchise's
  * submitted lineup (starters, no points yet). Returns null when MFL has
  * nothing for the week — it answers with an error, which is not a failure.
@@ -87,28 +103,31 @@ export async function getWeeklyResults(week: number, settled = true, season: str
     const body = await mflGet<RawResults>('weeklyResults', {
       params: { W: week },
       ttl: settled ? TTL.FINAL_RESULTS : TTL.LIVE,
+      // Unposted totals are not final, whatever the clock says.
+      ttlFor: (b) => (settled && !hasUnpostedTotals(b as RawResults) ? TTL.FINAL_RESULTS : TTL.LIVE),
       season,
-      cacheKey: `weeklyResults2:${season}:${week}${settled ? '' : ':open'}`,
+      cacheKey: `weeklyResults3:${season}:${week}${settled ? '' : ':open'}`,
     });
 
     const matchups = asArray(body.weeklyResults?.matchup);
     if (matchups.length === 0) return null;
 
+    const unposted = hasUnpostedTotals(body);
     const parsed = matchups.map((m) =>
-      asArray(m.franchise).map((f) => ({
-        franchiseId: f.id ?? '',
-        isHome: f.isHome === '1',
-        score: num(f.score),
-        optPts: num(f.opt_pts),
-        result: f.result ?? '',
-        players: asArray(f.player)
+      asArray(m.franchise).map((f): ResultSide => {
+        const players = asArray(f.player)
           .filter((p) => p.id)
           .map((p) => ({
             playerId: p.id as string,
             score: num(p.score),
             started: p.status === 'starter',
-          })),
-      })),
+          }));
+        if (!unposted) {
+          return { franchiseId: f.id ?? '', isHome: f.isHome === '1', score: num(f.score), optPts: num(f.opt_pts), result: f.result ?? '', players };
+        }
+        const score = Math.round(players.filter((p) => p.started).reduce((t, p) => t + p.score, 0) * 100) / 100;
+        return { franchiseId: f.id ?? '', isHome: f.isHome === '1', score, optPts: num(f.opt_pts), result: '', players, provisional: true };
+      }),
     );
 
     // A scheduled-but-unplayed week comes back with pairings and no players.

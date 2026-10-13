@@ -81,16 +81,22 @@ export async function computeStandings(throughWeek: number, league: League): Pro
   // The aggregate for a given cut-off never changes once those weeks are done.
   // Cached as entries rather than a Map: the cache persists to disk as JSON,
   // and a Map does not survive that round trip.
-  const entries = await cached<Array<[string, StandingsRow]>>(
-    // v2: rows carry victory points; older cached rows don't.
-    `standings2:${league.id}:${throughWeek}`,
+  const { entries } = await cached<{ entries: Array<[string, StandingsRow]>; provisional: boolean }>(
+    // v3: never built from a week MFL hadn't finalized; v2 rows could be.
+    `standings3:${league.id}:${throughWeek}`,
     TTL.FINAL_RESULTS,
-    async () => [...(await buildStandings(throughWeek, league))],
+    async () => {
+      const built = await buildStandings(throughWeek, league);
+      return { entries: [...built.rows], provisional: built.provisional };
+    },
+    // A week MFL hasn't finalized can still change; rebuild until it has.
+    (v) => (v.provisional ? TTL.STANDINGS : TTL.FINAL_RESULTS),
   );
   return new Map(entries);
 }
 
-async function buildStandings(throughWeek: number, league: League): Promise<Map<string, StandingsRow>> {
+async function buildStandings(throughWeek: number, league: League): Promise<{ rows: Map<string, StandingsRow>; provisional: boolean }> {
+  let provisional = false;
   const tallies = new Map<string, Tally>();
   for (const f of league.franchises) tallies.set(f.id, blank());
 
@@ -100,6 +106,7 @@ async function buildStandings(throughWeek: number, league: League): Promise<Map<
   for (let week = league.startWeek; week <= throughWeek; week++) {
     const results = await getWeeklyResults(week);
     if (!results) continue;
+    if (results.some((m) => m.some((side) => side.provisional))) provisional = true;
 
     for (const matchup of results) {
       if (matchup.length !== 2) continue;
@@ -170,7 +177,7 @@ async function buildStandings(throughWeek: number, league: League): Promise<Map<
       vp: t.vp,
     });
   }
-  return rows;
+  return { rows, provisional };
 }
 
 /**
