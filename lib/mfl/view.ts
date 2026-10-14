@@ -12,10 +12,10 @@ import { getInjuries } from './injuries';
 import { lineupIssue, type LineupProblem } from '@/lib/lineupAlerts';
 import { getPlayers, lookup, type Player } from './players';
 import { getRosters, getSalaryAdjustments } from './rosters';
-import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
+import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, teamOpponents, weekPhase, type NflWeek } from './schedule';
 import { getProjections, getSeasonPoints } from './scores';
 import { scoreBreakdown, statLine, type Breakdown, type RuleSet, type Stats } from '@/lib/scoring';
-import { getScoringRules, getSleeperIds, getWeekStats, sleeperStatsUrl } from '@/lib/stats/sleeper';
+import { getScoringRules, getSleeperIds, getWeekStats, sleeperScoresUrl, sleeperStatsUrl } from '@/lib/stats/sleeper';
 import { computeStandings, gamesBack, sortDivision, vpBack, type StandingsRow } from './standings';
 
 /**
@@ -442,6 +442,9 @@ interface BoxEntry {
   kickoff: string;
   name: string;
   position: string;
+  /** NFL opponent that week, and whether the player's team is at home. Absent on a bye. */
+  opp?: string;
+  home?: boolean;
   line: string;
   pts: string;
   ptsExact?: number;
@@ -459,7 +462,7 @@ function boxPlayer(e: BoxEntry): BoxPlayerView {
   return {
     name: e.name, line: e.line, pts: e.pts, ptsExact: e.ptsExact, proj: e.proj,
     byline: e.byline, breakdown: e.breakdown, injury: e.injury,
-    live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId },
+    live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId, opp: e.opp, home: e.home },
   };
 }
 
@@ -510,6 +513,7 @@ export async function getMatchupDetailView(
   const results = phase === 'pre' ? null : boxes;
   const nflWeek = ctx.nfl.find((w) => w.week === week);
   const kickoffs = teamKickoffs(nflWeek);
+  const opponents = teamOpponents(nflWeek);
 
   const allPlayerIds = [...rosters.values()].flat().map((s) => s.playerId);
   const projections = await getProjections(week, allPlayerIds);
@@ -550,6 +554,7 @@ export async function getMatchupDetailView(
           kickoff: kickoff ? formatKickoff(kickoff) : 'TBD',
           name: player.name,
           position: player.position,
+          ...opponents.get(player.team),
           line,
           pts: fmtScore(points),
           ptsExact: points,
@@ -583,6 +588,7 @@ export async function getMatchupDetailView(
         kickoff: kickoff ? formatKickoff(kickoff) : 'TBD',
         name: player.name,
         position: player.position,
+        ...opponents.get(player.team),
         line: `${player.team} · ${kickoff ? formatKickoff(kickoff) : 'TBD'}`,
         sleeperId: scoring?.ids[playerId],
         pts: '—',
@@ -667,6 +673,7 @@ export async function getMatchupDetailView(
     simulatedAt: ctx.simulatedAt,
     liveWindow: pollWindow,
     scoring: pollWindow && scoring ? { rules: scoring.rules, statsUrl: sleeperStatsUrl(week) } : undefined,
+    scoresUrl: phase === 'pre' ? undefined : sleeperScoresUrl(week),
   };
 }
 

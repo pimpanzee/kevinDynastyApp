@@ -107,7 +107,11 @@ export interface BoxPlayerView {
   /** NFL injury designation: Q, D, O or IR. */
   injury?: string;
   /** For patching the row from live scores; absent on an empty slot. */
-  live?: { id: string; team: string; kickoff: string; position: string; sleeperId?: string };
+  live?: {
+    id: string; team: string; kickoff: string; position: string; sleeperId?: string;
+    /** NFL opponent that week and whether the player's team is at home, for the game line. Absent on a bye. */
+    opp?: string; home?: boolean;
+  };
 }
 
 export interface BoxRowView {
@@ -137,6 +141,8 @@ export interface MatchupDetailView {
   liveWindow: Array<[number, number]> | null;
   /** While games can be live: what the browser needs to rescore fresh stats. */
   scoring?: { rules: RuleSet; statsUrl: string };
+  /** Sleeper's NFL scores for the week, for each player's game line. Absent before kickoff. */
+  scoresUrl?: string;
 }
 
 export interface RosterPlayerView {

@@ -28,6 +28,11 @@ export function sleeperStatsUrl(week: number, season: string = SEASON): string {
   return `${SLEEPER}/stats/nfl/regular/${season}/${week}`;
 }
 
+/** The week's NFL game scores, for the matchup page's game line (read in the browser, lib/nflGames.ts). */
+export function sleeperScoresUrl(week: number, season: string = SEASON): string {
+  return `https://api.sleeper.com/scores/nfl/regular/${season}/${week}`;
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`Sleeper ${url} failed (${res.status})`);

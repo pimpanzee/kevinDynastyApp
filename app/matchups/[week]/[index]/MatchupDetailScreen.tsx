@@ -14,6 +14,7 @@ import { applyLineupsToDetail, applyLiveToDetail, applyStatsToDetail } from '@/l
 import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
 import { detailMineOnLeft, useMyTeam } from '@/lib/myTeam';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView } from '@/lib/types';
+import { gameLine, useNflScores } from '@/lib/nflGames';
 import { useLive, useLiveStats } from '@/lib/useLive';
 
 /** Which player's breakdown is open: section, row, side. */
@@ -22,6 +23,8 @@ type Open = { bench: boolean; row: number; side: 'home' | 'away' } | null;
 export default function MatchupDetailScreen({ view: built }: { view: MatchupDetailView }) {
   const live = useLive(built.week, built.liveWindow);
   const stats = useLiveStats(built.scoring?.statsUrl, built.liveWindow);
+  const nfl = useNflScores(built.scoresUrl, built.liveWindow);
+  const game = (p: BoxPlayerView) => gameLine(p, nfl, !!built.simulatedAt);
   // Scores once games are under way; lineups (and pre-game projections) any time.
   const lived = live?.started ? applyLiveToDetail(built, live) : built;
   const scored = live ? applyLineupsToDetail(lived, live) : lived;
@@ -85,7 +88,7 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
       <div style={{ flex: 1, overflow: 'auto' }}>
         {alerts.length > 0 && <div style={{ paddingTop: 10 }}><LineupAlert alerts={alerts} /></div>}
         {view.starters.map((r, i) => (
-          <PlayerRow key={`s-${i}-${r.home.name}-${r.away.name}`} row={r} onScore={(side) => setOpen({ bench: false, row: i, side })} />
+          <PlayerRow key={`s-${i}-${r.home.name}-${r.away.name}`} row={r} game={game} onScore={(side) => setOpen({ bench: false, row: i, side })} />
         ))}
 
         <div style={{
@@ -97,7 +100,7 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
         </div>
 
         {view.bench.map((r, i) => (
-          <PlayerRow key={`b-${i}-${r.home.name}-${r.away.name}`} row={r} bench onScore={(side) => setOpen({ bench: true, row: i, side })} />
+          <PlayerRow key={`b-${i}-${r.home.name}-${r.away.name}`} row={r} bench game={game} onScore={(side) => setOpen({ bench: true, row: i, side })} />
         ))}
 
         <div style={{ height: 20 }} />
@@ -143,13 +146,13 @@ function pagerStyle(border: 'left' | 'right'): React.CSSProperties {
  * beneath. Tapping a score opens its breakdown. Bench rows are de-emphasised.
  */
 function PlayerRow({
-  row, bench = false, onScore,
+  row, bench = false, game, onScore,
 }: {
-  row: BoxRowView; bench?: boolean; onScore: (side: 'home' | 'away') => void;
+  row: BoxRowView; bench?: boolean; game: (p: BoxPlayerView) => string; onScore: (side: 'home' | 'away') => void;
 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 34px 1fr', borderBottom: '1px solid var(--color-divider)' }}>
-      <PlayerSide player={row.home} side="home" bench={bench} onScore={() => onScore('home')} />
+      <PlayerSide player={row.home} side="home" bench={bench} game={game(row.home)} onScore={() => onScore('home')} />
 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -159,15 +162,15 @@ function PlayerRow({
         {row.pos}
       </div>
 
-      <PlayerSide player={row.away} side="away" bench={bench} onScore={() => onScore('away')} />
+      <PlayerSide player={row.away} side="away" bench={bench} game={game(row.away)} onScore={() => onScore('away')} />
     </div>
   );
 }
 
 function PlayerSide({
-  player, side, bench, onScore,
+  player, side, bench, game, onScore,
 }: {
-  player: BoxPlayerView; side: 'home' | 'away'; bench: boolean; onScore: () => void;
+  player: BoxPlayerView; side: 'home' | 'away'; bench: boolean; game: string; onScore: () => void;
 }) {
   const away = side === 'away';
   const nameSize = bench ? 12 : 12.5;
@@ -193,6 +196,8 @@ function PlayerSide({
         })()}
       </div>
       <div style={{ ...sub, ...clip }}>{player.line}</div>
+      {/* The NFL game: "W 31-17 vs DAL", "17-14 @ LAR", or "vs ARI". */}
+      {game && <div style={{ ...sub, ...clip, marginTop: 1 }}>{game}</div>}
     </div>
   );
 
