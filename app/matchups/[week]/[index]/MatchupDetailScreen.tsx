@@ -6,7 +6,7 @@ import InjuryTag from '@/components/InjuryTag';
 import LineupAlert from '@/components/LineupAlert';
 import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
-import ScoreHeader from '@/components/ScoreHeader';
+import ScoreHeader, { NO_SCORE } from '@/components/ScoreHeader';
 import ScoreSheet from '@/components/ScoreSheet';
 import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
@@ -73,8 +73,8 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
         <TeamWatermarks home={view.home.icon} away={view.away.icon} />
         <div style={{ position: 'relative', padding: '12px 14px 14px' }}>
           <ScoreHeader
-            home={{ name: view.home.name, meta: view.home.meta, num: view.home.num, sub: view.home.sub }}
-            away={{ name: view.away.name, meta: view.away.meta, num: view.away.num, sub: view.away.sub }}
+            home={scoreSide(view.home, view.tag.startsWith('KICKOFF'))}
+            away={scoreSide(view.away, view.tag.startsWith('KICKOFF'))}
             win={[view.home.win, view.away.win]}
             center={matchupState(view)}
             bar={view.bar}
@@ -109,22 +109,25 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
 }
 
 /**
- * What sits between the two scores: the odds while games are on, FINAL once
- * the matchup is decided (the bar then shows the final score split), and
- * before kickoff the start time over the projected odds.
+ * What sits between the two scores: the odds (projected ones before kickoff),
+ * or FINAL once the matchup is decided (the bar then shows the final score split).
  */
 function matchupState(view: MatchupDetailView): React.ReactNode {
-  const odds = `${view.home.win} / ${view.away.win}`;
   if (view.tag === 'FINAL') return <span style={{ color: 'var(--color-text)' }}>FINAL</span>;
-  if (view.tag.startsWith('KICKOFF')) {
-    return (
-      <>
-        <div style={{ color: 'var(--color-text)', whiteSpace: 'nowrap' }}>{view.tag.replace(/^KICKOFF\s*/, '')}</div>
-        <div style={{ marginTop: 4 }}>{odds}</div>
-      </>
-    );
-  }
-  return odds;
+  return `${view.home.win} / ${view.away.win}`;
+}
+
+/**
+ * A side of the score block. Before kickoff nobody has scored, so the big
+ * number is a dash and the projected total sits under it.
+ */
+function scoreSide(side: MatchupDetailView['home'], preKickoff: boolean) {
+  return {
+    name: side.name,
+    meta: side.meta,
+    num: preKickoff ? NO_SCORE : side.num,
+    sub: preKickoff ? side.num : side.sub,
+  };
 }
 
 function pagerStyle(border: 'left' | 'right'): React.CSSProperties {
