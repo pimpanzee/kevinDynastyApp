@@ -58,10 +58,6 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
           ←
         </Link>
         <span style={{ font: '800 11px var(--font-heading)', letterSpacing: '.12em' }}>WEEK {view.week} MATCHUP</span>
-        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}>
-          {view.liveDot && <span style={{ width: 6, height: 6, background: 'var(--color-accent)', animation: 'blip 1.4s infinite' }} />}
-          <span style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-accent)' }}>{view.tag}</span>
-        </span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'center', borderBottom: '1px solid var(--color-divider)' }}>
@@ -80,6 +76,7 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
             home={{ name: view.home.name, meta: view.home.meta, num: view.home.num, sub: view.home.sub }}
             away={{ name: view.away.name, meta: view.away.meta, num: view.away.num, sub: view.away.sub }}
             win={[view.home.win, view.away.win]}
+            center={matchupState(view)}
             bar={view.bar}
           />
         </div>
@@ -109,6 +106,25 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
       {openPlayer?.breakdown && <ScoreSheet week={view.week} player={openPlayer} onClose={close} />}
     </PhoneFrame>
   );
+}
+
+/**
+ * What sits between the two scores: the odds while games are on, FINAL once
+ * the matchup is decided (the bar then shows the final score split), and
+ * before kickoff the start time over the projected odds.
+ */
+function matchupState(view: MatchupDetailView): React.ReactNode {
+  const odds = `${view.home.win} / ${view.away.win}`;
+  if (view.tag === 'FINAL') return <span style={{ color: 'var(--color-text)' }}>FINAL</span>;
+  if (view.tag.startsWith('KICKOFF')) {
+    return (
+      <>
+        <div style={{ color: 'var(--color-text)', whiteSpace: 'nowrap' }}>{view.tag.replace(/^KICKOFF\s*/, '')}</div>
+        <div style={{ marginTop: 4 }}>{odds}</div>
+      </>
+    );
+  }
+  return odds;
 }
 
 function pagerStyle(border: 'left' | 'right'): React.CSSProperties {

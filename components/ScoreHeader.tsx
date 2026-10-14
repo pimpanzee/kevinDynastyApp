@@ -19,13 +19,15 @@ export interface ScoreSide {
  * names row → big-number row → win-probability bar.
  *
  * `win` is null on the Past (final) layout, which drops the centre column and
- * splits the row 1fr/1fr instead. `awayTone` is the muted colour the away side
+ * splits the row 1fr/1fr instead. `center` replaces the "51% / 49%" text in
+ * that column when given. `awayTone` is the muted colour the away side
  * takes — neutral-800 on live/pre screens, neutral-600 once a week is final.
  */
 export default function ScoreHeader({
   home,
   away,
   win,
+  center,
   bar,
   awayTone = 'var(--color-neutral-800)',
   subSize = 11.5,
@@ -34,6 +36,7 @@ export default function ScoreHeader({
   home: ScoreSide;
   away: ScoreSide;
   win: [string, string] | null;
+  center?: ReactNode;
   bar: string | null;
   awayTone?: string;
   subSize?: number;
@@ -76,8 +79,8 @@ export default function ScoreHeader({
           {home.sub && <div style={subStyle}>{home.sub}</div>}
         </div>
         {win && (
-          <div style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)', padding: '0 10px' }}>
-            {win[0]} / {win[1]}
+          <div style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)', padding: '0 10px', textAlign: 'center' }}>
+            {center ?? `${win[0]} / ${win[1]}`}
           </div>
         )}
         <div style={{ textAlign: 'right' }}>
