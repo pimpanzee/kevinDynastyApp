@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { WeekView } from '@/lib/types';
+import type { MatchupDetailView, MatchupView, WeekView } from '@/lib/types';
 
 /**
  * The viewer's own team. Pages are prebuilt around the league's default
@@ -84,6 +84,32 @@ export function personalizeWeek(view: WeekView, team: string): WeekView {
     playersLeft: view.phase === 'final' || !side ? '' : `${ytp} YET TO PLAY`,
     weeks: view.weeks.map((w) => ({ ...w, note: w.notes ? (w.notes[team] ?? '') : w.note })),
   };
+}
+
+/**
+ * The other side's share of a probability bar. "0%" means there is nothing to
+ * show (see barWidth), so it stays as it is.
+ */
+function flipBar<T extends string | null>(bar: T): T {
+  if (!bar || bar === '0%' || !/^\d+(\.\d+)?%$/.test(bar)) return bar;
+  return `${100 - parseFloat(bar)}%` as T;
+}
+
+/**
+ * The user's matchup with them on the left (the `home` slot), whichever side
+ * MFL lists them on, so their score sits in the same place every week. Other
+ * matchups come back unchanged.
+ */
+export function mineOnLeft(m: MatchupView, team: string): MatchupView {
+  if (m.away.franchiseId !== team) return m;
+  return { ...m, home: m.away, away: m.home, bar: flipBar(m.bar) };
+}
+
+/** As mineOnLeft, for the matchup detail page: score header and every player row. */
+export function detailMineOnLeft(v: MatchupDetailView, team: string): MatchupDetailView {
+  if (v.away.franchiseId !== team) return v;
+  const swap = (rows: MatchupDetailView['starters']) => rows.map((r) => ({ ...r, home: r.away, away: r.home }));
+  return { ...v, home: v.away, away: v.home, bar: flipBar(v.bar), starters: swap(v.starters), bench: swap(v.bench) };
 }
 
 /**

@@ -15,7 +15,7 @@ import { barWidth } from '@/lib/format';
 import { applyLineupsToWeek, applyLiveToWeek, startersOf } from '@/lib/live';
 import { startersWithIssues } from '@/lib/lineupAlerts';
 import LineupAlert from '@/components/LineupAlert';
-import { personalizeWeek, useMyTeam } from '@/lib/myTeam';
+import { mineOnLeft, personalizeWeek, useMyTeam } from '@/lib/myTeam';
 import type { MatchupView, Phase, SideView, WeekView } from '@/lib/types';
 import { useLive } from '@/lib/useLive';
 
@@ -64,7 +64,9 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
     if (n !== view.week) router.push(`/matchups/${n}/`);
   };
 
-  const mine = view.matchups[0];
+  const first = view.matchups[0];
+  // Your matchup always has you on the left, home or away.
+  const mine = first?.isMine ? mineOnLeft(first, team) : first;
   const rest = view.matchups.slice(1);
   const mineState = mine ? gameState(view.phase, mine) : 'future';
 

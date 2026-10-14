@@ -12,7 +12,7 @@ import StatusBar from '@/components/StatusBar';
 import TeamWatermarks from '@/components/TeamWatermarks';
 import { applyLineupsToDetail, applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
 import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
-import { useMyTeam } from '@/lib/myTeam';
+import { detailMineOnLeft, useMyTeam } from '@/lib/myTeam';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView } from '@/lib/types';
 import { useLive, useLiveStats } from '@/lib/useLive';
 
@@ -27,7 +27,8 @@ export default function MatchupDetailScreen({ view: built }: { view: MatchupDeta
   const scored = live ? applyLineupsToDetail(lived, live) : lived;
   const team = useMyTeam(built.myFranchiseId);
   const isMine = built.home.franchiseId === team || built.away.franchiseId === team;
-  const view = stats ? applyStatsToDetail(scored, stats) : scored;
+  // Your own matchup always has you on the left, home or away.
+  const view = detailMineOnLeft(stats ? applyStatsToDetail(scored, stats) : scored, team);
   const mySide = view.home.franchiseId === team ? 'home' : view.away.franchiseId === team ? 'away' : null;
   const alerts = mySide && view.phase !== 'final'
     ? view.starters.map((r) => r[mySide]).flatMap((p) => {
