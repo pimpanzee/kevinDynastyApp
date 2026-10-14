@@ -4,6 +4,9 @@ import type { ReactNode } from 'react';
 export const NO_SCORE = '—';
 const NO_SCORE_TONE = 'var(--color-neutral-400)';
 
+/** The big number's font. A dash is drawn smaller, on the same line height so the row doesn't jump. */
+const bigFont = (num: string) => `800 ${num === NO_SCORE ? 24 : 42}px/42px var(--font-heading)`;
+
 export interface ScoreSide {
   name: string;
   /** Record + players-yet-to-play line under the name. */
@@ -75,7 +78,7 @@ export default function ScoreHeader({
         }}
       >
         <div>
-          <div style={{ font: '800 42px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: home.num === NO_SCORE ? NO_SCORE_TONE : undefined }}>{home.num}</div>
+          <div style={{ font: bigFont(home.num), fontVariantNumeric: 'tabular-nums', color: home.num === NO_SCORE ? NO_SCORE_TONE : undefined }}>{home.num}</div>
           {home.sub && <div style={subStyle}>{home.sub}</div>}
         </div>
         {win && (
@@ -84,7 +87,7 @@ export default function ScoreHeader({
           </div>
         )}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ font: '800 42px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: away.num === NO_SCORE ? NO_SCORE_TONE : awayTone }}>{away.num}</div>
+          <div style={{ font: bigFont(away.num), fontVariantNumeric: 'tabular-nums', color: away.num === NO_SCORE ? NO_SCORE_TONE : awayTone }}>{away.num}</div>
           {away.sub && <div style={subStyle}>{away.sub}</div>}
         </div>
       </div>
