@@ -11,6 +11,7 @@ target design, the top row is the app as built today).
 - **Designed:** Matchups, Matchup detail, Score breakdown sheet, My Team (Roster, Cap, Picks),
   Player card, League (Activity, Standings, Ratings, team page).
 - **Designed since:** Players (Free agents, All players), Settings (More is folded in).
+- **Design pass complete.** Next is the code pass.
 - **Then:** one code pass for everything here (start with the open questions that need real data).
 - Canvas rows: Matchups (`NavA-Matchups`, `NavA-DetailStacked`, `NavA-ScoreBreakdown`) · My Team
   (`NavA-MyTeam`, `NavA-MyTeamCap`, `NavA-MyTeamPicks`, `NavA-PlayerCard`) · League
@@ -288,8 +289,8 @@ to where you were; bottom tab bar stays with nothing lit.
   inline list of all 12 franchises (logo, name, ✓ on yours; your row raised with the volt edge);
   picking one switches the whole app. Note: "Your team leads Matchups, fills My Team, and is the
   yellow-green everywhere. Saved on this device."
-- APPEARANCE: SYSTEM · LIGHT · DARK (selected in volt). Light mode isn't designed yet — it needs a
-  Hashmark light palette before it can ship; keep the toggle out until then if that slips.
+- APPEARANCE: SYSTEM · LIGHT · DARK (selected in volt) — keep it. Light mode isn't designed yet: it
+  needs a Hashmark light palette (same token names, light values) before LIGHT/SYSTEM can ship.
 - GET THE APP: Install the app, Home Screen widget (the existing guides).
 - Footer: data sources (MFL for league/rosters/contracts, Sleeper for stats/scores/news) and
   "Updated 2 min ago".
@@ -351,6 +352,8 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Matchups screen pre-game / final states haven't been mocked yet.
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
+
+- Light mode palette for the Appearance setting (tokens only; layouts stay the same).
 
 ## Already in code (PR #41)
 
