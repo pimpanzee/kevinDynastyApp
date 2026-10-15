@@ -96,6 +96,7 @@ Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
 ### Contract value (VALUE column + Cap tab lists)
 
 Surplus value: what the player's production costs on this league's own market, minus what he's paid.
+League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,196.80`).
 
 **Inputs** (all already fetched somewhere in the app):
 - Every rostered player's `salary` and contract years, all franchises — MFL `rosters` (`lib/mfl/rosters.ts`).
@@ -122,14 +123,14 @@ Surplus value: what the player's production costs on this league's own market, m
      where most players are on minimums), use the nearest band up the rankings that does; if none,
      VALUE shows `—`.
 4. **VALUE (per season)** = market price − salary.
-   - Shown on the Roster tab as `+$17` (`--rise`), `−$10` (`--fall`), or `fair` (`--ink-3`)
-     when |VALUE| < $3. Whole dollars.
+   - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
+     when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
 5. **Contract value** = VALUE × years left (YRS, min 1). Used for the Cap tab lists.
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"
   are left out. Header right-hand label: OVER CONTRACT.
-- Row: position chip · name · `RB6 · $31.00 vs $48 market · 2 yrs` · total (`+$34` / `−$30`) · chevron to player card.
+- Row: position chip · name · `RB6 · $272.80 vs $423 market · 2 yrs` · total (`+$300` / `−$265`) · chevron to player card.
 
 **Edge cases**
 - Players on IR / out for the season: still computed from PPG over games played; don't hide them.
