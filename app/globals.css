@@ -283,6 +283,11 @@ textarea.input { min-height: 90px; resize: vertical; }
    ══════════════════════════════════════════════════════════════════════ */
 
 html, body { margin: 0; height: 100%; background: var(--color-neutral-200); }
+/* On a phone the column fills the screen, so the ground iOS paints behind the status bar
+   (and in overscroll) must be the app's own --bg-000, not the desktop gutter. */
+@media (max-width: 430px) { html, body { background: var(--bg-000); } }
+/* PhoneFrame's hairline side rules frame the column on desktop only. */
+@media (min-width: 431px) { .phone-frame { border-left: 1px solid var(--line); border-right: 1px solid var(--line); } }
 body { font-family: var(--font-body); color: var(--color-text); }
 a { color: inherit; text-decoration: none; }
 * { -webkit-tap-highlight-color: transparent; }
