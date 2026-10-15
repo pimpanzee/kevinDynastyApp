@@ -174,10 +174,17 @@ Canvas boards: `A · League › Standings`, `A · League › Activity`, `A · Le
 
 ### Standings
 
-- Columns: `# · TEAM · VP · W-L · PF`, ranked by VP then PF (as `lib/mfl/standings.ts` already sorts).
-  VP in the display face as the lead number; W-L and PF secondary.
-- Dashed PLAYOFF LINE after 6th — the same cut as the Top 6 race on Matchups.
-- Your row raised (`--bg-200`) with a YOU tag; rows open the team page.
+- Split by conference, then division (2 conferences × 2 divisions × 3 teams; names from MFL).
+  Conference header, then per division a sub-header row `DIVISION NAME · VP · W-L · PF` and its teams,
+  ordered by VP then PF.
+- Playoffs: per conference, the **two division winners + one wild card** (best VP among the
+  non-winners in that conference, PF breaks ties) = 6 teams.
+- Seed tag in the first column: `DIV` (volt) for each division leader, `WC` (grey) for the team
+  holding the wild card. No overall rank number.
+- Under each conference, one line on the wild-card race:
+  `WILD CARD · Gridiron Ghosts leads Mahomes Depot by 3 VP`, or on a VP tie
+  `… holds it over North End Nine on points (both 9 VP)`.
+- Your row raised (`--bg-200`) with a volt left edge and a YOU tag; rows open the team page.
 
 ### Team page (another team)
 
@@ -254,6 +261,8 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
 - Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Matchups screen pre-game / final states haven't been mocked yet.
+- Matchups Top 6 race assumes the top six overall make the playoffs; with division winners + a wild card
+  per conference it needs rethinking (e.g. show your path: division lead / wild-card gap).
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
 
 ## Already in code (PR #41)
