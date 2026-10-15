@@ -51,6 +51,21 @@ Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa — boards `A · Match
 - Keep the `‹ MATCHUP 1 OF 6 · YOURS ›` pager strip below the header.
 - Bottom tab bar stays, MATCHUPS lit; tapping it returns to the Matchups list.
 
+### Score breakdown sheet
+
+Canvas board `A · Score breakdown sheet`. Tapping a player's points on the matchup page opens a bottom sheet.
+- Header: position chip, name, `TEAM · status · game line` (live status in red). No owner/slot line.
+- FANTASY POINTS total, `proj X` and `+/−X VS PROJ`.
+- One row per stat the player actually recorded: label, rule (`0.1 per yd`), raw stat, points
+  (negatives in `--fall`), then TOTAL. Optional note chip (BEST / LIVE).
+- No by-quarter chart, no PLAYER CARD / DONE buttons — close with the X, the scrim or a drag down.
+- League scoring (from MFL):
+  - Passing: 4 per TD, 0.04 per yd, −3 per INT, −0.1 per sack yard, 2 per 2-pt.
+  - Rushing: 6 per TD, 0.1 per yd, 2 per 2-pt. Receiving: 6 per TD, 0.1 per yd, **0.5 per catch**, 2 per 2-pt.
+  - Kicking: 3 per FG made, +0.1 per yard of FG length beyond 30, −1 per FG missed, 1 per XP, −1 per XP missed.
+  - Returns: 6 per punt or kickoff return TD, 0.1 per punt return yard. Fumbles lost: −3.
+  - Read the rules from MFL's league `rules` export rather than hard-coding them, if `lib/scoring.ts` doesn't already.
+
 ## My Team
 
 Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
