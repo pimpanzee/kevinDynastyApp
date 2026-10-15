@@ -57,8 +57,8 @@ Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
 
 ### Team header (all three tabs)
 
-- Under `7-3 · 2nd in Division 1` add a second line: `14 VP · 118.6 AVG PF · 1,302.6 PP`
-  (value in ink, label in grey). VP, average PF and potential points (season total of best possible
+- One line under the team name, replacing `7-3 · 2nd in Division 1`: `7-3 · 14 VP · 118.6 AVG PF · 1,302.6 PP`
+  (division rank dropped; value in ink, label in grey; Cap and Picks keep `28 players` at the end). VP, average PF and potential points (season total of best possible
   lineups) are already computed per team in `lib/mfl/standings.ts` (`vp`, `avgPf`, `pp`).
 
 ### Roster table
