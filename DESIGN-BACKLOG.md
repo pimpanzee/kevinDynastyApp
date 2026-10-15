@@ -153,12 +153,11 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
 5. **Contract value** = sum over the years left of (market price − that year's cap hit), where the cap
    hit rises 10% a year (`salary × 1.1^k` for k = 0…years left − 1). Used for the Cap tab lists.
-   (The mockup simplifies this to VALUE × years.)
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"
   are left out. Header right-hand label: OVER CONTRACT.
-- Row: position chip · name · `RB6 · $272.80 vs $423 market · 2 yrs` · total (`+$300` / `−$265`) · chevron to player card.
+- Row: position chip · name · `RB6 · $272.80 vs $423 market · 2 yrs` · total (`+$273` / `−$330`) · chevron to player card.
 
 **Edge cases**
 - Players on IR / out for the season: still computed from PPG over games played; don't hide them.
@@ -193,19 +192,24 @@ Use these anywhere the app projects cap hits.
 
 ## Player card
 
-To do: mock up the player card (canvas board `Player card sheet` is the as-built version).
-
-- For a player on your roster, show **dead cap if cut**: this year's cap hit, years remaining, and the
-  total dead cap amount from the rule above (no split shown).
-- Also show his contract by year (cap hit for each remaining year with the +10% appreciation) and
-  the contract VALUE from the Roster tab.
-- Natural place for the full (untruncated) stat line from the matchup page.
-
+Canvas board `A · Player card` (tweak: owner = mine / other team). A bottom sheet in the Hashmark
+style, replacing the as-built light card. Opens from the Roster rows and the Cap tab contract lists.
+- Header: position chip, name, injury tag, `PHI · #26 · BYE 9 · AGE 28.7 · 6'0" 233`, owner line.
+- Season strip: YTD PTS · PPG · POS RNK · GP.
+- CONTRACT: one row per remaining year — cap hit (+10% a year), market price, VALUE — then the
+  TOTAL over the contract (same numbers as the Roster VALUE column and Cap tab lists).
+- DEAD CAP IF CUT (your roster only): total, with the math under it
+  (`$272.80 × 2 yrs × 30%` = `$163.68`). No Article 8 split.
+- GAME LOG, newest first: week, game result, the full Standard stat line (never truncated), points.
+  Bye weeks shown as a row.
+- Dropped from the as-built card: the light theme, the wide tinted stats grid. ESPN news isn't on
+  the mockup — decide whether it stays (below the game log) or goes.
 ## Open questions
 
 - Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Matchups screen pre-game / final states haven't been mocked yet.
+- Player card: keep ESPN news or drop it.
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
 
 ## Already in code (PR #41)
