@@ -111,7 +111,8 @@ Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`, `A · My Team 
 
 - The header is identical on Roster, Cap and Picks: team name + that one line, then the tab bar.
   Cap and Picks drop their CAP ROOM / 2026 COMMITTED / 2026 PICKS block; no summary block on
-  those tabs for now. The ROOM / ROSTER / IR / TAXI strip stays on the Roster tab only.
+  those tabs for now. The ROOM / ROSTER / IR / TAXI strip stays on the Roster tab only. A broken
+  limit (over the cap, roster outside 20–22, IR over 4, taxi over 6) turns that cell red — no OVER / UNDER text.
 
 ### Cap tab — committed by year
 
