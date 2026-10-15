@@ -57,9 +57,10 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
         onSelect={teamId ? (k) => setLocalTab(k as TeamTab) : undefined}
       />
       {tab === 'roster' && !teamId && canMove && (
-        <Link href="/team/lineup/" style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 40, margin: '10px 16px 0', borderRadius: 2, background: 'var(--volt)', color: 'var(--on-volt)', font: '700 13px/1 var(--font-display)', letterSpacing: '.12em' }}>
-          SET LINEUP · IR · TAXI
-        </Link>
+        <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, margin: '10px 16px 0' }}>
+          <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>
+          <Link href="/team/moves/" style={moveLink}>IR · TAXI</Link>
+        </div>
       )}
       {tab === 'roster' && <RosterTab data={data} team={team} />}
       {tab === 'cap' && <CapTab data={data} team={team} />}
@@ -68,3 +69,8 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
     </PhoneFrame>
   );
 }
+
+const moveLink = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', height: 40, borderRadius: 2,
+  background: 'var(--volt)', color: 'var(--on-volt)', font: '700 13px/1 var(--font-display)', letterSpacing: '.12em',
+} as const;
