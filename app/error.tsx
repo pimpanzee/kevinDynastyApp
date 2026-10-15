@@ -1,7 +1,6 @@
 'use client';
 
 import PhoneFrame from '@/components/PhoneFrame';
-import StatusBar from '@/components/StatusBar';
 import HeaderBar from '@/components/HeaderBar';
 
 /**
@@ -14,7 +13,6 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
 
   return (
     <PhoneFrame>
-      <StatusBar label="ERROR" />
       <HeaderBar />
       <div style={{ flex: 1, overflow: 'auto', padding: '24px 14px' }}>
         <div style={{ font: '800 11px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-accent)' }}>

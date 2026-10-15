@@ -1,9 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
+import HeaderBar from '@/components/HeaderBar';
 import PhoneFrame from '@/components/PhoneFrame';
-import StatusBar from '@/components/StatusBar';
 import { useMyTeam } from '@/lib/myTeam';
 
 const STEPS = [
@@ -57,8 +56,7 @@ export default function WidgetSetupScreen({
 
   return (
     <PhoneFrame>
-      <StatusBar label="WIDGET" />
-      <HeaderBar back="/settings/" right={<HeaderLabel>WIDGET</HeaderLabel>} />
+      <HeaderBar back="/settings/" title="WIDGET" noSettings />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 14px 24px' }}>
         <div style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)' }}>
           HOME SCREEN WIDGET

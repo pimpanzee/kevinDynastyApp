@@ -28,7 +28,9 @@ type Slot = { p: BoxPlayerView; row: number };
 const DISPLAY = (size: number, weight = 700) => `${weight} ${size}px/1 var(--font-display)`;
 const clip = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;
 
-const notStarted = (p: BoxPlayerView) => p.pts === '—' || p.line.includes('yet to play');
+/** His game hasn't kicked off: no points yet, or the status is still a kickoff time ("SUN 4:25 ET"). */
+const notStarted = (p: BoxPlayerView) =>
+  p.pts === '—' || p.line.includes('yet to play') || /\b\d{1,2}:\d{2}\b/.test(p.line.split(' · ').slice(1).join(' '));
 const num = (s: string) => Number(s.replace(/[^\d.-]/g, '')) || 0;
 
 /**
@@ -260,7 +262,7 @@ function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Sid
   const yet = notStarted(p);
   const scoreInner = (
     <>
-      <div style={{ font: DISPLAY(19), fontVariantNumeric: 'tabular-nums', color: yet ? 'var(--ink-3)' : 'var(--ink)', paddingBottom: 2, borderBottom: p.breakdown ? '1px dotted var(--edge)' : undefined }}>{p.pts}</div>
+      <div style={{ font: DISPLAY(19), fontVariantNumeric: 'tabular-nums', color: yet ? 'var(--ink-3)' : 'var(--ink)', paddingBottom: 2, borderBottom: p.breakdown && !yet ? '1px dotted var(--edge)' : undefined }}>{yet ? '—' : p.pts}</div>
       <div style={{ font: '500 10.5px/1 var(--font-body)', color: 'var(--ink-3)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{p.proj.replace(/^proj\s*/i, '')}</div>
     </>
   );

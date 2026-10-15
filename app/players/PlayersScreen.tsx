@@ -1,83 +1,49 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar from '@/components/HeaderBar';
 import InjuryTag from '@/components/InjuryTag';
 import PhoneFrame from '@/components/PhoneFrame';
-import { PlayerLink } from '@/components/PlayerCard';
-import StatusBar from '@/components/StatusBar';
+import { usePlayerCard } from '@/components/PlayerCard';
+import SubTabs from '@/components/SubTabs';
+import { teamInitials } from '@/components/TeamAvatar';
+import { posColor } from '@/components/pos';
+import { DISPLAY, pts1 } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
-import { NFL_COLORS } from '@/lib/nflColors';
-import type { PlayerRow, PlayerStatKey, PlayerStats, PlayersData } from '@/lib/types';
+import type { PlayerRow, PlayersData } from '@/lib/types';
 
 /**
- * Every QB/RB/WR/TE in the league, read-only: who's available, how they
- * project and how they've scored. Search, availability, position and mode all
- * filter the same list; tapping any stat header sorts by it.
+ * Players: FREE AGENTS or ALL PLAYERS, searchable, filtered by position and
+ * sorted by any column (tap the active header again to flip). All players
+ * shows who rosters each one inside the pinned cell. Rows open the card.
+ * The data is a static file built with the site (/players.json).
  */
 
-type Mode = 'proj' | 'last' | 'total' | 'avg';
+type List = 'fa' | 'all';
 type Pos = 'ALL' | PlayerRow['pos'];
-type SortKey = 'pts' | PlayerStatKey | 'gp' | 'fpts' | 'ppg';
+type ColKey = 'proj' | 'ppg' | 'pts' | 'posRank' | 'ovrRank';
 
-const PAGE = 100;
 const POSITIONS: Pos[] = ['ALL', 'QB', 'RB', 'WR', 'TE'];
+const COLS: Array<{ key: ColKey; label: string; low?: boolean }> = [
+  { key: 'proj', label: 'WK PROJ' },
+  { key: 'ppg', label: 'PPG' },
+  { key: 'pts', label: 'YTD PTS' },
+  { key: 'posRank', label: 'POS RNK', low: true },
+  { key: 'ovrRank', label: 'OVR RNK', low: true },
+];
+const GRID = '176px repeat(5, 66px)';
+const PAGE = 150;
 
-const STAT_LABEL: Record<PlayerStatKey, string> = {
-  pass_yd: 'PASS YD', pass_td: 'PASS TD', pass_int: 'INT',
-  rush_att: 'RUSH ATT', rush_yd: 'RUSH YD', rush_td: 'RUSH TD',
-  rec_tgt: 'TGT', rec: 'REC', rec_yd: 'REC YD', rec_td: 'REC TD',
-};
-
-const COLUMNS: Record<PlayerRow['pos'], PlayerStatKey[]> = {
-  QB: ['pass_yd', 'pass_td', 'pass_int', 'rush_yd', 'rush_td'],
-  RB: ['rush_att', 'rush_yd', 'rush_td', 'rec_tgt', 'rec', 'rec_yd', 'rec_td'],
-  WR: ['rec_tgt', 'rec', 'rec_yd', 'rec_td', 'rush_yd'],
-  TE: ['rec_tgt', 'rec', 'rec_yd', 'rec_td', 'rush_yd'],
-};
-
-/** A row's numbers under the current mode; null where there's nothing to show. */
-function figures(p: PlayerRow, mode: Mode): { pts: number | null; stats: PlayerStats | null; gp: number; ppg: number | null } {
-  const { gp, pts: total } = p.season;
-  const ppg = gp > 0 ? total / gp : null;
-  switch (mode) {
-    case 'proj':
-      return { pts: p.proj.pts, stats: p.proj.pts === null ? null : p.proj.stats, gp, ppg };
-    case 'last':
-      return { pts: p.lastWeek?.pts ?? null, stats: p.lastWeek?.stats ?? null, gp, ppg };
-    case 'total':
-      return { pts: gp > 0 || total ? total : null, stats: gp > 0 ? p.season.stats : null, gp, ppg };
-    case 'avg': {
-      if (gp === 0) return { pts: null, stats: null, gp, ppg };
-      const stats: PlayerStats = {};
-      for (const [k, v] of Object.entries(p.season.stats)) stats[k as PlayerStatKey] = v / gp;
-      return { pts: ppg, stats, gp, ppg };
-    }
-  }
+interface Row extends PlayerRow {
+  ppg: number | null;
+  posRank: number | null;
+  ovrRank: number | null;
 }
-
-function sortValue(p: PlayerRow, mode: Mode, key: SortKey): number | null {
-  const f = figures(p, mode);
-  if (key === 'pts') return f.pts;
-  if (key === 'gp') return f.gp;
-  if (key === 'fpts') return p.season.pts;
-  if (key === 'ppg') return f.ppg;
-  return f.stats ? (f.stats[key] ?? 0) : null;
-}
-
-/** Projections and averages to one decimal; actual counts and totals whole. */
-function fmt(v: number | null | undefined, mode: Mode): string {
-  if (v === null || v === undefined) return '—';
-  return mode === 'proj' || mode === 'avg' ? v.toFixed(1) : String(Math.round(v));
-}
-
-const fmtPts = (v: number | null) => (v === null ? '—' : v.toFixed(1));
 
 export default function PlayersScreen() {
   const [data, setData] = useState<PlayersData | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -90,349 +56,150 @@ export default function PlayersScreen() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const myTeam = useMyTeam(data?.myFranchiseId ?? '');
-  const modes = useMemo(() => {
-    const out: Array<{ mode: Mode; label: string }> = [];
-    if (!data) return out;
-    if (data.hasProj) out.push({ mode: 'proj', label: `WEEK ${data.projWeek} PROJ` });
-    if (data.lastWeek) out.push({ mode: 'last', label: `LAST WEEK · WK ${data.lastWeek}` });
-    out.push({ mode: 'total', label: 'SEASON TOTAL' }, { mode: 'avg', label: 'SEASON AVG' });
-    return out;
+  const card = usePlayerCard();
+  const mine = useMyTeam(data?.myFranchiseId ?? '');
+  const [list, setList] = useState<List>('fa');
+  const [pos, setPos] = useState<Pos>('ALL');
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<{ key: ColKey; desc: boolean }>({ key: 'proj', desc: true });
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [list, pos, q, sort]);
+
+  // Ranks by season points, among everyone listed.
+  const rows: Row[] = useMemo(() => {
+    const players = data?.players ?? [];
+    const scored = players.filter((p) => p.season.gp > 0).sort((a, b) => b.season.pts - a.season.pts);
+    const ovr = new Map(scored.map((p, i) => [p.id, i + 1]));
+    const posRank = new Map<string, number>();
+    const seen: Record<string, number> = {};
+    for (const p of scored) posRank.set(p.id, (seen[p.pos] = (seen[p.pos] ?? 0) + 1));
+    return players.map((p) => ({
+      ...p,
+      ppg: p.season.gp ? p.season.pts / p.season.gp : null,
+      posRank: posRank.get(p.id) ?? null,
+      ovrRank: ovr.get(p.id) ?? null,
+    }));
   }, [data]);
 
-  const [modeChoice, setMode] = useState<Mode | null>(null);
-  // Without projections, open on season averages rather than a column of dashes.
-  const mode: Mode = modeChoice ?? (data && !data.hasProj ? 'avg' : 'proj');
-  const [modeOpen, setModeOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [available, setAvailable] = useState(true);
-  const [pos, setPos] = useState<Pos>('ALL');
-  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'pts', desc: true });
-  const [limit, setLimit] = useState(PAGE);
+  const owners = useMemo(() => new Map(data?.franchises.map((f) => [f.id, f])), [data]);
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const value = (r: Row): number | null => {
+      switch (sort.key) {
+        case 'proj': return r.next ? r.proj.pts : null;
+        case 'ppg': return r.ppg;
+        case 'pts': return r.season.gp ? r.season.pts : null;
+        case 'posRank': return r.posRank;
+        case 'ovrRank': return r.ovrRank;
+      }
+    };
+    return rows
+      .filter((r) => (list === 'all' || !r.owner) && (pos === 'ALL' || r.pos === pos) && (!needle || r.name.toLowerCase().includes(needle)))
+      .sort((a, b) => {
+        const va = value(a), vb = value(b);
+        // Byes and missing values sink, whichever way the column sorts.
+        if (va === null || vb === null) return va === null && vb === null ? 0 : va === null ? 1 : -1;
+        return sort.desc ? vb - va : va - vb;
+      });
+  }, [rows, list, pos, q, sort]);
 
-  // A new filter starts back at the top of the list.
-  useEffect(() => { setLimit(PAGE); }, [query, available, pos, mode, sort]);
-
-  const abbrevs = useMemo(() => new Map(data?.franchises.map((f) => [f.id, f.abbrev])), [data]);
-
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const q = query.trim().toLowerCase();
-    const list = data.players.filter(
-      (p) => (!available || !p.owner) && (pos === 'ALL' || p.pos === pos) && (!q || p.name.toLowerCase().includes(q)),
-    );
-    const dir = sort.desc ? -1 : 1;
-    return list
-      .map((p) => ({ p, v: sortValue(p, mode, sort.key) }))
-      // Rows with nothing to compare (no game, no projection) always sink.
-      .sort((a, b) => (a.v === null ? 1 : 0) - (b.v === null ? 1 : 0) || dir * ((a.v ?? 0) - (b.v ?? 0)) || a.p.name.localeCompare(b.p.name))
-      .map((r) => r.p);
-  }, [data, query, available, pos, mode, sort]);
-
-  const onSort = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: true }));
-
-  const modeLabel = modes.find((m) => m.mode === mode)?.label ?? '';
+  const pickSort = (c: (typeof COLS)[number]) =>
+    setSort((s) => (s.key === c.key ? { key: c.key, desc: !s.desc } : { key: c.key, desc: !c.low }));
 
   return (
-    <PhoneFrame>
-      <StatusBar label="PLAYERS" />
-      <HeaderBar
-        right={
-          data && (
-            <button
-              onClick={() => setModeOpen((v) => !v)}
-              aria-expanded={modeOpen}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, height: 32,
-                background: 'none', border: '1px solid var(--color-divider)', padding: '0 11px',
-                font: '800 11px var(--font-heading)', letterSpacing: '.06em',
-                color: 'var(--color-text)', cursor: 'pointer',
-              }}
-            >
-              {modeLabel.split(' · ')[0]} <span style={{ fontSize: 8 }}>▼</span>
-            </button>
-          )
-        }
+    <PhoneFrame style={{ position: 'relative' }}>
+      <HeaderBar />
+      <SubTabs
+        label="Player lists"
+        tabs={[{ key: 'fa', label: 'FREE AGENTS' }, { key: 'all', label: 'ALL PLAYERS' }]}
+        active={list}
+        onSelect={(k) => setList(k as List)}
       />
-
-      {modeOpen && (
-        <div style={{ borderBottom: '2px solid var(--color-divider)', background: 'var(--color-neutral-200)' }}>
-          {modes.map((m) => (
-            <div
-              key={m.mode}
-              onClick={() => { setMode(m.mode); setSort({ key: 'pts', desc: true }); setModeOpen(false); }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setMode(m.mode); setSort({ key: 'pts', desc: true }); setModeOpen(false); } }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                height: 44, padding: '0 14px', borderBottom: '1px solid var(--color-divider)',
-                fontSize: 12, cursor: 'pointer',
-              }}
-            >
-              <span>{m.label}</span>
-              <span style={{ font: '800 12px var(--font-heading)', color: 'var(--color-accent)' }}>{m.mode === mode ? '✓' : ''}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ padding: '10px 14px', borderBottom: '2px solid var(--color-text)', display: 'grid', gap: 8 }}>
-        <input
-          className="input"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search players"
-          aria-label="Search players by name"
-          autoComplete="off"
-          style={{ fontSize: 16, minHeight: 36, padding: '4px 10px' }}
-        />
-        <Seg
-          name="availability"
-          value={available ? 'AVAILABLE' : 'ALL PLAYERS'}
-          options={['AVAILABLE', 'ALL PLAYERS']}
-          onChange={(v) => setAvailable(v === 'AVAILABLE')}
-        />
-        <Seg name="position" value={pos} options={POSITIONS} onChange={(v) => setPos(v as Pos)} />
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : !data ? (
-          <Skeleton />
-        ) : rows.length === 0 ? (
-          <Empty query={query} available={available} pos={pos} />
-        ) : (
-          <>
-            {rows.slice(0, limit).map((p, i) => (
-              <Row
-                key={p.id}
-                player={p}
-                rank={i + 1}
-                mode={mode}
-                sort={sort}
-                onSort={onSort}
-                owner={!available && p.owner ? { abbrev: abbrevs.get(p.owner) ?? p.owner, mine: p.owner === myTeam } : null}
-              />
-            ))}
-            {rows.length > limit && (
-              <div style={{ padding: '14px', display: 'flex', justifyContent: 'center' }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setLimit((n) => n + PAGE)}
-                  style={{ font: '800 11px var(--font-heading)', letterSpacing: '.06em' }}
-                >
-                  LOAD MORE · {rows.length - limit} LEFT
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      <BottomNav />
-    </PhoneFrame>
-  );
-}
-
-/** The design system's segmented control, as radio buttons. */
-function Seg({ name, value, options, onChange }: { name: string; value: string; options: string[]; onChange: (v: string) => void }) {
-  return (
-    <div className="seg" role="radiogroup" aria-label={name} style={{ display: 'flex', borderRadius: 0 }}>
-      {options.map((o) => (
-        <label
-          key={o}
-          className="seg-opt"
-          style={{ flex: 1, justifyContent: 'center', padding: '6px 4px', font: '800 10.5px var(--font-heading)', letterSpacing: '.06em' }}
-        >
-          <input type="radio" name={name} checked={value === o} onChange={() => onChange(o)} />
-          {o}
+      <div style={{ flex: 'none', display: 'grid', gap: 8, padding: '10px 16px', background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
+        <label style={{ position: 'relative', display: 'block' }}>
+          <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Search players by name</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ position: 'absolute', left: 12, top: 14, color: 'var(--ink-3)' }}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={list === 'fa' ? 'Search free agents' : 'Search all players'}
+            style={{ boxSizing: 'border-box', width: '100%', height: 44, padding: '0 12px 0 36px', font: '500 16px/1 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-000)', border: '1px solid var(--line)', borderRadius: 2 }}
+          />
         </label>
-      ))}
-    </div>
-  );
-}
-
-function Row({
-  player, rank, mode, sort, onSort, owner,
-}: {
-  player: PlayerRow;
-  rank: number;
-  mode: Mode;
-  sort: { key: SortKey; desc: boolean };
-  onSort: (key: SortKey) => void;
-  owner: { abbrev: string; mine: boolean } | null;
-}) {
-  const f = figures(player, mode);
-  const game = mode === 'last' ? player.last : player.next;
-  const season = mode === 'total' || mode === 'avg';
-  // No game that week means his bye; say so once rather than "BYE 5 · BYE".
-  const gameText = !game ? 'ON BYE' : mode === 'last' ? game.opp : `${game.opp} ${game.kickoff}`;
-
-  const cells: Array<{ key: SortKey; label: string; value: string }> = COLUMNS[player.pos].map((k) => ({
-    key: k, label: STAT_LABEL[k], value: f.stats ? fmt(f.stats[k] ?? 0, mode) : '—',
-  }));
-  if (season) {
-    cells.push(
-      { key: 'gp', label: 'GP', value: String(f.gp) },
-      { key: 'fpts', label: 'FPTS', value: player.season.gp > 0 || player.season.pts ? player.season.pts.toFixed(1) : '—' },
-      { key: 'ppg', label: 'FPTS/G', value: fmtPts(f.ppg) },
-    );
-  }
-
-  return (
-    <div
-      style={{
-        borderBottom: '1px solid var(--color-divider)',
-        background: owner?.mine ? 'color-mix(in srgb, var(--color-accent) 6%, var(--color-bg))' : undefined,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px 6px' }}>
-        <span style={{ width: 22, flex: 'none', textAlign: 'right', font: '800 11px var(--font-heading)', color: 'var(--color-neutral-600)', fontVariantNumeric: 'tabular-nums' }}>
-          {rank}
-        </span>
-        <Avatar name={player.name} team={player.nflTeam} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ font: '600 13.5px/1.2 var(--font-body)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <PlayerLink playerId={player.id}>{player.name}</PlayerLink>
-            </span>
-            <InjuryTag tag={player.injury} />
-          </div>
-          <div style={{ font: '800 9px var(--font-heading)', letterSpacing: '.07em', color: 'var(--color-neutral-600)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {player.pos} · {player.nflTeam}{game && player.bye ? ` · BYE ${player.bye}` : ''} · {gameText}
-          </div>
-        </div>
-        {owner && (
-          <span
-            className={owner.mine ? 'tag tag-accent' : 'tag tag-neutral'}
-            title={owner.mine ? 'Your team' : 'Rostered'}
-            style={{ flex: 'none', fontSize: 9, padding: '2px 6px', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderRadius: 0 }}
-          >
-            {owner.abbrev}
-          </span>
-        )}
-        <button
-          onClick={() => onSort('pts')}
-          title="Sort by points"
-          style={{
-            flex: 'none', minWidth: 48, height: 30, padding: '0 7px', cursor: 'pointer',
-            background: 'none', border: `1px solid ${sort.key === 'pts' ? 'var(--color-text)' : 'var(--color-divider)'}`,
-            font: '800 14px var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text)',
-          }}
-        >
-          {fmtPts(f.pts)}
-        </button>
-      </div>
-
-      <div style={{ overflowX: 'auto', overscrollBehaviorX: 'contain', scrollbarWidth: 'none' }}>
-        <div style={{ display: 'flex', gap: 14, padding: '2px 14px 10px 86px', width: 'max-content' }}>
-          {cells.map((c) => {
-            const active = sort.key === c.key;
+        <div role="group" aria-label="Position" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6 }}>
+          {POSITIONS.map((p) => {
+            const on = p === pos;
             return (
-              <button
-                key={c.key + c.label}
-                onClick={() => onSort(c.key)}
-                title={`Sort by ${c.label}`}
-                style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 34, color: 'inherit' }}
-              >
-                <div style={{ font: '800 8.5px var(--font-heading)', letterSpacing: '.06em', whiteSpace: 'nowrap', color: active ? 'var(--color-accent-700)' : 'var(--color-neutral-600)' }}>
-                  {c.label}{active ? (sort.desc ? ' ▼' : ' ▲') : ''}
-                </div>
-                <div style={{ font: '600 12px var(--font-body)', fontVariantNumeric: 'tabular-nums', marginTop: 2, color: active ? 'var(--color-accent-700)' : 'var(--color-neutral-800)' }}>
-                  {c.value}
-                </div>
-              </button>
+              <button key={p} type="button" aria-pressed={on} onClick={() => setPos(p)} style={{ height: 36, borderRadius: 2, border: `1px solid ${on ? 'var(--edge)' : 'var(--line)'}`, background: on ? 'var(--bg-300)' : 'transparent', color: on ? 'var(--ink)' : p === 'ALL' ? 'var(--ink-3)' : posColor(p), font: DISPLAY(12), letterSpacing: '.1em', cursor: 'pointer' }}>{p}</button>
             );
           })}
         </div>
       </div>
-    </div>
-  );
-}
 
-/** Initials on the NFL team's color — no headshots in this version. */
-function Avatar({ name, team }: { name: string; team: string }) {
-  const initials = name.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('');
-  return (
-    <span
-      aria-hidden
-      style={{
-        width: 30, height: 30, flex: 'none', borderRadius: '50%', display: 'grid', placeItems: 'center',
-        background: NFL_COLORS[team] ?? 'var(--color-neutral-600)', color: '#fff', boxShadow: 'var(--avatar-ring, none)',
-        font: '800 10.5px var(--font-heading)', letterSpacing: '.02em',
-      }}
-    >
-      {initials}
-    </span>
-  );
-}
-
-const bar = (w: number | string, h: number): CSSProperties => ({
-  width: w, height: h, background: 'var(--color-neutral-200)', flex: 'none',
-});
-
-/** Placeholder rows in the real rows' shape while the player file loads. */
-function Skeleton() {
-  return (
-    <div aria-busy="true" aria-label="Loading players" style={{ animation: 'blip 1.6s infinite' }}>
-      {Array.from({ length: 8 }, (_, i) => (
-        <div key={i} style={{ borderBottom: '1px solid var(--color-divider)', padding: '10px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={bar(22, 10)} />
-            <span style={{ ...bar(30, 30), borderRadius: '50%' }} />
-            <div style={{ flex: 1, display: 'grid', gap: 5 }}>
-              <span style={bar('55%', 12)} />
-              <span style={bar('75%', 8)} />
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {error ? (
+          <div style={{ padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
+            {error}. <button type="button" onClick={load} style={{ border: 0, background: 'none', color: 'var(--ink)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Try again</button>
+          </div>
+        ) : !data ? (
+          <div aria-busy="true" style={{ padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)', animation: 'blip 1.6s infinite' }}>Loading…</div>
+        ) : (
+          <div style={{ width: 'max-content', minWidth: '100%' }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 2, display: 'grid', gridTemplateColumns: GRID, alignItems: 'stretch', height: 36, background: 'var(--bg-000)', borderBottom: '1px solid var(--edge)', whiteSpace: 'nowrap' }}>
+              <span style={{ position: 'sticky', left: 0, zIndex: 3, display: 'flex', alignItems: 'center', paddingLeft: 16, background: 'var(--bg-000)', boxShadow: '1px 0 0 var(--line)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>PLAYER</span>
+              {COLS.map((c) => {
+                const on = sort.key === c.key;
+                return (
+                  <button key={c.key} type="button" onClick={() => pickSort(c)} aria-label={`Sort by ${c.label}${on ? (sort.desc ? ', descending' : ', ascending') : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3, padding: '0 10px 0 0', background: on ? 'var(--bg-200)' : 'transparent', border: 0, boxShadow: on ? 'inset 0 -2px 0 var(--volt)' : undefined, font: DISPLAY(10), letterSpacing: '.1em', color: on ? 'var(--ink)' : 'var(--ink-3)', cursor: 'pointer' }}>
+                    {c.label}
+                    <span aria-hidden style={{ width: 8, fontSize: 9, color: 'var(--volt)' }}>{on ? (sort.desc ? '▼' : '▲') : ''}</span>
+                  </button>
+                );
+              })}
             </div>
-            <span style={bar(48, 30)} />
+            {shown.slice(0, limit).map((r) => {
+              const isMine = !!r.owner && r.owner === mine;
+              const owner = r.owner ? owners.get(r.owner) : undefined;
+              const bg = isMine ? 'var(--bg-200)' : 'var(--bg-000)';
+              const cells: Array<[ColKey, string]> = [
+                ['proj', r.next ? (r.proj.pts !== null ? r.proj.pts.toFixed(1) : '—') : 'BYE'],
+                ['ppg', r.ppg !== null ? r.ppg.toFixed(1) : '—'],
+                ['pts', r.season.gp ? pts1(r.season.pts) : '—'],
+                ['posRank', r.posRank ? `${r.pos}${r.posRank}` : '—'],
+                ['ovrRank', r.ovrRank ? `#${r.ovrRank}` : '—'],
+              ];
+              return (
+                <button key={r.id} type="button" onClick={() => card?.open(r.id)} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', height: 48, width: '100%', padding: 0, border: 0, borderBottom: '1px solid var(--line)', background: isMine ? 'var(--bg-200)' : 'transparent', color: 'var(--ink)', textAlign: 'left', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                  <span style={{ position: 'sticky', left: 0, zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, height: '100%', padding: '0 10px 0 16px', boxSizing: 'border-box', minWidth: 0, background: bg, boxShadow: `${isMine ? 'inset 3px 0 0 var(--volt), ' : ''}1px 0 0 var(--line)` }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                      <span style={{ font: '600 14px/1.2 var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+                      <InjuryTag tag={r.injury} />
+                      {list === 'all' && (
+                        // Who rosters him: the team's chip (yours in volt), or FA outlined in blue.
+                        <span title={owner?.name ?? 'Free agent'} style={{ flex: 'none', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 18, padding: '0 4px', boxSizing: 'border-box', borderRadius: 3, background: !owner ? 'transparent' : isMine ? 'var(--volt)' : 'var(--bg-300)', color: !owner ? 'var(--rise)' : isMine ? 'var(--on-volt)' : 'var(--ink)', border: !owner ? '1px solid var(--rise)' : 0, font: DISPLAY(10, 800), letterSpacing: '.04em' }}>
+                          {owner ? teamInitials(owner.name) : 'FA'}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <b style={{ fontWeight: 700, color: posColor(r.pos) }}>{r.pos}</b> · {r.nflTeam}{r.next ? ` · ${r.next.opp}` : ' · BYE'}
+                    </span>
+                  </span>
+                  {cells.map(([k, text]) => (
+                    <span key={k} style={{ textAlign: 'right', paddingRight: 18, font: sort.key === k ? DISPLAY(15) : '500 13px/1 var(--font-body)', color: text === '—' || text === 'BYE' ? 'var(--ink-3)' : 'var(--ink)' }}>{text}</span>
+                  ))}
+                </button>
+              );
+            })}
+            {shown.length === 0 && <div style={{ padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>No players match.</div>}
+            {shown.length > limit && (
+              <button type="button" onClick={() => setLimit((l) => l + PAGE)} style={{ position: 'sticky', left: 0, display: 'block', width: 390, maxWidth: '100vw', height: 48, border: 0, background: 'none', color: 'var(--ink-2)', font: DISPLAY(12), letterSpacing: '.12em', cursor: 'pointer' }}>SHOW MORE</button>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 14, paddingLeft: 72, marginTop: 8 }}>
-            {Array.from({ length: 5 }, (_, j) => <span key={j} style={bar(34, 20)} />)}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Empty({ query, available, pos }: { query: string; available: boolean; pos: Pos }) {
-  const who = `${available ? 'available ' : ''}${pos === 'ALL' ? 'players' : `${pos}s`}`;
-  return (
-    <div style={{ padding: '24px 14px' }}>
-      <div style={{ font: '800 11px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)' }}>NO PLAYERS</div>
-      <p style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.5, color: 'var(--color-neutral-700)' }}>
-        {query.trim() ? `No ${who} match “${query.trim()}”.` : `No ${who} to show.`}
-        {available ? ' Switch to ALL PLAYERS to include rostered ones.' : ''}
-      </p>
-    </div>
-  );
-}
-
-/** The app's error state (app/error.tsx), inline. */
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div style={{ padding: '24px 14px' }}>
-      <div style={{ font: '800 11px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-accent)' }}>COULD NOT LOAD</div>
-      <p style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: 'var(--color-neutral-700)' }}>
-        The player list didn&apos;t load.
-      </p>
-      <p style={{ marginTop: 12, fontSize: 11, lineHeight: 1.5, color: 'var(--color-neutral-600)', borderLeft: '2px solid var(--color-divider)', paddingLeft: 9 }}>
-        {message}
-      </p>
-      <button
-        onClick={onRetry}
-        style={{
-          marginTop: 20, height: 36, padding: '0 14px', cursor: 'pointer',
-          background: 'var(--color-accent)', color: 'var(--color-bg)', border: 0,
-          font: '800 11px var(--font-heading)', letterSpacing: '.06em',
-        }}
-      >
-        TRY AGAIN
-      </button>
-    </div>
+        )}
+      </div>
+      <BottomNav />
+    </PhoneFrame>
   );
 }

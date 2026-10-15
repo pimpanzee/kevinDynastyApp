@@ -79,8 +79,3 @@ export function HeaderButton({ children, ...rest }: React.ButtonHTMLAttributes<H
     </button>
   );
 }
-
-/** Kept for screens that still label the header; small caps in ink-3. */
-export function HeaderLabel({ children }: { children: ReactNode }) {
-  return <span style={{ font: '700 12px/1 var(--font-display)', letterSpacing: '.12em', color: 'var(--ink-3)' }}>{children}</span>;
-}
