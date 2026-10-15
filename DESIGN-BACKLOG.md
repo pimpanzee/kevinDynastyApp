@@ -65,6 +65,16 @@ Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
   Cap and Picks drop their CAP ROOM / 2026 COMMITTED / 2026 PICKS block; no summary block on
   those tabs for now. The ROOM / ROSTER / IR / TAXI strip stays on the Roster tab only.
 
+### Cap tab — committed by year
+
+- Each year's bar is stacked: contracts already signed (`--ink-2`) + rookie salaries of the picks you
+  hold in that year's draft at their projected slots (`--pos-pick`, the pick purple). A small legend
+  above the rows: CONTRACTS · DRAFT PICKS.
+- Amount column: contracts total, with `+$191.00 picks` under it in purple. ROOM = cap − contracts − picks.
+- Pick salaries come from the Picks tab calculation (same projected slots and rookie scale).
+- Open: rookie contracts presumably run more than one season — once the rookie contract length is
+  known (check MFL league settings in the code pass), carry each pick's salary into the later years it covers.
+
 ### Picks tab
 
 - Row: round chip (`R1`) · who it belongs to (`Own pick`, `via Second Wind`, `Traded to Iron Lung FC`) —
