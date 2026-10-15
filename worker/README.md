@@ -72,6 +72,9 @@ pickup goes through blind bids), `ir`, `taxi_squad`, `tradeProposal`,
   HTTP 200 and an `<error>`.
 - **An expired login stops writes** (`401`, `signedOut: true`) until the
   cookie is replaced.
+- **Live team read:** `GET /mine[?week=N]` returns your roster (with IR and
+  taxi), that week's starters and each NFL team's kickoff, read fresh from MFL
+  and never cached. The lineup screen (My Team → SET LINEUP) uses it.
 - **Audit log:** every write, its parameters and MFL's reply, kept in the
   relay's Durable Object. `GET /audit` returns the last 100.
 - **Login lifetime:** a daily scheduled run calls `/me`, which records when the

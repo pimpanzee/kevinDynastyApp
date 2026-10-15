@@ -131,6 +131,10 @@ export class WriteRelay {
     try {
       if (url.pathname === '/me') return json(await this.me());
       if (url.pathname === '/audit') return json({ entries: this.audit() });
+      if (url.pathname === '/mine') {
+        const result = await this.mine(url.searchParams.get('week'));
+        return json(result, result.status ?? 200);
+      }
       if (url.pathname === '/write' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
         const result = await this.write(body?.type, body?.params);
@@ -219,6 +223,74 @@ export class WriteRelay {
     };
   }
 
+  /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */
+  async read(c, url) {
+    const res = await fetch(url, {
+      headers: { ...this.headers(c.value), Accept: 'application/json' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    });
+    if (res.status !== 200) throw new Error(`MFL answered ${res.status}`);
+    const body = await res.json();
+    if (body.error) {
+      const message = body.error.$t ?? 'error';
+      if (isSignedOut(message)) this.markCookie(c.fingerprint, false);
+      throw Object.assign(new Error(message), { signedOut: isSignedOut(message) });
+    }
+    return body;
+  }
+
+  /**
+   * The owner's team as MFL has it right now, for the lineup screen: roster
+   * with IR and taxi, this week's starters, and each NFL team's kickoff (a
+   * player locks at his own). Week defaults to MFL's current one.
+   */
+  async mine(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const c = await this.cookie();
+    if (!c) return { error: 'No MFL login is set up on the relay', status: 503 };
+    if (c.expired_at) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
+    let franchiseId = c.franchise_id;
+    if (!franchiseId) {
+      const who = await this.me();
+      if (!who.signedIn) return { error: 'MFL does not see you signed in to this league', signedOut: true, status: 401 };
+      franchiseId = who.franchiseId;
+    }
+
+    const { MFL_HOST, MFL_SEASON, MFL_LEAGUE_ID } = this.env;
+    const league = `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1`;
+    try {
+      const w = weekParam ? `&W=${weekParam}` : '';
+      const [live, rosters] = await Promise.all([
+        this.read(c, `${league}&TYPE=liveScoring&DETAILS=1${w}`),
+        this.read(c, `${league}&TYPE=rosters&FRANCHISE=${franchiseId}`),
+      ]);
+      const week = Number(weekParam || live.liveScoring?.week);
+      // nflSchedule isn't league data, so only the api host answers it.
+      const schedule = await this.read(c, `https://api.myfantasyleague.com/${MFL_SEASON}/export?TYPE=nflSchedule&W=${week}&JSON=1`);
+
+      const side = list(live.liveScoring?.matchup)
+        .flatMap((m) => list(m.franchise))
+        .concat(list(live.liveScoring?.franchise))
+        .find((f) => f.id === franchiseId);
+      const starters = list(side?.players?.player).filter((p) => p.status === 'starter').map((p) => p.id);
+      const roster = list(list(rosters.rosters?.franchise)[0]?.player).map((p) => ({
+        id: p.id,
+        status: p.status ?? 'ROSTER',
+        salary: Number(p.salary) || 0,
+        contractYear: Number(p.contractYear) || 0,
+      }));
+      const kickoffs = {};
+      for (const g of list(schedule.nflSchedule?.matchup)) {
+        for (const t of list(g.team)) kickoffs[t.id] = Number(g.kickoff) * 1000;
+      }
+      // No markCookie here: these reads are public, so they succeed with a dead cookie too.
+      return { week, franchiseId, roster, starters, kickoffs, fetchedAt: Date.now() };
+    } catch (e) {
+      return { error: e.message, signedOut: e.signedOut || undefined, status: e.signedOut ? 401 : 502 };
+    }
+  }
+
   async write(type, rawParams) {
     const checked = validateWrite(type, rawParams);
     if (checked.error) return { ok: false, error: checked.error, status: 400 };
@@ -284,6 +356,11 @@ export class WriteRelay {
       .toArray()
       .map((r) => ({ ...r, params: JSON.parse(r.params) }));
   }
+}
+
+/** MFL wraps a single item as an object. */
+function list(x) {
+  return x === undefined || x === null ? [] : Array.isArray(x) ? x : [x];
 }
 
 function cookieInfo(c) {

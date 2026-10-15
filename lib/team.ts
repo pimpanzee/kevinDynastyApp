@@ -155,6 +155,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
     priceFor: market.priceFor,
     season, cap: league.salaryCap,
     limits: { rosterMin: ROSTER_MIN, rosterMax: league.limits.roster, ir: league.limits.ir, taxi: league.limits.taxi },
+    lineup: league.lineup,
     myFranchiseId: FRANCHISE_ID,
     teams,
   };

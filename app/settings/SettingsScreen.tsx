@@ -10,6 +10,7 @@ import TeamAvatar from '@/components/TeamAvatar';
 import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY } from '@/components/team/format';
 import { saveTeam, useMyTeam } from '@/lib/myTeam';
+import { getMe, isError, readToken, saveToken } from '@/lib/relay';
 import { useTheme, type Theme } from '@/lib/theme';
 
 export interface FranchiseOption {
@@ -101,6 +102,9 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
         <div style={{ marginTop: 12 }}><SectionHead label="APPEARANCE" /></div>
         <Appearance />
 
+        <div style={{ marginTop: 12 }}><SectionHead label="MAKE MOVES" /></div>
+        <MakeMoves />
+
         <div style={{ marginTop: 12 }}><SectionHead label="GET THE APP" /></div>
         <Row href="/settings/install/" title="Install the app" sub="Add The Liam to your Home Screen"
           icon={<><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M12 7v7M9 11l3 3 3-3" /></>} />
@@ -127,6 +131,59 @@ function Row({ href, title, sub, icon }: { href: string; title: string; sub: str
       </span>
       {chevron}
     </Link>
+  );
+}
+
+/**
+ * The write relay's app token, kept on this device. With it, My Team gets a
+ * SET LINEUP button and moves go to MFL as the owner whose login the relay
+ * holds (worker/README.md).
+ */
+function MakeMoves() {
+  const [saved, setSaved] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [status, setStatus] = useState('');
+  useEffect(() => setSaved(Boolean(readToken())), []);
+
+  const check = async () => {
+    setStatus('Checking…');
+    const r = await getMe();
+    if (isError(r)) return setStatus(r.error);
+    if (r.signedIn) return setStatus(`Signed in to MFL as ${r.franchiseName ?? `franchise ${r.franchiseId}`} (${r.season}).`);
+    if (r.signedIn === null) return setStatus('MFL did not answer; try again shortly.');
+    return setStatus(r.reason === 'no-cookie' ? 'The relay has no MFL login yet (MFL_COOKIE).' : 'The MFL login on the relay has expired. Run scripts/mfl-login.mjs again.');
+  };
+  const save = () => {
+    saveToken(draft.trim());
+    setDraft('');
+    setSaved(true);
+    check();
+  };
+  const remove = () => {
+    saveToken('');
+    setSaved(false);
+    setStatus('');
+  };
+
+  const small = { height: 36, padding: '0 12px', borderRadius: 2, border: '1px solid var(--edge)', background: 'transparent', color: 'var(--ink)', font: DISPLAY(12), letterSpacing: '.1em', cursor: 'pointer' } as const;
+  return (
+    <div style={{ padding: '12px 16px 0' }}>
+      {saved ? (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" onClick={check} style={small}>CHECK LOGIN</button>
+          <button type="button" onClick={remove} style={small}>REMOVE TOKEN</button>
+        </div>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); if (draft.trim()) save(); }} style={{ display: 'flex', gap: 6 }}>
+          <input type="password" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="App token" autoComplete="off" aria-label="App token"
+            style={{ flex: 1, minWidth: 0, height: 36, padding: '0 10px', borderRadius: 2, border: '1px solid var(--edge)', background: 'var(--bg-100)', color: 'var(--ink)', font: '500 14px/1 var(--font-body)' }} />
+          <button type="submit" style={{ ...small, background: 'var(--volt)', borderColor: 'var(--volt)', color: 'var(--on-volt)' }}>SAVE</button>
+        </form>
+      )}
+      <p style={{ margin: '8px 0 0', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
+        {status || (saved ? 'Moves are on for this device: set your lineup from My Team.' : 'Paste the relay’s APP_TOKEN to set your lineup and make IR and taxi moves from this device.')}
+      </p>
+    </div>
   );
 }
 

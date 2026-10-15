@@ -5,7 +5,9 @@ import BottomNav from '@/components/BottomNav';
 import HeaderBar from '@/components/HeaderBar';
 import PhoneFrame from '@/components/PhoneFrame';
 import SubTabs from '@/components/SubTabs';
+import Link from 'next/link';
 import { useMyTeam } from '@/lib/myTeam';
+import { useCanMove } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 import CapTab from './CapTab';
 import PicksTab from './PicksTab';
@@ -22,6 +24,7 @@ export type TeamTab = 'roster' | 'cap' | 'picks';
  */
 export default function TeamScreen({ data, tab: routeTab, teamId, header }: { data: TeamsData; tab?: TeamTab; teamId?: string; header?: ReactNode }) {
   const mine = useMyTeam(data.myFranchiseId);
+  const canMove = useCanMove();
   const [localTab, setLocalTab] = useState<TeamTab>('roster');
   const id = teamId ?? mine;
   const team = data.teams.find((t) => t.id === id) ?? data.teams[0];
@@ -53,6 +56,11 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
         active={tab}
         onSelect={teamId ? (k) => setLocalTab(k as TeamTab) : undefined}
       />
+      {tab === 'roster' && !teamId && canMove && (
+        <Link href="/team/lineup/" style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 40, margin: '10px 16px 0', borderRadius: 2, background: 'var(--volt)', color: 'var(--on-volt)', font: '700 13px/1 var(--font-display)', letterSpacing: '.12em' }}>
+          SET LINEUP · IR · TAXI
+        </Link>
+      )}
       {tab === 'roster' && <RosterTab data={data} team={team} />}
       {tab === 'cap' && <CapTab data={data} team={team} />}
       {tab === 'picks' && <PicksTab team={team} />}
