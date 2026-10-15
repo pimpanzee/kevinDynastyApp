@@ -9,9 +9,27 @@ compatibility_date = "2026-09-01"
 name = "LIVE"
 class_name = "LiveScores"
 
+# The write relay (src/relay.js): one instance, so writes are sent one at a
+# time and the audit log and login checks live in its SQLite storage.
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "WriteRelay"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["LiveScores"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["WriteRelay"]
+
+# Daily check that the MFL login still works, to learn how long one lasts.
+[triggers]
+crons = ["23 14 * * *"]
+
+# Secrets, set in the Cloudflare dashboard (Worker → Settings → Variables and
+# Secrets), never here: MFL_COOKIE (your MFL login cookie, from
+# scripts/mfl-login.mjs) and APP_TOKEN (a long random string the app sends).
 
 [vars]
 MFL_HOST = "https://www44.myfantasyleague.com"
@@ -20,3 +38,5 @@ MFL_SEASON = "2025"
 CACHE_SECONDS = "90"
 ALLOWED_ORIGINS = "https://pimpanzee.github.io,http://localhost:3000"
 SITE_URL = "https://pimpanzee.github.io/kevinDynastyApp"
+# Set to the User-Agent MFL gives the app when it is registered (README).
+MFL_USER_AGENT = "gridlock/1.0"
