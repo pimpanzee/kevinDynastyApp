@@ -55,6 +55,12 @@ Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa — boards `A · Match
 
 Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
 
+### Team header (all three tabs)
+
+- Under `7-3 · 2nd in Division 1` add a second line: `14 VP · 118.6 AVG PF · 1,302.6 PP`
+  (value in ink, label in grey). VP, average PF and potential points (season total of best possible
+  lineups) are already computed per team in `lib/mfl/standings.ts` (`vp`, `avgPf`, `pp`).
+
 ### Roster table
 
 - Columns: PLAYER · POS RNK · **PPG** · YTD PTS · SALARY · **VALUE** · YRS · STATUS.
