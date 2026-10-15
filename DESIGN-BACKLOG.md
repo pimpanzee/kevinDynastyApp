@@ -118,7 +118,7 @@ Surplus value: what the player's production costs on this league's own market, m
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Whether the player card shows the full (untruncated) stat line.
 - Matchups screen pre-game / final states haven't been mocked yet.
-- Contract value: how MFL marks a rookie-draft contract in this league.
+- Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
 
 ## Already in code (PR #41)
 
