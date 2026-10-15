@@ -201,11 +201,11 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
      - another team's: `Hollow Point · $272.80 · 2 YRS`
      - free agent: `Free agent` (in volt) `· $423 MARKET` — the contract-value market price for his
        production, as a bidding guide.
-- Season strip: YTD PTS · PPG · POS RNK · GP.
+- Stat strip: YTD PTS · PPG · POS RNK.
 - LATEST NEWS (before the game log): newest item open (headline, `18 hours ago · via FantasyPros`,
   body clamped to 2 lines), older items as one-line headlines, `ALL NEWS (n)` link. Source: the news
   feed the app already uses.
-- GAME LOG, Sleeper-style: season chips (2025 · 2024 · 2023), one row per week in order, bye weeks
+- GAME LOG, Sleeper-style: current season only (no season chips), one row per week in order, bye weeks
   as a row. Column groups by position — RB: FANTASY (PROJ, FPTS) · SNP% · RUSHING (ATT, YD, YPC, TD)
   · RECEIVING (TAR, REC, YD, TD) · FUMBLE (LOST). QB adds PASS (ATT, CMP, YD, TD, INT) and SACKED
   (SK, YDS); WR/TE lead with RECEIVING. FPTS from league scoring. Cells tinted against his season
