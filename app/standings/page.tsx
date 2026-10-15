@@ -1,8 +1,6 @@
-import { getStandingsView } from '@/lib/mfl/view';
-import StandingsScreen from './StandingsScreen';
+import Redirect from '@/components/Redirect';
 
-/** League standings, grouped by conference and division. */
-export default async function StandingsPage() {
-  const view = await getStandingsView();
-  return <StandingsScreen view={view} />;
+/** Old route, kept so saved links and Home Screen shortcuts still land. */
+export default function Page() {
+  return <Redirect to="/league/standings/" />;
 }

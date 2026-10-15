@@ -1,8 +1,6 @@
-import { getRosterView } from '@/lib/mfl/view';
-import RostersScreen from './RostersScreen';
+import Redirect from '@/components/Redirect';
 
-/** Rosters. Opens on the user's own franchise (MFL_API_CONTEXT.md §9). */
-export default async function RostersPage() {
-  const view = await getRosterView(undefined);
-  return <RostersScreen initial={view} />;
+/** Old route, kept so saved links and Home Screen shortcuts still land. */
+export default function Page() {
+  return <Redirect to="/team/" />;
 }

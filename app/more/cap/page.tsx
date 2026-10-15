@@ -1,7 +1,6 @@
-import { getCapView } from '@/lib/cap';
-import CapScreen from './CapScreen';
+import Redirect from '@/components/Redirect';
 
-/** Every franchise's cap position side by side. */
-export default async function CapPage() {
-  return <CapScreen view={await getCapView()} />;
+/** Old route, kept so saved links and Home Screen shortcuts still land. */
+export default function Page() {
+  return <Redirect to="/team/cap/" />;
 }

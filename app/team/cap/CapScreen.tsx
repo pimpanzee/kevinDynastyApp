@@ -63,7 +63,7 @@ export default function CapScreen({ view }: { view: CapView }) {
   return (
     <PhoneFrame>
       <StatusBar label="CAP" />
-      <HeaderBar back="/more/" right={<HeaderLabel>CAP SHEET</HeaderLabel>} />
+      <HeaderBar />
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <div style={{ padding: '10px 14px 8px', fontSize: 10.5, color: 'var(--color-neutral-600)', lineHeight: 1.45 }}>

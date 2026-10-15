@@ -20,9 +20,9 @@ export default function PhoneFrame({
         height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--color-bg)',
-        borderLeft: '1px solid var(--color-divider)',
-        borderRight: '1px solid var(--color-divider)',
+        background: 'var(--bg-000)', overflow: 'hidden', boxSizing: 'border-box',
+        borderLeft: '1px solid var(--line)',
+        borderRight: '1px solid var(--line)',
         ...style,
       }}
     >

@@ -41,7 +41,7 @@ export default function PicksScreen({ view }: { view: PickBoardView }) {
   return (
     <PhoneFrame>
       <StatusBar label="PICKS" />
-      <HeaderBar back="/more/" right={<HeaderLabel>DRAFT PICKS</HeaderLabel>} />
+      <HeaderBar />
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <div style={{ padding: '12px 14px', borderBottom: '2px solid var(--color-text)' }}>
