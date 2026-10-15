@@ -1,7 +1,7 @@
-import { getPickBoard } from '@/lib/cap';
-import PicksScreen from './PicksScreen';
+import TeamScreen from '@/components/team/TeamScreen';
+import { getTeamsData } from '@/lib/team';
 
-/** Who holds every future draft pick. */
-export default async function PicksPage() {
-  return <PicksScreen view={await getPickBoard()} />;
+/** My team — draft picks. Every team is built; the viewer's pick is shown (lib/myTeam.ts). */
+export default async function Page() {
+  return <TeamScreen data={await getTeamsData()} tab="picks" />;
 }

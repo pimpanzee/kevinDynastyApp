@@ -1,7 +1,7 @@
 import { FRANCHISE_ID, GAME_DURATION_MS, SEASON } from '@/lib/config';
 import { barWidth, fmtMoney, fmtScore, scoreBar, shareLeft, winPct } from '@/lib/format';
 import type {
-  BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, Phase, RosterPlayerView, RosterView,
+  BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, Phase,
   SideView, StandingsView, WeekOption, WeekView,
 } from '@/lib/types';
 import { formatClock, formatKickoff, isSimulated, resolveNow } from './clock';
@@ -733,75 +733,6 @@ function scoringDetail(
 }
 
 /* ── Rosters ────────────────────────────────────────────────────────────── */
-
-export async function getRosterView(franchiseId?: string, nowOverride?: string | null): Promise<RosterView> {
-  const ctx = await loadContext(nowOverride);
-  const target = franchiseId && ctx.league.franchises.some((f) => f.id === franchiseId) ? franchiseId : FRANCHISE_ID;
-
-  const [rosters, adjustments, injuries] = await Promise.all([
-    // MFL's latest rosters, not the current week's: between weeks that would
-    // be last week's snapshot, missing every move made since.
-    getRosters(SEASON),
-    getSalaryAdjustments(),
-    getInjuries(),
-  ]);
-  const slots = rosters.get(target) ?? [];
-  const ids = slots.map((s) => s.playerId);
-
-  const [projections, seasonPoints] = await Promise.all([
-    getProjections(ctx.current, ids),
-    getSeasonPoints(ids),
-  ]);
-
-  const toView = (slot: (typeof slots)[number]): RosterPlayerView => {
-    const player = lookup(ctx.players, slot.playerId);
-    const pts = seasonPoints.get(slot.playerId);
-    return {
-      playerId: slot.playerId,
-      name: player.name,
-      teamPos: `${player.team} · ${player.position}`,
-      injury: injuries.get(slot.playerId),
-      salaryFmt: fmtMoney(slot.salary),
-      yearsLabel: `${slot.contractYear}yr`,
-      proj: fmtScore(projections.get(slot.playerId) ?? 0),
-      pts: pts === null || pts === undefined ? '—' : fmtScore(pts),
-    };
-  };
-
-  // Injured reserve still counts toward the roster and the cap, so those
-  // players sit in their position group; only the taxi squad is separated.
-  const active = slots.filter((s) => s.status !== 'TAXI_SQUAD');
-  const groups = POSITION_ORDER.map((pos) => ({
-    label: pos,
-    players: active
-      .filter((s) => lookup(ctx.players, s.playerId).position === pos)
-      .sort((a, b) => lookup(ctx.players, a.playerId).name.localeCompare(lookup(ctx.players, b.playerId).name))
-      .map(toView),
-  })).filter((g) => g.players.length > 0);
-
-  const taxi = slots.filter((s) => s.status === 'TAXI_SQUAD').map(toView);
-
-  const adj = adjustments.get(target) ?? 0;
-  const salaryTotal = active.reduce((t, s) => t + s.salary, 0) + adj;
-
-  const franchise = ctx.league.franchises.find((f) => f.id === target);
-
-  return {
-    franchises: ctx.league.franchises.map((f) => ({ id: f.id, name: f.name, isMine: f.isMine })),
-    franchiseId: target,
-    name: franchise?.name ?? target,
-    isMine: target === FRANCHISE_ID,
-    groups,
-    taxi,
-    footer: {
-      count: active.length,
-      adj: `${adj >= 0 ? '+' : ''}${fmtMoney(adj)}`,
-      total: fmtMoney(salaryTotal),
-      cap: fmtMoney(ctx.league.salaryCap),
-    },
-    simulatedAt: ctx.simulatedAt,
-  };
-}
 
 /* ── Standings ──────────────────────────────────────────────────────────── */
 

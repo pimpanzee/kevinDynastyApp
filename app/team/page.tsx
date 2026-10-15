@@ -1,8 +1,7 @@
-import { getRosterView } from '@/lib/mfl/view';
-import RostersScreen from './RostersScreen';
+import TeamScreen from '@/components/team/TeamScreen';
+import { getTeamsData } from '@/lib/team';
 
-/** Rosters. Opens on the user's own franchise (MFL_API_CONTEXT.md §9). */
-export default async function RostersPage() {
-  const view = await getRosterView(undefined);
-  return <RostersScreen initial={view} />;
+/** My team — roster. Every team is built; the viewer's pick is shown (lib/myTeam.ts). */
+export default async function Page() {
+  return <TeamScreen data={await getTeamsData()} tab="roster" />;
 }

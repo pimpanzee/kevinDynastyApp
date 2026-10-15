@@ -145,32 +145,6 @@ export interface MatchupDetailView {
   scoresUrl?: string;
 }
 
-export interface RosterPlayerView {
-  playerId: string;
-  name: string;
-  /** "SEA · WR" */
-  teamPos: string;
-  /** NFL injury designation: Q, D, O or IR. */
-  injury?: string;
-  salaryFmt: string;
-  yearsLabel: string;
-  /** Expand row: projected points for the current week. */
-  proj: string;
-  /** Expand row: season points to date. */
-  pts: string;
-}
-
-export interface RosterView {
-  franchises: Array<{ id: string; name: string; isMine: boolean }>;
-  franchiseId: string;
-  name: string;
-  isMine: boolean;
-  groups: Array<{ label: string; players: RosterPlayerView[] }>;
-  taxi: RosterPlayerView[];
-  footer: { count: number; adj: string; total: string; cap: string };
-  simulatedAt: string | null;
-}
-
 export interface StandingsTeamView {
   franchiseId: string;
   rank: number;
@@ -353,48 +327,70 @@ export interface TransactionsData {
   builtAt: string;
 }
 
-/* ── Cap & picks ────────────────────────────────────────────────────────── */
+/* ── My Team / team pages ────────────────────────────────────────────────── */
 
-export interface CapPlayer {
+export interface TeamPlayer {
   id: string;
   name: string;
   pos: string;
+  /** MFL NFL team code. */
+  team: string;
+  bye: number | null;
+  injury?: string;
+  /** Position rank by PPG among rostered players. */
+  rank: number | null;
+  gp: number;
+  pts: number;
+  ppg: number | null;
+  salary: number;
+  /** Contract years left, never below 1. */
+  years: number;
+  /** MFL contractStatus, as-is (blank when none). */
+  status: string;
+  slot: 'ACTIVE' | 'IR' | 'TAXI';
+  market: number | null;
+  /** Per-season surplus: market − salary. */
+  value: number | null;
+  contractValue: number | null;
+}
+
+export interface TeamPick {
+  round: number;
+  held: boolean;
+  /** "Own pick", "via Second Wind", "Traded to Iron Lung FC". */
+  title: string;
+  /** Projected slot, "1.10"; blank when traded away. */
+  slot: string;
   salary: number;
 }
 
-export interface CapTeam {
+export interface TeamView {
   id: string;
   name: string;
-  abbrev: string;
-  icon?: string;
-  /** Salary counting against the cap: active roster and IR, not the taxi squad. */
-  salary: number;
+  icon: string | null;
+  record: string;
+  /** Null when the league doesn't use victory points. */
+  vp: number | null;
+  avgPf: number;
+  pp: number;
+  counts: { roster: number; ir: number; taxi: number };
   adj: number;
+  used: number;
   room: number;
-  /** Already committed for the next two seasons, at today's salaries. */
-  next: number;
-  after: number;
-  /** Contracts in their final year (counting players only). */
-  expiring: CapPlayer[];
-  expiringTotal: number;
-  counts: { roster: number; taxi: number; ir: number };
+  split: Array<{ label: string; amount: number }>;
+  roster: TeamPlayer[];
+  /** Player ids, best and worst contract value first. */
+  best: string[];
+  worst: string[];
+  committed: Array<{ year: number; contracts: number; picks: number }>;
+  expiring: string[];
+  picks: Array<{ year: number; picks: TeamPick[]; count: number; total: number }>;
 }
 
-export interface CapView {
-  cap: number;
+export interface TeamsData {
   season: number;
-  limits: { roster: number; taxi: number; ir: number };
-  teams: CapTeam[];
+  cap: number;
+  limits: { rosterMin: number; rosterMax: number; ir: number; taxi: number };
   myFranchiseId: string;
-}
-
-export interface PickBoardView {
-  years: Array<{
-    year: string;
-    rounds: number;
-    /** One row per original owner: the franchise holding each round's pick (null if MFL lists none). */
-    rows: Array<{ original: string; owners: Array<string | null> }>;
-  }>;
-  franchises: Array<{ id: string; name: string; abbrev: string; icon?: string }>;
-  myFranchiseId: string;
+  teams: TeamView[];
 }
