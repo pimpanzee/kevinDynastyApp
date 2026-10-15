@@ -126,7 +126,7 @@ export async function getPlayersData(): Promise<PlayersData> {
     projWeek,
     lastWeek,
     hasProj: rows.some((r) => r.proj.pts !== null),
-    franchises: league.franchises.map((f) => ({ id: f.id, abbrev: f.abbrev || f.name.slice(0, 4), name: f.name })),
+    franchises: league.franchises.map((f) => ({ id: f.id, abbrev: f.abbrev || f.name.slice(0, 4), name: f.name, icon: f.icon ?? null })),
     myFranchiseId: FRANCHISE_ID,
     players: rows,
     builtAt: new Date().toISOString(),
