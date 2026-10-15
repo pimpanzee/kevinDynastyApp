@@ -26,5 +26,6 @@ export default async function MatchupDetailPage({
   const { week, index } = await params;
   const view = await getMatchupDetailView(Number(week), Number(index));
   if (!view) notFound();
-  return <MatchupDetailScreen view={view} />;
+  const { weeks } = await getWeekView(Number(week));
+  return <MatchupDetailScreen view={view} weeks={weeks} />;
 }

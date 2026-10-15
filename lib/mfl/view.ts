@@ -148,7 +148,8 @@ function gatedScore(
 }
 
 function sideMeta(record: string, yetToPlay: number): string {
-  return `${record} · ${yetToPlay} YTP`;
+  // "7-3", not "7-3-0": ties only show when there are some.
+  return `${record.replace(/-0$/, '')} · ${yetToPlay} YTP`;
 }
 
 interface BuiltSide {

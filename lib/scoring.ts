@@ -167,7 +167,7 @@ function scoredRows(position: string, stats: Stats, rules: RuleSet): Array<Break
   return rows;
 }
 
-/** Box-score byline, e.g. "32/52 CMP, 412 YD, 1 TD, 1 INT". Empty when there is nothing to say. */
+/** Box-score byline, e.g. "24/35, 318 YD, 3 TD, INT · RUSH 3-8". Empty when there is nothing to say. */
 export function statLine(position: string, s: Stats): string {
   const n = (k: string) => s[k] ?? 0;
   const parts: string[] = [];
@@ -194,28 +194,31 @@ export function statLine(position: string, s: Stats): string {
     return done();
   }
 
-  if (n('pass_att') > 0) {
-    parts.push(`${n('pass_cmp')}/${n('pass_att')} CMP`, `${n('pass_yd')} YD`);
-    add(n('pass_td') > 0, `${n('pass_td')} TD`);
-    add(n('pass_int') > 0, `${n('pass_int')} INT`);
-  }
-  const rushFirst = position !== 'WR' && position !== 'TE';
+  // The "Standard" line (DESIGN-BACKLOG.md): primary role first, each segment
+  // carrying its own TDs, a lone 1 dropped ("TD", "INT"), segments with no
+  // attempts left out, FUM last. Shown on one line, cut with an ellipsis.
+  const one = (v: number, unit: string) => (v === 1 ? unit : `${v} ${unit}`);
+  const segs: string[] = [];
+  const pass = () => {
+    if (n('pass_att') <= 0) return;
+    const bits = [`${n('pass_cmp')}/${n('pass_att')}`, `${n('pass_yd')} YD`];
+    if (n('pass_td') > 0) bits.push(one(n('pass_td'), 'TD'));
+    if (n('pass_int') > 0) bits.push(one(n('pass_int'), 'INT'));
+    segs.push(bits.join(', '));
+  };
   const rush = () => {
-    if (n('rush_att') > 0) {
-      parts.push(`${n('rush_att')} CAR`, `${n('rush_yd')} YD`);
-      add(n('rush_td') > 0, `${n('rush_td')} TD`);
-    }
+    if (n('rush_att') <= 0) return;
+    segs.push([`RUSH ${n('rush_att')}-${n('rush_yd')}`, n('rush_td') > 0 && one(n('rush_td'), 'TD')].filter(Boolean).join(', '));
   };
   const rec = () => {
-    if (n('rec_tgt') > 0 || n('rec') > 0) {
-      parts.push(`${n('rec')}/${Math.max(n('rec_tgt'), n('rec'))} REC`, `${n('rec_yd')} YD`);
-      add(n('rec_td') > 0, `${n('rec_td')} TD`);
-    }
+    if (n('rec') <= 0 && n('rec_tgt') <= 0) return;
+    segs.push([`REC ${n('rec')}-${n('rec_yd')}`, n('rec_td') > 0 && one(n('rec_td'), 'TD')].filter(Boolean).join(', '));
   };
-  if (rushFirst) { rush(); rec(); } else { rec(); rush(); }
-  add(n('st_td') > 0, `${n('st_td')} RET TD`);
-  add(n('fum_lost') > 0, `${n('fum_lost')} FUM LOST`);
-  return done();
+  const order = position === 'QB' ? [pass, rush, rec] : position === 'RB' ? [pass, rush, rec] : [pass, rec, rush];
+  order.forEach((f) => f());
+  if (n('st_td') > 0) segs.push(one(n('st_td'), 'RET TD'));
+  if (n('fum_lost') > 0) segs.push(one(n('fum_lost'), 'FUM'));
+  return segs.join(' · ');
 }
 
 /** Sleeper stat keys this module reads — everything else is trimmed before shipping. */

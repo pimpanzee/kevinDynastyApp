@@ -1,26 +1,19 @@
 /**
- * A player's NFL injury designation beside their name: Q, D, O or IR. Q reads
- * as a caution; the rest, which mean the player won't (or likely won't) play,
- * as the accent red.
+ * A player's NFL injury designation beside their name: Q, D, O or IR, as a
+ * small outlined chip in --fall. Also used for BYE / NO PROJ lineup flags.
  */
 
-const LABEL: Record<string, string> = { Q: 'Questionable', D: 'Doubtful', O: 'Out', IR: 'Injured reserve' };
+const LABEL: Record<string, string> = { Q: 'Questionable', D: 'Doubtful', O: 'Out', IR: 'Injured reserve', BYE: 'On bye this week', 'NO PROJ': 'Not projected to play' };
 
 export default function InjuryTag({ tag }: { tag?: string }) {
   if (!tag) return null;
-  const color = tag === 'Q' ? 'var(--color-accent-2-600)' : 'var(--color-accent-700)';
   return (
     <span
       title={LABEL[tag]}
       aria-label={LABEL[tag]}
       style={{
-        flex: 'none',
-        font: '800 8.5px/1 var(--font-heading)',
-        letterSpacing: '.04em',
-        color,
-        border: `1px solid ${color}`,
-        borderRadius: 3,
-        padding: '2px 3px 1.5px',
+        flex: 'none', font: '700 9.5px/1 var(--font-display)', letterSpacing: '.06em',
+        color: 'var(--fall)', border: '1px solid var(--fall)', borderRadius: 2, padding: '2px 3px',
       }}
     >
       {tag}

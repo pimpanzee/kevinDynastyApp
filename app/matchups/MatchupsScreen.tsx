@@ -2,27 +2,22 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
-import FadedTeamLogo from '@/components/FadedTeamLogo';
-import HeaderBar from '@/components/HeaderBar';
+import HeaderBar, { HeaderButton } from '@/components/HeaderBar';
+import LineupAlert from '@/components/LineupAlert';
 import MedianRace from '@/components/MedianRace';
 import PhoneFrame from '@/components/PhoneFrame';
-import ScoreHeader, { NO_SCORE } from '@/components/ScoreHeader';
-import StatusBar from '@/components/StatusBar';
-import TeamWatermarks from '@/components/TeamWatermarks';
+import TeamAvatar, { teamInitials } from '@/components/TeamAvatar';
+import WeekMenu from '@/components/WeekMenu';
 import { barWidth } from '@/lib/format';
 import { applyLineupsToWeek, applyLiveToWeek, startersOf } from '@/lib/live';
 import { startersWithIssues } from '@/lib/lineupAlerts';
-import LineupAlert from '@/components/LineupAlert';
 import { mineOnLeft, personalizeWeek, useMyTeam } from '@/lib/myTeam';
 import type { MatchupView, Phase, SideView, WeekView } from '@/lib/types';
 import { useLive } from '@/lib/useLive';
 
 type GameState = 'future' | 'active' | 'past';
-
-/** Height of one team's line in an Around the League row; its logo fills it. */
-const LINE_H = 40;
 
 /** Per matchup: a game decided early in a live week is already past. */
 function gameState(phase: Phase, m: MatchupView): GameState {
@@ -30,15 +25,27 @@ function gameState(phase: Phase, m: MatchupView): GameState {
   return phase === 'final' || m.final ? 'past' : 'active';
 }
 
-/**
- * What each side shows. Future: no score yet, just the projection. Active:
- * the score with the projection under it. Past: the score alone.
- */
-function scoreLines(side: SideView, state: GameState): { num: string; sub: string } {
-  if (state === 'future') return { num: NO_SCORE, sub: `proj ${side.num}` };
-  if (state === 'active') return { num: side.num, sub: `proj ${side.sub}` };
-  return { num: side.num, sub: '' };
+/** Pre-game: a dash with the projection under it. Live: score over projection. Final: score alone. */
+function scoreLines(side: SideView, state: GameState): { num: string; proj: string } {
+  if (state === 'future') return { num: '—', proj: side.num };
+  if (state === 'active') return { num: side.num, proj: side.sub.replace(/^proj\s*/i, '') };
+  return { num: side.num, proj: '' };
 }
+
+/** Odds bar split: win probability while in doubt, the score split once final. */
+function split(m: MatchupView, state: GameState): number | null {
+  if (state === 'past') {
+    const t = m.home.scoreValue + m.away.scoreValue;
+    return t > 0 ? Math.round((m.home.scoreValue / t) * 100) : null;
+  }
+  const w = parseInt(barWidth(m.home.win), 10);
+  return /^\d+%$/.test(m.home.win) ? w : null;
+}
+
+/** A side's record line without the yet-to-play count (league rows before kickoff, finished games). */
+const recordOnly = (meta: string) => meta.replace(/\s·\s\d+ YTP$/, '');
+
+const DISPLAY = (size: number, weight = 700) => `${weight} ${size}px/1 var(--font-display)`;
 
 export default function MatchupsScreen({ view: built }: { view: WeekView }) {
   const live = useLive(built.week, built.liveWindow);
@@ -50,14 +57,12 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
   const [weekOpen, setWeekOpen] = useState(false);
 
   // Starters who won't score: the live lineup when the relay has one, else the build's.
-  const alerts = built.lineupAlerts
+  const alerts = built.lineupAlerts && view.phase !== 'final'
     ? startersWithIssues(
         [...(startersOf(live?.franchises[team]) ?? built.lineupAlerts.starters[team] ?? [])],
         built.lineupAlerts.problems,
       )
     : [];
-
-  const isLive = view.phase === 'live';
 
   const pickWeek = (n: number) => {
     setWeekOpen(false);
@@ -68,102 +73,36 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
   // Your matchup always has you on the left, home or away.
   const mine = first?.isMine ? mineOnLeft(first, team) : first;
   const rest = view.matchups.slice(1);
-  const mineState = mine ? gameState(view.phase, mine) : 'future';
+
+  // Arriving from a matchup page's week picker on your own game: open yours in this week.
+  useEffect(() => {
+    if (mine?.isMine && new URLSearchParams(window.location.search).get('open') === 'mine') {
+      router.replace(`/matchups/${view.week}/${mine.index}/`);
+    }
+  }, [mine?.isMine, mine?.index, router, view.week]);
 
   return (
     <PhoneFrame>
-      <StatusBar label={view.clock} simulatedAt={view.simulatedAt} />
-
-      <HeaderBar
-        right={
-          <button
-            onClick={() => setWeekOpen((v) => !v)}
-            aria-expanded={weekOpen}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, height: 32,
-              background: 'none', border: '1px solid var(--color-divider)', padding: '0 11px',
-              font: '800 11px var(--font-heading)', letterSpacing: '.06em',
-              color: 'var(--color-text)', cursor: 'pointer',
-            }}
-          >
-            WEEK {view.week} <span style={{ fontSize: 8 }}>▼</span>
-          </button>
-        }
-      />
-
-      {weekOpen && (
-        <div style={{ borderBottom: '2px solid var(--color-divider)', background: 'var(--color-neutral-200)' }}>
-          {view.weeks.map((w) => (
-            <div
-              key={w.n}
-              onClick={() => pickWeek(w.n)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') pickWeek(w.n); }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                height: 44, padding: '0 14px', borderBottom: '1px solid var(--color-divider)',
-                fontSize: 12, cursor: 'pointer',
-              }}
-            >
-              <span>{w.label}</span>
-              <span style={{ color: 'var(--color-neutral-600)', fontSize: 10, letterSpacing: '.08em' }}>{w.note}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <HeaderBar right={<HeaderButton aria-expanded={weekOpen} onClick={() => setWeekOpen((v) => !v)}>WEEK {view.week}</HeaderButton>} />
+      {weekOpen && <WeekMenu weeks={view.weeks} current={view.week} onPick={pickWeek} onClose={() => setWeekOpen(false)} />}
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '12px 14px 6px' }}>
-          {isLive && <span style={{ width: 6, height: 6, background: 'var(--color-accent)', animation: 'blip 1.4s infinite' }} />}
-          <span style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: isLive ? 'var(--color-accent)' : 'var(--color-neutral-600)' }}>
-            {view.head}
-          </span>
-          {view.playersLeft && (
-            <span style={{ marginLeft: 'auto', fontSize: 9.5, color: 'var(--color-neutral-600)' }}>{view.playersLeft}</span>
-          )}
-        </div>
+        {mine && alerts.length > 0 ? (
+          <LineupAlert alerts={alerts} href={`/matchups/${view.week}/${mine.index}/`} />
+        ) : <div style={{ height: 12 }} />}
 
-        {mine && alerts.length > 0 && <LineupAlert alerts={alerts} href={`/matchups/${view.week}/${mine.index}/`} />}
-
-        {mine && (
-          <Link
-            href={`/matchups/${view.week}/${mine.index}/`}
-            style={{
-              display: 'block',
-              position: 'relative',
-              overflow: 'hidden',
-              borderTop: '2px solid var(--color-divider)',
-              borderBottom: '2px solid var(--color-divider)',
-              cursor: 'pointer',
-            }}
-          >
-            <TeamWatermarks home={mine.home.icon} away={mine.away.icon} />
-            <div style={{ position: 'relative', padding: '12px 14px 14px' }}>
-              <ScoreHeader
-                home={{ name: mine.home.name, meta: mine.home.meta, ...scoreLines(mine.home, mineState) }}
-                away={{ name: mine.away.name, meta: mine.away.meta, ...scoreLines(mine.away, mineState) }}
-                win={mineState === 'past' ? null : [mine.home.win, mine.away.win]}
-                bar={mine.bar}
-                awayTone={mineState === 'past' ? 'var(--color-neutral-600)' : 'var(--color-neutral-800)'}
-              />
-            </div>
-          </Link>
-        )}
+        {mine && <MyCard m={mine} state={gameState(view.phase, mine)} href={`/matchups/${view.week}/${mine.index}/`} />}
 
         <MedianRace view={view} />
 
-        <div style={{
-          padding: '11px 14px 7px', font: '800 10px var(--font-heading)', letterSpacing: '.14em',
-          color: 'var(--color-neutral-600)', borderBottom: '2px solid var(--color-divider)',
-        }}>
-          AROUND THE LEAGUE
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 16px', borderBottom: '1px solid var(--edge)', marginTop: 8 }}>
+          <span aria-hidden style={{ width: 6, height: 12, background: 'var(--volt)', transform: 'skewX(-12deg)' }} />
+          <span style={{ font: DISPLAY(12), letterSpacing: '.12em' }}>AROUND THE LEAGUE</span>
         </div>
 
         {rest.map((m) => (
-          <GameRow key={m.index} matchup={m} state={gameState(view.phase, m)} href={`/matchups/${view.week}/${m.index}/`} />
+          <GameRow key={m.index} m={m} state={gameState(view.phase, m)} href={`/matchups/${view.week}/${m.index}/`} />
         ))}
-
       </div>
 
       <BottomNav />
@@ -171,57 +110,102 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
   );
 }
 
-function GameRow({
-  matchup, state, href,
-}: {
-  matchup: MatchupView; state: GameState; href: string;
-}) {
-  const past = state === 'past';
-  const homeWon = matchup.home.scoreValue > matchup.away.scoreValue;
-  const hCol = past ? (homeWon ? 'var(--color-text)' : 'var(--color-neutral-600)') : 'var(--color-text)';
-  const aCol = past ? (homeWon ? 'var(--color-neutral-600)' : 'var(--color-text)') : 'var(--color-neutral-800)';
-  // Before kickoff the odds come from projections alone; draw them on the same bar.
-  const bar = past ? null : (matchup.bar ?? barWidth(matchup.home.win));
-
-  const line = (side: SideView, colour: string, first: boolean) => {
-    const { num, sub } = scoreLines(side, state);
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px', gap: 10, alignItems: 'center', marginTop: first ? undefined : 4 }}>
-        {/* Team logo at the row's left edge fading under the name, as on Standings. */}
-        <div style={{ position: 'relative', height: LINE_H, overflow: 'hidden', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-          <FadedTeamLogo name={side.name} icon={side.icon} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0, marginLeft: 40, textShadow: '0 0 6px var(--color-bg), 0 0 2px var(--color-bg)' }}>
-            <span style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: colour, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{side.name}</span>
-            <span style={{ fontSize: 11.5, color: 'var(--color-neutral-600)', whiteSpace: 'nowrap' }}>{side.meta}</span>
+/**
+ * Your matchup. You are always on the left and always volt; the opponent
+ * brightens when they lead. The bar's bright half is whoever is favoured
+ * (once final, the score split).
+ */
+function MyCard({ m, state, href }: { m: MatchupView; state: GameState; href: string }) {
+  const me = scoreLines(m.home, state);
+  const opp = scoreLines(m.away, state);
+  const pre = state === 'future';
+  const oppLeads = m.away.scoreValue > m.home.scoreValue;
+  const oppTone = pre ? 'var(--ink-3)' : oppLeads ? 'var(--ink)' : 'var(--ink-2)';
+  const pct = split(m, state);
+  const fav = (pct ?? 50) >= 50;
+  const scoreFont = `800 ${pre ? 28 : 52}px/46px var(--font-display)`;
+  const sub = { font: '500 12px/1 var(--font-body)', color: 'var(--ink-3)', marginTop: 5, fontVariantNumeric: 'tabular-nums' } as const;
+  const nameRow = (side: SideView, right: boolean, mineChip: boolean) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexDirection: right ? 'row-reverse' : 'row', textAlign: right ? 'right' : 'left' }}>
+      <TeamAvatar name={side.name} icon={side.icon ?? null} size={30} mine={mineChip} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ font: DISPLAY(17), letterSpacing: '.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: right ? oppTone === 'var(--ink-3)' ? 'var(--ink)' : oppTone : 'var(--ink)' }}>{side.name.toUpperCase()}</div>
+        <div style={{ font: '500 11px/1.2 var(--font-body)', color: 'var(--ink-3)', marginTop: 3, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{state === 'past' ? recordOnly(side.meta) : side.meta}</div>
+      </div>
+    </div>
+  );
+  return (
+    <Link href={href} aria-label={`Your matchup: ${m.home.name} ${me.num}, ${m.away.name} ${opp.num}`} style={{ display: 'block', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)', borderBottom: '1px solid var(--edge)' }}>
+      <div style={{ padding: '12px 16px 14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'end', gap: 12 }}>
+          {nameRow(m.home, false, true)}
+          {nameRow(m.away, true, false)}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginTop: 12 }}>
+          <div>
+            <div style={{ font: scoreFont, letterSpacing: '-.01em', fontVariantNumeric: 'tabular-nums', color: pre ? 'var(--ink-3)' : 'var(--volt)' }}>{me.num}</div>
+            {me.proj && <div style={sub}>{me.proj}</div>}
+          </div>
+          <div style={{ padding: '0 10px', font: DISPLAY(13), letterSpacing: '.1em', fontVariantNumeric: 'tabular-nums', color: state === 'past' ? 'var(--ink)' : 'var(--ink-2)' }}>
+            {state === 'past' ? 'FINAL' : pct != null ? `${pct}% / ${100 - pct}%` : ''}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ font: scoreFont, letterSpacing: '-.01em', fontVariantNumeric: 'tabular-nums', color: oppTone }}>{opp.num}</div>
+            {opp.proj && <div style={sub}>{opp.proj}</div>}
           </div>
         </div>
+        {pct != null && (
+          <div style={{ display: 'flex', gap: 2, height: 7, marginTop: 12 }}>
+            <span style={{ width: `${pct}%`, background: fav ? 'var(--ink)' : 'var(--bg-300)' }} />
+            <span style={{ flex: 1, background: fav ? 'var(--bg-300)' : 'var(--ink)' }} />
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * One other matchup: MFL's home team on top, never re-sorted by score so rows
+ * don't jump during live updates. The trailing side dims once scoring starts.
+ */
+function GameRow({ m, state, href }: { m: MatchupView; state: GameState; href: string }) {
+  const pre = state === 'future';
+  const homeLeads = m.home.scoreValue >= m.away.scoreValue;
+  const pct = state === 'past' ? null : split(m, state);
+  const line = (side: SideView, leads: boolean) => {
+    const { num, proj } = scoreLines(side, state);
+    const tone = pre || leads ? 'var(--ink)' : 'var(--ink-2)';
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr auto', alignItems: 'center', gap: 8, minHeight: 36 }}>
+        <span style={{ font: DISPLAY(12), letterSpacing: '.08em', color: 'var(--ink-3)' }}>{teamInitials(side.name)}</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ font: '600 14px/1.2 var(--font-body)', color: tone, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{side.name}</div>
+          <div style={{ font: '500 11px/1.2 var(--font-body)', color: 'var(--ink-3)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{state === 'active' ? side.meta : recordOnly(side.meta)}</div>
+        </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ font: '800 18px/1 var(--font-heading)', fontVariantNumeric: 'tabular-nums', color: state === 'future' ? 'var(--color-neutral-400)' : colour }}>{num}</div>
-          {sub && (
-            <div style={{ font: '400 11.5px/1 var(--font-body)', color: 'var(--color-neutral-600)', fontVariantNumeric: 'tabular-nums', marginTop: 3, whiteSpace: 'nowrap' }}>
-              {sub}
-            </div>
-          )}
+          <div style={{ font: DISPLAY(18), fontVariantNumeric: 'tabular-nums', color: tone }}>{num}</div>
+          {proj && <div style={{ font: '500 11px/1.2 var(--font-body)', color: 'var(--ink-3)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>}
         </div>
       </div>
     );
   };
-
+  const lFav = (pct ?? 0) >= 50;
   return (
-    <Link href={href} style={{ display: 'block', borderBottom: '1px solid var(--color-divider)', padding: '6px 14px 8px', cursor: 'pointer' }}>
-      {line(matchup.home, hCol, true)}
-      {line(matchup.away, aCol, false)}
-
-      {bar && (
+    <Link href={href} style={{ display: 'block', padding: '8px 16px 9px', borderBottom: '1px solid var(--line)' }}>
+      {line(m.home, homeLeads)}
+      {line(m.away, !homeLeads)}
+      {pct != null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <div style={{ flex: 1, display: 'flex', height: 4, background: 'var(--color-neutral-300)' }}>
-            <span style={{ background: 'var(--color-text)', width: bar }} />
-          </div>
-          <span style={{ font: '800 9.5px var(--font-heading)', color: 'var(--color-neutral-600)', width: 54, textAlign: 'right' }}>
-            {matchup.home.win} / {matchup.away.win}
+          <span style={{ width: 30, flex: 'none', font: DISPLAY(12, 800), fontVariantNumeric: 'tabular-nums', color: lFav ? 'var(--ink)' : 'var(--ink-3)' }}>{pct}%</span>
+          <span style={{ flex: 1, display: 'flex', gap: 2, height: 5 }}>
+            <span style={{ width: `${pct}%`, background: lFav ? 'var(--ink)' : 'var(--bg-300)' }} />
+            <span style={{ flex: 1, background: lFav ? 'var(--bg-300)' : 'var(--ink)' }} />
           </span>
+          <span style={{ width: 30, flex: 'none', textAlign: 'right', font: DISPLAY(12, 800), fontVariantNumeric: 'tabular-nums', color: lFav ? 'var(--ink-3)' : 'var(--ink)' }}>{100 - pct}%</span>
         </div>
       )}
+      {state === 'past' && <div style={{ marginTop: 6, font: DISPLAY(10), letterSpacing: '.12em', color: 'var(--ink-3)' }}>FINAL</div>}
     </Link>
   );
 }
