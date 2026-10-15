@@ -166,6 +166,40 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 - Put the calculation in one module (e.g. `lib/contractValue.ts`) so the Roster column, the Cap lists,
   and later the League team pages / trade screen all read the same numbers.
 
+## League
+
+Canvas boards: `A · League › Standings`, `A · League › Activity`, `A · League › Hollow Point`.
+
+- League tabs: **STANDINGS · ACTIVITY** only (league-wide Cap and Picks cut for now).
+
+### Standings
+
+- Columns: `# · TEAM · VP · W-L · PF`, ranked by VP then PF (as `lib/mfl/standings.ts` already sorts).
+  VP in the display face as the lead number; W-L and PF secondary.
+- Dashed PLAYOFF LINE after 6th — the same cut as the Top 6 race on Matchups.
+- Your row raised (`--bg-200`) with a YOU tag; rows open the team page.
+
+### Team page (another team)
+
+- Reuses the My Team screens: same team header line (`8-2 · 16 VP · 118.4 AVG PF · 1,341.7 PP`),
+  same ROSTER / CAP / PICKS tabs and layouts, same roster table with VALUE (useful for trades).
+- Top bar: `← LEAGUE` back, `PROPOSE TRADE` (volt). Bottom tab bar: LEAGUE lit.
+- No dead cap anywhere for another team's players (player card in "other team" mode).
+
+### Activity
+
+- Filter chips: ALL · TRADES · WAIVERS · DROPS · IR / TAXI, plus an ALL TEAMS picker.
+- Grouped by week (`THIS WEEK · WEEK 11 · 4 MOVES`), newest first.
+- Each move: kind tag (TRADE in volt; others grey), team, time, COMMISH tag when the commissioner
+  made it. Your moves get the raised row and a volt left edge.
+- Trade: two columns, `RIDGE RUNNERS GET` / `IRON LUNG FC GET`, each asset with colored position,
+  NFL team, salary and years; picks in pick purple (`2026 R3 · Ridge Runners'`).
+- Other moves: one line per player — `+` added (blue), `−` dropped (orange), `→` status change —
+  with the note on the right: a waiver/free-agent add shows his new salary and years
+  (`$52.80 · 1 YR`), a drop shows the dead cap it created (`$2.64 dead`, orange), IR/taxi moves say
+  `TO IR` / `OFF TAXI`.
+- Source: MFL transactions (`lib/transactions.ts`).
+
 ## League contract rules (from the league constitution)
 
 Use these anywhere the app projects cap hits.
