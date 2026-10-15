@@ -8,7 +8,7 @@ Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa — boards `A · Match
 ## Matchups screen
 
 - Remove the LIVE / kickoff / YTP strip.
-- Top 6 race: label reads PROJECTED or FINAL (never LIVE). No greying out of teams below the
+- Top 6 race (the weekly bonus VP for the six top scorers — not playoffs, so it stays as is): label reads PROJECTED or FINAL (never LIVE). No greying out of teams below the
   cut; keep a subtle bg-100 shading behind the top six.
 - Lineup alert card: LINEUP ALERT chip in red (`--live`, light text).
 
