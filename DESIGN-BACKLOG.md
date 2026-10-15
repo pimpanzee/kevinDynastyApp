@@ -86,8 +86,15 @@ Surplus value: what the player's production costs on this league's own market, m
 3. **Market price** for a rank = median salary of rostered players at that position whose PPG rank
    falls within a band around it (±3 ranks, i.e. a 7-player window; widen to ±5 when the band has
    fewer than 4 salaried players). Median, not mean, so one outlier contract doesn't set the price.
-   Exclude players on rookie / minimum contracts from the market sample? — **open question**;
-   default: include everyone rostered, it's what the league actually pays.
+   **Rookie and minimum contracts are scored but don't set the price**: they're left out of the
+   market sample (their salary was set by the draft slot or the league floor, not by bidding), but
+   they still get a VALUE against that market — so a rookie playing like an RB6 shows as a big steal.
+   - "Minimum" = salary at the league's minimum salary (from MFL league settings).
+   - "Rookie" = on a rookie-draft contract. How MFL marks this in this league (a `contractStatus`
+     code, `contractInfo`, or draft-year data) still needs confirming against real roster data.
+   - If a band has fewer than 4 qualifying salaries even at ±5 ranks (common deep down the WR list,
+     where most players are on minimums), use the nearest band up the rankings that does; if none,
+     VALUE shows `—`.
 4. **VALUE (per season)** = market price − salary.
    - Shown on the Roster tab as `+$17` (`--rise`), `−$10` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $3. Whole dollars.
@@ -111,7 +118,7 @@ Surplus value: what the player's production costs on this league's own market, m
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Whether the player card shows the full (untruncated) stat line.
 - Matchups screen pre-game / final states haven't been mocked yet.
-- Contract value: whether rookie / minimum contracts belong in the market sample.
+- Contract value: how MFL marks a rookie-draft contract in this league.
 
 ## Already in code (PR #41)
 
