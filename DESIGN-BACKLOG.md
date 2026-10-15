@@ -62,7 +62,8 @@ Canvas board `A · Score breakdown sheet`. Tapping a player's points on the matc
 - League scoring (from MFL):
   - Passing: 4 per TD, 0.04 per yd, −3 per INT, −0.1 per sack yard, 2 per 2-pt.
   - Rushing: 6 per TD, 0.1 per yd, 2 per 2-pt. Receiving: 6 per TD, 0.1 per yd, **0.5 per catch**, 2 per 2-pt.
-  - Kicking: 3 per FG made, +0.1 per yard of FG length beyond 30, −1 per FG missed, 1 per XP, −1 per XP missed.
+  - Kicking: 3 per FG made; a made FG of 31+ yards also earns 0.1 per yard of its full length
+    (45 yds = 3 + 4.5; 30 yds or shorter adds nothing); −1 per FG missed, 1 per XP, −1 per XP missed.
   - Returns: 6 per punt or kickoff return TD, 0.1 per punt return yard. Fumbles lost: −3.
   - Read the rules from MFL's league `rules` export rather than hard-coding them, if `lib/scoring.ts` doesn't already.
 
