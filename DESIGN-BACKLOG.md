@@ -202,9 +202,12 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
      - free agent: `Free agent` (in volt) `· $423 MARKET` — the contract-value market price for his
        production, as a bidding guide.
 - Stat strip: YTD PTS · PPG · POS RNK · OVR RNK (rank by fantasy points across all positions, `#14`).
-- LATEST NEWS (before the game log): newest item open (headline, `18 hours ago · via FantasyPros`,
-  body clamped to 2 lines), older items as one-line headlines, `ALL NEWS (n)` link. Source: the news
-  feed the app already uses.
+- LATEST NEWS (before the game log), newest first. Collapsed: newest item open (headline,
+  `18 hours ago · via FantasyPros`, body clamped to 2 lines) + one older headline, and `ALL NEWS (n)`.
+  Tapping ALL NEWS expands the list in place — no new screen: every item as a one-line headline with
+  its age, the newest open with its full text and `READ ON FANTASYPROS ↗` (opens the source outside
+  the app). Tapping a headline opens it and closes the other; the link becomes `SHOW LESS`.
+  Source: the news feed the app already uses. Canvas tweak: news = collapsed / expanded.
 - GAME LOG, Sleeper-style: current season only (no season chips), one row per week in order, bye weeks
   as a row. Column groups by position — RB: FANTASY (PROJ, FPTS) · SNP% · RUSHING (ATT, YD, YPC, TD)
   · RECEIVING (TAR, REC, YD, TD) · FUMBLE (LOST). QB adds PASS (ATT, CMP, YD, TD, INT) and SACKED
