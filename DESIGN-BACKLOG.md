@@ -10,11 +10,12 @@ target design, the top row is the app as built today).
 
 - **Designed:** Matchups, Matchup detail, Score breakdown sheet, My Team (Roster, Cap, Picks),
   Player card, League (Activity, Standings, Ratings, team page).
-- **Next:** Players tab (not designed yet). Settings / More not reviewed.
+- **In progress:** Players tab (Free agents, All players). Settings / More not reviewed.
 - **Then:** one code pass for everything here (start with the open questions that need real data).
 - Canvas rows: Matchups (`NavA-Matchups`, `NavA-DetailStacked`, `NavA-ScoreBreakdown`) · My Team
   (`NavA-MyTeam`, `NavA-MyTeamCap`, `NavA-MyTeamPicks`, `NavA-PlayerCard`) · League
-  (`NavA-LeagueActivity`, `NavA-League`, `NavA-LeagueRatings`, `NavA-TeamPage`). Several boards have
+  (`NavA-LeagueActivity`, `NavA-League`, `NavA-LeagueRatings`, `NavA-TeamPage`) · Players
+  (`NavA-Players`, `NavA-PlayersAll`). Several boards have
   canvas tweaks for states (matchup, phase, owner, news, scenario).
 - Working on the canvas from a new session: read the board from the artifact before editing it
   (files may have changed since); publish back to the same URL.
@@ -260,6 +261,20 @@ Canvas board `A · League › Ratings`. One table ranked by power score; scrolls
   an add shows his new salary and years (`$52.80 · 1 YR`); IR/taxi moves say `TO IR` / `OFF TAXI`;
   drops show nothing extra (no dead cap).
 - Source: MFL transactions (`lib/transactions.ts`).
+
+## Players
+
+Canvas boards: `A · Players › Free agents`, `A · Players › All players` (both interactive: position
+chips filter, column headers sort; tap the active header again to flip).
+
+- Tabs: FREE AGENTS · ALL PLAYERS. Search field + position chips (ALL · QB · RB · WR · TE).
+- Table, scrolls sideways with the player column pinned: PLAYER (name, injury tag,
+  `POS · TM · this week's opponent`) · WK PROJ · PPG · YTD PTS · POS RNK · OVR RNK. Sorted column
+  shown in the display face with a volt underline in its header; byes and missing values sink.
+- **All players adds an OWNER column** right after the player, so it shows without scrolling:
+  the franchise's logo chip with its initials (yours in volt), or `FA` outlined in blue for a free
+  agent (claimable). Your players' rows are raised with the volt left edge.
+- Rows open the player card (owner mode = mine / other team / free agent).
 
 ## League contract rules (from the league constitution)
 
