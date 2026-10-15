@@ -11,12 +11,12 @@ target design, the top row is the app as built today).
 - **Designed:** Matchups, Matchup detail, Score breakdown sheet, My Team (Roster, Cap, Picks),
   Player card, League (Activity, Standings, Ratings, team page).
 - **Designed since:** Players (Free agents, All players), Settings (More is folded in).
-- **Design pass complete.** Next is the code pass.
+- **Design pass complete** (plus Matchups states and color schemes). Next is the code pass.
 - **Then:** one code pass for everything here (start with the open questions that need real data).
 - Canvas rows: Matchups (`NavA-Matchups`, `NavA-DetailStacked`, `NavA-ScoreBreakdown`) · My Team
   (`NavA-MyTeam`, `NavA-MyTeamCap`, `NavA-MyTeamPicks`, `NavA-PlayerCard`) · League
   (`NavA-LeagueActivity`, `NavA-League`, `NavA-LeagueRatings`, `NavA-TeamPage`) · Players
-  (`NavA-Players`, `NavA-PlayersAll`) · Settings (`NavA-Settings`). Several boards have
+  (`NavA-Players`, `NavA-PlayersAll`) · Settings (`NavA-Settings`, `NavA-ColorSchemes`). Several boards have
   canvas tweaks for states (matchup, phase, owner, news, scenario).
 - Working on the canvas from a new session: read the board from the artifact before editing it
   (files may have changed since); publish back to the same URL.
@@ -39,9 +39,49 @@ target design, the top row is the app as built today).
 - Status line under a player: `POS · TM · STATUS` (position colored, team grey, live clock red).
 
 
+## Color schemes
+
+Canvas board `A · Color schemes`, and the `theme` tweak on `A · Matchups` to see a real screen in each.
+Every scheme uses the same token names; only values change, so no layout work. APPEARANCE in
+Settings picks light/dark (or follows the system).
+
+| Token | Hashmark dark | Hashmark light | Primetime dark | Primetime light |
+|---|---|---|---|---|
+| bg-000 | #0b0f15 | #eef1f5 | #0a0f1e | #eef1f8 |
+| bg-100 | #121821 | #ffffff | #101829 | #ffffff |
+| bg-200 | #1a222e | #f3f5f8 | #162036 | #f2f4fa |
+| bg-300 | #253040 | #dfe4ec | #213052 | #dbe1ee |
+| line | #2c3849 | #d6dce5 | #273555 | #d3d9e6 |
+| edge | #66768f | #8a96a8 | #5b6b8f | #8792ab |
+| ink | #eef2f7 | #0e141c | #eef2fb | #0b1226 |
+| ink-2 | #aab5c4 | #3d4857 | #aeb8d0 | #39445f |
+| ink-3 | #8592a6 | #5f6b7c | #8290ad | #5d6884 |
+| volt (you) | #d7ff3c | #6a9400 | #f5c542 (gold) | #a67c00 |
+| on-volt | #0b0f15 | #0b0f15 | #0a0f1e | #0b1226 |
+| rise | #3fd2f2 | #0a7f9e | #4cc9f0 | #0b6fa0 |
+| fall | #ff8a4c | #bf4d0b | #ff8a65 | #c2410c |
+| live | #ff4a3d | #d92d20 | #ff2d55 | #e0123f |
+| pos-qb | #ff6b9a | #d6336c | #ff7eb6 | #c2255c |
+| pos-rb | #3ee39a | #0b8a56 | #4ade80 | #15803d |
+| pos-wr | #5cc8ff | #1c7ed6 | #60a5fa | #2563eb |
+| pos-te | #ffbf47 | #9a6a00 | #c084fc | #9333ea |
+| pos-pick | #b9a3ff | #7048e8 | #2dd4bf | #0d9488 |
+
+- Light sets darken every accent so it reads as text on white (≥ 3.5:1 for the big score numbers,
+  ≥ 4.5:1 for small text); fills keep dark ink on them.
+- Primetime: deep navy and gold — gold is "you", so TE moves to purple and picks to teal to keep
+  every color meaning one thing.
+- Hard-coded tints in the mockups (e.g. the red alert background) become tokens in code.
+
 ## Matchups screen
 
-- Remove the LIVE / kickoff / YTP strip.
+- Remove the LIVE / kickoff / YTP strip. No kickoff time anywhere on Matchups.
+- States (canvas tweak `phase`):
+  - **Pre-game:** both big scores `—` (28px), projections under them, projected odds between and on
+    the bar; league rows show `—` with projections and projected-odds bars; records without YTP.
+  - **Live:** as designed (score, projection, live odds; finished games read FINAL).
+  - **Final:** your card shows final scores, FINAL between them, the bar as the score split, no
+    projections; every league row FINAL; no lineup alert; Top 6 race label FINAL.
 - Top 6 race (the weekly bonus VP for the six top scorers — not playoffs, so it stays as is): label reads PROJECTED or FINAL (never LIVE). No greying out of teams below the
   cut; keep a subtle bg-100 shading behind the top six.
 - Lineup alert card: LINEUP ALERT chip in red (`--live`, light text).
@@ -63,7 +103,8 @@ target design, the top row is the app as built today).
 
 - First subline: `POS · TM · STATUS`. Position in bold in its chip color (`--pos-qb/rb/wr/te`);
   team abbreviation always grey; only a live game clock is colored, in red (`--live`), not blue.
-- Second subline: the NFL game line (`W 31-17 vs DAL`, `17-14 @ LAR`, `vs ARI`).
+- Second subline: the NFL game line (`W 31-17 vs DAL`, `17-14 @ LAR`, `vs ARI`). Use **MFL team codes**
+  everywhere (SFO, KCC, GBP, NOS, TBB, LVR, NEP, JAC…); the mockups' short codes are placeholders.
 - Stat line, "Standard" SOP, always one line — ellipsis when too long, never wraps:
   - QB: `C/ATT, YD, TD, INT` then `RUSH CAR-YD`
   - RB: `RUSH CAR-YD` then `REC REC-YD`
@@ -348,11 +389,8 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
 - No contract-by-year table and no VALUE on the card.
 ## Open questions
 
-- Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
-- Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
-- Matchups screen pre-game / final states haven't been mocked yet.
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
-- Light mode palette for the Appearance setting (tokens only; layouts stay the same).
+- Color scheme: Hashmark or Primetime as the shipped scheme (or both, as a Settings choice).
 
 ## Already in code (PR #41)
 
