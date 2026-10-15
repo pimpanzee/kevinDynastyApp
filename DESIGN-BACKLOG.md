@@ -51,12 +51,67 @@ Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa — boards `A · Match
 - Keep the `‹ MATCHUP 1 OF 6 · YOURS ›` pager strip below the header.
 - Bottom tab bar stays, MATCHUPS lit; tapping it returns to the Matchups list.
 
+## My Team
+
+Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
+
+### Roster table
+
+- Columns: PLAYER · POS RNK · **PPG** · YTD PTS · SALARY · **VALUE** · YRS · STATUS.
+- PPG = YTD points ÷ games played (`—` with no games). Not a season total, so missed games don't count against him.
+- No position header rows (QUARTERBACKS / RUNNING BACKS…). One list, ordered QB → RB → WR → TE;
+  the colored position under each name does the grouping. Per-position salary totals live on the Cap tab.
+- YRS: contract years left, minimum **1** (no "FINAL"). `1 YR` in orange (`--fall`) as the expiring signal.
+- STATUS: MFL's `contractStatus`, shown as-is (e.g. `3.1`), blank when MFL has none.
+  Already fetched in `lib/mfl/rosters.ts`.
+- Injury: Sleeper `injury_status` as a small orange tag beside the name (Q, D, O, IR, PUP, SUS) —
+  the same tag as the matchup page. Healthy = no tag.
+
+### Contract value (VALUE column + Cap tab lists)
+
+Surplus value: what the player's production costs on this league's own market, minus what he's paid.
+
+**Inputs** (all already fetched somewhere in the app):
+- Every rostered player's `salary` and contract years, all franchises — MFL `rosters` (`lib/mfl/rosters.ts`).
+- YTD fantasy points — MFL `playerScores` YTD (`mflScores('YTD')` in `lib/players.ts`).
+- Games played — Sleeper season stats (`gp`), as the player card uses.
+- Position — MFL players.
+
+**Calculation**, rebuilt once per data refresh, league-wide:
+1. For every rostered player compute PPG (YTD pts ÷ games played).
+   - Early season (fewer than 4 games played league-wide), blend toward last season's PPG,
+     weighted by games played: `ppg = (gp·ytdPPG + (4−gp)·lastPPG) / 4`. Rookies with no prior
+     season use their projection instead.
+2. Rank players within each position by PPG → positional rank (QB1, RB6, WR33…).
+3. **Market price** for a rank = median salary of rostered players at that position whose PPG rank
+   falls within a band around it (±3 ranks, i.e. a 7-player window; widen to ±5 when the band has
+   fewer than 4 salaried players). Median, not mean, so one outlier contract doesn't set the price.
+   Exclude players on rookie / minimum contracts from the market sample? — **open question**;
+   default: include everyone rostered, it's what the league actually pays.
+4. **VALUE (per season)** = market price − salary.
+   - Shown on the Roster tab as `+$17` (`--rise`), `−$10` (`--fall`), or `fair` (`--ink-3`)
+     when |VALUE| < $3. Whole dollars.
+5. **Contract value** = VALUE × years left (YRS, min 1). Used for the Cap tab lists.
+
+**Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
+- Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"
+  are left out. Header right-hand label: OVER CONTRACT.
+- Row: position chip · name · `RB6 · $31.00 vs $48 market · 2 yrs` · total (`+$34` / `−$30`) · chevron to player card.
+
+**Edge cases**
+- Players on IR / out for the season: still computed from PPG over games played; don't hide them.
+- Taxi squad: excluded from the market sample and from the lists (doesn't count against the cap).
+- Players with 0 games played: VALUE shows `—`, not listed.
+- Put the calculation in one module (e.g. `lib/contractValue.ts`) so the Roster column, the Cap lists,
+  and later the League team pages / trade screen all read the same numbers.
+
 ## Open questions
 
 - Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Whether the player card shows the full (untruncated) stat line.
 - Matchups screen pre-game / final states haven't been mocked yet.
+- Contract value: whether rookie / minimum contracts belong in the market sample.
 
 ## Already in code (PR #41)
 
