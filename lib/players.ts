@@ -10,6 +10,7 @@ import { getRosters } from '@/lib/mfl/rosters';
 import { getNflSchedule, lastCompletedWeek, type NflWeek } from '@/lib/mfl/schedule';
 import { resolveNow } from '@/lib/mfl/clock';
 import { scorePoints, type Stats } from '@/lib/scoring';
+import { getSeasonTotals } from '@/lib/seasonTotals';
 import { getScoringRules, getSleeperIds, getSleeperTable } from '@/lib/stats/sleeper';
 import type { PlayerGame, PlayerRow, PlayerStatKey, PlayerStats, PlayersData } from '@/lib/types';
 
@@ -73,12 +74,12 @@ export async function getPlayersData(): Promise<PlayersData> {
   const finalWeek = nfl[nfl.length - 1]?.week ?? 18;
   const projWeek = Math.min(done + 1, finalWeek);
 
-  const [proj, lastStats, seasonStats, lastPts, ytdPts] = await Promise.all([
+  const [proj, lastStats, seasonStats, lastPts, { totals }] = await Promise.all([
     getSleeperTable('projections', projWeek, false).catch(() => ({}) as Record<string, Stats>),
     lastWeek ? getSleeperTable('stats', lastWeek, true) : Promise.resolve({} as Record<string, Stats>),
     getSleeperTable('stats', null, false),
     lastWeek ? mflScores(lastWeek, true) : Promise.resolve(new Map<string, number>()),
-    mflScores('YTD', false),
+    getSeasonTotals(),
   ]);
 
   const owner = new Map<string, string>();
@@ -116,7 +117,8 @@ export async function getPlayersData(): Promise<PlayersData> {
         stats: shown(projected, true),
       },
       lastWeek: lastWeek && didPlay ? { pts: lastScore ?? 0, stats: shown(played, false) } : null,
-      season: { gp: season?.gp ?? 0, pts: ytdPts.get(p.id) ?? 0, stats: shown(season, false) },
+      // Points and games from the finished weeks; the stat line is Sleeper's season table.
+      season: { gp: totals.get(p.id)?.gp ?? 0, pts: totals.get(p.id)?.pts ?? 0, stats: shown(season, false) },
     });
   }
 

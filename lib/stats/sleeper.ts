@@ -28,6 +28,11 @@ export function sleeperStatsUrl(week: number, season: string = SEASON): string {
   return `${SLEEPER}/stats/nfl/regular/${season}/${week}`;
 }
 
+/** The week's NFL game scores, for the matchup page's game line (read in the browser, lib/nflGames.ts). */
+export function sleeperScoresUrl(week: number, season: string = SEASON): string {
+  return `https://api.sleeper.com/scores/nfl/regular/${season}/${week}`;
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`Sleeper ${url} failed (${res.status})`);
@@ -159,7 +164,7 @@ export async function getScoringRules(season: string = SEASON): Promise<RuleSet>
 }
 
 /** Kept beyond the scoring keys: games played, return counts and snaps, for the player card. */
-const TABLE_EXTRA = ['gp', 'kr', 'pr', 'off_snp', 'tm_off_snp'];
+const TABLE_EXTRA = ['gp', 'kr', 'pr', 'off_snp', 'tm_off_snp', 'pass_sack'];
 
 /**
  * A whole Sleeper table — one week's stats or projections, or season-to-date
@@ -173,7 +178,7 @@ export async function getSleeperTable(
   season: string = SEASON,
 ): Promise<Record<string, Stats>> {
   return cached(
-    `sleeper2:${kind}:${season}:${week ?? 'season'}`,
+    `sleeper3:${kind}:${season}:${week ?? 'season'}`,
     settled ? TTL.FINAL_RESULTS : TTL.LIVE,
     async () => {
       const body = await getJson<Record<string, Stats>>(

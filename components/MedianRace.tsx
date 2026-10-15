@@ -146,11 +146,11 @@ export default function MedianRace({ view }: { view: WeekView }) {
 
   const marginLine = (t: Team, rank: number) =>
     rank <= qualifiers
-      ? `+${fmtScore(t.score - firstOut.score)} clear of ${ordinal(qualifiers + 1).toLowerCase()}`
-      : `${fmtScore(lastIn.score - t.score)} back of ${ordinal(qualifiers).toLowerCase()}`;
+      ? `▲ ${fmtScore(t.score - firstOut.score)} clear of ${ordinal(qualifiers + 1).toLowerCase()}`
+      : `▼ ${fmtScore(lastIn.score - t.score)} back of ${ordinal(qualifiers).toLowerCase()}`;
 
   const pick = teams.find((t) => t.id === selected) ?? null;
-  const phaseLabel = view.phase === 'pre' ? 'PROJECTED' : view.phase === 'live' ? 'LIVE · PROJECTED' : 'FINAL';
+  const phaseLabel = view.phase === 'final' ? 'FINAL' : 'PROJECTED';
 
   /** Nearest icon to the pointer, so a tap anywhere on the track picks one. */
   const nearest = (clientX: number) => {
@@ -177,18 +177,18 @@ export default function MedianRace({ view }: { view: WeekView }) {
   };
 
   const readout = pick
-    ? { lead: `${ordinal(rankOf(pick.id))} · ${pick.name}`, tail: fmtScore(pick.score) }
+    ? { lead: `${ordinal(rankOf(pick.id))} · ${pick.name.toUpperCase()}`, tail: fmtScore(pick.score), tone: 'var(--ink-2)' }
     : me
-      ? { lead: `YOU · ${ordinal(myRank)}`, tail: marginLine(me, myRank) }
+      ? { lead: `YOU · ${ordinal(myRank)}`, tail: marginLine(me, myRank), tone: myRank <= qualifiers ? 'var(--rise)' : 'var(--fall)' }
       : null;
 
   return (
-    <div style={{ padding: '10px 14px 11px', borderBottom: '2px solid var(--color-divider)' }}>
+    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minHeight: 14 }}>
-        <span style={{ font: '800 10px var(--font-heading)', letterSpacing: '.14em', color: 'var(--color-neutral-600)', whiteSpace: 'nowrap' }}>
+        <span style={{ font: '700 12px/1 var(--font-display)', letterSpacing: '.12em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
           TOP {qualifiers} RACE
         </span>
-        <span style={{ font: '800 8.5px var(--font-heading)', letterSpacing: '.12em', color: 'var(--color-neutral-500)' }}>
+        <span style={{ font: '700 10px/1 var(--font-display)', letterSpacing: '.1em', color: 'var(--edge)' }}>
           {phaseLabel}
         </span>
         {readout && (
@@ -196,13 +196,13 @@ export default function MedianRace({ view }: { view: WeekView }) {
             aria-live="polite"
             style={{
               marginLeft: 'auto', minWidth: 0, display: 'flex', gap: 6, alignItems: 'baseline',
-              fontSize: 10.5, color: 'var(--color-text)', whiteSpace: 'nowrap',
+              color: 'var(--ink)', whiteSpace: 'nowrap',
             }}
           >
-            <span style={{ font: '800 10.5px var(--font-heading)', letterSpacing: '.04em', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ font: '700 14px/1 var(--font-display)', letterSpacing: '.06em', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {readout.lead}
             </span>
-            <span style={{ color: 'var(--color-neutral-700)', fontVariantNumeric: 'tabular-nums' }}>{readout.tail}</span>
+            <span style={{ font: '600 13px/1 var(--font-body)', color: readout.tone, fontVariantNumeric: 'tabular-nums' }}>{readout.tail}</span>
           </span>
         )}
       </div>
@@ -221,14 +221,14 @@ export default function MedianRace({ view }: { view: WeekView }) {
         onKeyDown={onKey}
         onBlur={() => setSelected(null)}
         style={{
-          position: 'relative', height: TRACK_H, marginTop: 7, touchAction: 'pan-y',
+          position: 'relative', height: TRACK_H, marginTop: 10, touchAction: 'pan-y',
           cursor: 'pointer', outlineOffset: 2,
         }}
       >
         {/* The qualifying side, shaded. */}
-        <div style={{ position: 'absolute', left: `${cutX}%`, right: 0, top: 0, bottom: 0, background: 'var(--color-neutral-200)' }} />
+        <div style={{ position: 'absolute', left: `${cutX}%`, right: 0, top: 0, bottom: 0, background: 'var(--bg-100)' }} />
         {/* Baseline the scores sit on. */}
-        <div style={{ position: 'absolute', left: 0, right: 0, top: BASE_Y, height: 1, background: 'var(--color-neutral-300)' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: BASE_Y, height: 1, background: 'var(--line)' }} />
         {/* The cut: a hairline with end caps, so it never reads as a team. */}
         <div style={{ position: 'absolute', left: `${cutX}%`, top: 0, bottom: 0, width: 1, marginLeft: -0.5, background: 'var(--color-text)' }} />
         <div style={{ position: 'absolute', left: `${cutX}%`, top: 0, width: 9, height: 2, marginLeft: -4.5, background: 'var(--color-text)' }} />
@@ -238,12 +238,12 @@ export default function MedianRace({ view }: { view: WeekView }) {
         <svg width={width} height={TRACK_H} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }} aria-hidden>
           {teams.map((t, i) => {
             const mine = t.id === view.myFranchiseId;
-            const inside = i < qualifiers;
-            const ink = mine ? 'var(--color-accent)' : inside ? 'var(--color-text)' : 'var(--color-neutral-500)';
+            // Every team reads the same on either side of the cut; only yours stands out.
+            const ink = mine ? 'var(--volt)' : 'var(--ink-2)';
             const bottom = ROW_Y + (mine ? MY_AVATAR : AVATAR) / 2;
             return (
               <g key={t.id}>
-                <line x1={iconPx[i]} y1={bottom} x2={truePx[i]} y2={BASE_Y - 3} stroke={ink} strokeWidth={mine ? 1.5 : 1} opacity={mine ? 1 : 0.55} />
+                <line x1={iconPx[i]} y1={bottom} x2={truePx[i]} y2={BASE_Y - 3} stroke={ink} strokeWidth={mine ? 1.5 : 1} opacity={mine ? 1 : 0.6} />
                 <rect x={truePx[i] - (mine ? 1.5 : 1)} y={BASE_Y - 3} width={mine ? 3 : 2} height={7} rx={1} fill={ink} />
               </g>
             );
@@ -292,20 +292,18 @@ function Avatar({
   const [failed, setFailed] = useState(false);
   const size = mine ? MY_AVATAR : AVATAR;
   const ring = mine
-    ? '0 0 0 1.5px var(--color-bg), 0 0 0 3px var(--color-accent)'
+    ? '0 0 0 2px var(--bg-000), 0 0 0 3.5px var(--volt)'
     : active
-      ? '0 0 0 1.5px var(--color-bg), 0 0 0 3px var(--color-text)'
-      : '0 0 0 1.5px var(--color-bg)';
+      ? '0 0 0 1.5px var(--bg-000), 0 0 0 3px var(--ink)'
+      : '0 0 0 1.5px var(--bg-000)';
   return (
     <div
       title={`${team.name} ${fmtScore(team.score)}`}
       style={{
         position: 'absolute', left, top: ROW_Y, width: size, height: size,
-        marginLeft: -size / 2, marginTop: -size / 2, borderRadius: '50%', overflow: 'hidden',
-        background: 'var(--color-neutral-300)', boxShadow: ring,
+        marginLeft: -size / 2, marginTop: -size / 2, borderRadius: 2, overflow: 'hidden',
+        background: mine && !(team.icon && !failed) ? 'var(--volt)' : 'var(--bg-300)', boxShadow: ring,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        filter: inside || mine ? undefined : 'grayscale(1)',
-        opacity: inside || mine || active ? 1 : 0.6,
         zIndex: mine ? 3 : active ? 2 : 1,
         transition: 'left .4s ease, opacity .2s',
       }}
@@ -321,7 +319,7 @@ function Avatar({
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span style={{ font: `800 ${mine ? 9.5 : 8.5}px var(--font-heading)`, letterSpacing: '-.02em', color: 'var(--color-neutral-800)' }}>
+        <span style={{ font: `700 ${mine ? 11 : 10}px/1 var(--font-display)`, letterSpacing: '.02em', color: mine ? 'var(--on-volt)' : 'var(--ink)' }}>
           {initials(team.name)}
         </span>
       )}

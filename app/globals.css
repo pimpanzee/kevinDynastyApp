@@ -1,173 +1,91 @@
-/* Modernist — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
+/* Hashmark — the app's design tokens (DESIGN-BACKLOG.md › Color scheme). Dark is the primary
+   look; light uses the same token names with values tuned for a white ground. Settings ›
+   Appearance sets data-theme on <html> ("dark" / "light"); with neither, it follows the phone. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap');
 
 :root {
-  --scrim: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
-  --color-bg: #f3f2f2;
-  --color-surface: #eae9e9;
-  --color-text: #201e1d;
-  --color-accent: #ec3013;
-  --color-accent-2: #e15b47;
-  /* Game-log shading on the player card: above, near and below a player's own average. */
-  --color-good-tint: #d6e9cc;
-  --color-mid-tint: #f1e4b5;
-  --color-bad-tint: #f0cdc6;
-  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
-
-  /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the
-     same step of any role matches the others in visual value. */
-  --color-neutral-100: #f8f4f4;
-  --color-neutral-200: #eae7e7;
-  --color-neutral-300: #d7d3d3;
-  --color-neutral-400: #bab6b6;
-  --color-neutral-500: #9b9797;
-  --color-neutral-600: #7d7979;
-  --color-neutral-700: #605d5d;
-  --color-neutral-800: #444141;
-  --color-neutral-900: #2d2b2b;
-
-  --color-accent-100: #fff2ef;
-  --color-accent-200: #ffe0d9;
-  --color-accent-300: #ffc4b8;
-  --color-accent-400: #ff9783;
-  --color-accent-500: #ff563c;
-  --color-accent-600: #dd2b0f;
-  --color-accent-700: #ae1800;
-  --color-accent-800: #7c1405;
-  --color-accent-900: #4d170e;
-
-  --color-accent-2-100: #fff2ef;
-  --color-accent-2-200: #ffe0da;
-  --color-accent-2-300: #ffc4b9;
-  --color-accent-2-400: #ff9784;
-  --color-accent-2-500: #ef6853;
-  --color-accent-2-600: #c94b39;
-  --color-accent-2-700: #9e3526;
-  --color-accent-2-800: #71261b;
-  --color-accent-2-900: #471d16;
-
-  --font-heading: "Archivo", system-ui, sans-serif;
-  --font-heading-weight: 800;
-  --font-body: "Archivo", system-ui, sans-serif;
-
-  --space-1: 4.0px;
-  --space-2: 8.0px;
-  --space-3: 12.0px;
-  --space-4: 16.0px;
-  --space-6: 24.0px;
-  --space-8: 32.0px;
-
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-
-  /* Elevation — derived from the ground: soft ink-tinted shadows on a
-     light theme, a hairline edge + ambient darkness on a dark one. */
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
-}
-
-/* Dark theme: Settings → Appearance sets data-theme on <html> ("dark" or
-   "light"); with neither, it follows the phone. Same roles, retuned for a dark
-   ground: neutrals and accent ramps run the other way, so a "-100" tint is
-   still the faint one and a "-700" text tone still reads against the page. */
-:root[data-theme="dark"] {
-  --color-bg: #161514;
-  --color-surface: #211f1e;
-  --color-text: #ece9e7;
-  --color-accent: #ff5a3c;
-  --color-accent-2: #ef6853;
-  --color-good-tint: #22341d;
-  --color-mid-tint: #3a3216;
-  --color-bad-tint: #401e18;
-  --color-divider: color-mix(in srgb, #ece9e7 28%, transparent);
-
-  --color-neutral-100: #1e1c1b;
-  --color-neutral-200: #2a2726;
-  --color-neutral-300: #3a3736;
-  --color-neutral-400: #565252;
-  --color-neutral-500: #77726f;
-  --color-neutral-600: #a39e9b;
-  --color-neutral-700: #bfbab7;
-  --color-neutral-800: #d7d3d0;
-  --color-neutral-900: #ebe8e6;
-
-  --color-accent-100: #3a1610;
-  --color-accent-200: #4e1b12;
-  --color-accent-300: #6f2214;
-  --color-accent-400: #a32b15;
-  --color-accent-500: #e0401f;
-  --color-accent-600: #ff5a3c;
-  --color-accent-700: #ff8a73;
-  --color-accent-800: #ffb3a3;
-  --color-accent-900: #ffd9d0;
-
-  --color-accent-2-100: #351711;
-  --color-accent-2-200: #4a1d15;
-  --color-accent-2-300: #6a2a1f;
-  --color-accent-2-400: #9a3b2c;
-  --color-accent-2-500: #d6563f;
-  --color-accent-2-600: #f07a66;
-  --color-accent-2-700: #ff9a88;
-  --color-accent-2-800: #ffc0b3;
-  --color-accent-2-900: #ffe0d9;
-
-  --shadow-sm: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent);
-  --shadow-md: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent), 0 4px 14px rgba(0, 0, 0, .5);
-  --shadow-lg: 0 0 0 1px color-mix(in srgb, #ece9e7 10%, transparent), 0 14px 36px rgba(0, 0, 0, .6);
+  --bg-000: #0b0f15; --bg-100: #121821; --bg-200: #1a222e; --bg-300: #253040;
+  --line: #2c3849; --edge: #66768f;
+  --ink: #eef2f7; --ink-2: #aab5c4; --ink-3: #8592a6;
+  --volt: #d7ff3c; --on-volt: #0b0f15;
+  --rise: #3fd2f2; --fall: #ff8a4c; --live: #ff4a3d;
+  --pos-qb: #ff6b9a; --pos-rb: #3ee39a; --pos-wr: #5cc8ff; --pos-te: #ffbf47; --pos-pick: #b9a3ff;
+  /* Tints for raised alerts and the game-log heat map. */
+  --live-tint: color-mix(in srgb, var(--live) 12%, transparent);
+  --rise-tint: color-mix(in srgb, var(--rise) 14%, transparent);
+  --fall-tint: color-mix(in srgb, var(--fall) 14%, transparent);
+  --scrim: rgba(5, 8, 12, .72);
+  --sheet-shadow: 0 -12px 40px rgba(0, 0, 0, .5);
   color-scheme: dark;
-  --avatar-ring: inset 0 0 0 1px rgba(255, 255, 255, .18);
-  --scrim: rgba(0, 0, 0, .6);
+
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, sans-serif;
+  /* Legacy names, mapped onto Hashmark so older screens follow the theme. */
+  --font-heading: var(--font-display);
+  --font-heading-weight: 700;
+  --color-bg: var(--bg-000);
+  --color-surface: var(--bg-100);
+  --color-text: var(--ink);
+  --color-accent: var(--volt);
+  --color-accent-2: var(--fall);
+  --color-divider: var(--line);
+  --color-good-tint: var(--rise-tint);
+  --color-mid-tint: transparent;
+  --color-bad-tint: var(--fall-tint);
+  --color-neutral-100: var(--bg-100);
+  --color-neutral-200: var(--bg-200);
+  --color-neutral-300: var(--bg-300);
+  --color-neutral-400: var(--edge);
+  --color-neutral-500: var(--ink-3);
+  --color-neutral-600: var(--ink-3);
+  --color-neutral-700: var(--ink-2);
+  --color-neutral-800: var(--ink-2);
+  --color-neutral-900: var(--ink);
+  --color-accent-100: var(--bg-200);
+  --color-accent-600: var(--volt);
+  --color-accent-700: var(--ink-2);
+  --color-accent-800: var(--ink);
+  --color-accent-2-100: var(--fall-tint);
+  --color-accent-2-600: var(--fall);
+  --color-accent-2-800: var(--fall);
+  --avatar-ring: inset 0 0 0 1px rgba(127, 127, 127, .25);
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px;
+  --radius-sm: 2px; --radius-md: 2px; --radius-lg: 6px;
+  --shadow-sm: 0 0 0 1px var(--line);
+  --shadow-md: 0 0 0 1px var(--line), 0 4px 14px rgba(0, 0, 0, .35);
+  --shadow-lg: var(--sheet-shadow);
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --color-bg: #161514;
-    --color-surface: #211f1e;
-    --color-text: #ece9e7;
-    --color-accent: #ff5a3c;
-    --color-accent-2: #ef6853;
-    --color-good-tint: #22341d;
-    --color-mid-tint: #3a3216;
-    --color-bad-tint: #401e18;
-    --color-divider: color-mix(in srgb, #ece9e7 28%, transparent);
-
-    --color-neutral-100: #1e1c1b;
-    --color-neutral-200: #2a2726;
-    --color-neutral-300: #3a3736;
-    --color-neutral-400: #565252;
-    --color-neutral-500: #77726f;
-    --color-neutral-600: #a39e9b;
-    --color-neutral-700: #bfbab7;
-    --color-neutral-800: #d7d3d0;
-    --color-neutral-900: #ebe8e6;
-
-    --color-accent-100: #3a1610;
-    --color-accent-200: #4e1b12;
-    --color-accent-300: #6f2214;
-    --color-accent-400: #a32b15;
-    --color-accent-500: #e0401f;
-    --color-accent-600: #ff5a3c;
-    --color-accent-700: #ff8a73;
-    --color-accent-800: #ffb3a3;
-    --color-accent-900: #ffd9d0;
-
-    --color-accent-2-100: #351711;
-    --color-accent-2-200: #4a1d15;
-    --color-accent-2-300: #6a2a1f;
-    --color-accent-2-400: #9a3b2c;
-    --color-accent-2-500: #d6563f;
-    --color-accent-2-600: #f07a66;
-    --color-accent-2-700: #ff9a88;
-    --color-accent-2-800: #ffc0b3;
-    --color-accent-2-900: #ffe0d9;
-
-    --shadow-sm: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent);
-    --shadow-md: 0 0 0 1px color-mix(in srgb, #ece9e7 8%, transparent), 0 4px 14px rgba(0, 0, 0, .5);
-    --shadow-lg: 0 0 0 1px color-mix(in srgb, #ece9e7 10%, transparent), 0 14px 36px rgba(0, 0, 0, .6);
-    color-scheme: dark;
-    --avatar-ring: inset 0 0 0 1px rgba(255, 255, 255, .18);
-    --scrim: rgba(0, 0, 0, .6);
+:root[data-theme="light"] {
+  --bg-000: #eef1f5; --bg-100: #ffffff; --bg-200: #f3f5f8; --bg-300: #dfe4ec;
+  --line: #d6dce5; --edge: #8a96a8;
+  --ink: #0e141c; --ink-2: #3d4857; --ink-3: #5f6b7c;
+  --volt: #6a9400; --on-volt: #0b0f15;
+  --rise: #0a7f9e; --fall: #bf4d0b; --live: #d92d20;
+  --pos-qb: #d6336c; --pos-rb: #0b8a56; --pos-wr: #1c7ed6; --pos-te: #9a6a00; --pos-pick: #7048e8;
+  /* Tints for raised alerts and the game-log heat map. */
+  --live-tint: color-mix(in srgb, var(--live) 10%, transparent);
+  --rise-tint: color-mix(in srgb, var(--rise) 12%, transparent);
+  --fall-tint: color-mix(in srgb, var(--fall) 12%, transparent);
+  --scrim: rgba(14, 20, 28, .45);
+  --sheet-shadow: 0 -12px 40px rgba(0, 0, 0, .18);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+  --bg-000: #eef1f5; --bg-100: #ffffff; --bg-200: #f3f5f8; --bg-300: #dfe4ec;
+  --line: #d6dce5; --edge: #8a96a8;
+  --ink: #0e141c; --ink-2: #3d4857; --ink-3: #5f6b7c;
+  --volt: #6a9400; --on-volt: #0b0f15;
+  --rise: #0a7f9e; --fall: #bf4d0b; --live: #d92d20;
+  --pos-qb: #d6336c; --pos-rb: #0b8a56; --pos-wr: #1c7ed6; --pos-te: #9a6a00; --pos-pick: #7048e8;
+  /* Tints for raised alerts and the game-log heat map. */
+  --live-tint: color-mix(in srgb, var(--live) 10%, transparent);
+  --rise-tint: color-mix(in srgb, var(--rise) 12%, transparent);
+  --fall-tint: color-mix(in srgb, var(--fall) 12%, transparent);
+  --scrim: rgba(14, 20, 28, .45);
+  --sheet-shadow: 0 -12px 40px rgba(0, 0, 0, .18);
+  color-scheme: light;
   }
 }
 
@@ -365,7 +283,7 @@ textarea.input { min-height: 90px; resize: vertical; }
    ══════════════════════════════════════════════════════════════════════ */
 
 html, body { margin: 0; height: 100%; background: var(--color-neutral-200); }
-body { font-family: "Archivo", system-ui, sans-serif; color: var(--color-text); }
+body { font-family: var(--font-body); color: var(--color-text); }
 a { color: inherit; text-decoration: none; }
 * { -webkit-tap-highlight-color: transparent; }
 ::-webkit-scrollbar { width: 0; height: 0; }

@@ -21,7 +21,8 @@ const nextConfig: NextConfig = {
   output: 'export',
   basePath,
   trailingSlash: true,
-  env: { NEXT_PUBLIC_BASE_PATH: basePath, NEXT_PUBLIC_BUILD_ID: buildId },
+  env: { NEXT_PUBLIC_BASE_PATH: basePath, NEXT_PUBLIC_BUILD_ID: buildId, NEXT_PUBLIC_DEFAULT_FRANCHISE: process.env.MFL_FRANCHISE_ID ?? '0012',
+    NEXT_PUBLIC_SEASON: process.env.MFL_SEASON ?? '2025', NEXT_PUBLIC_LEAGUE_ID: process.env.MFL_LEAGUE_ID ?? '63396' },
   // Pages are generated in a single worker so every MFL request shares one
   // throttle (lib/mfl/client.ts); parallel workers would each burst the API.
   experimental: { cpus: 1 },

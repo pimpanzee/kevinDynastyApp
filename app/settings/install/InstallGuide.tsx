@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import HeaderBar, { HeaderLabel } from '@/components/HeaderBar';
+import HeaderBar from '@/components/HeaderBar';
 import PhoneFrame from '@/components/PhoneFrame';
-import StatusBar from '@/components/StatusBar';
 import { SectionLabel } from '../SettingsScreen';
 
 const ShareIcon = (
@@ -62,8 +61,7 @@ export default function InstallGuide() {
 
   return (
     <PhoneFrame>
-      <StatusBar label="INSTALL" />
-      <HeaderBar back="/settings/" right={<HeaderLabel>INSTALL</HeaderLabel>} />
+      <HeaderBar back="/settings/" title="INSTALL" noSettings />
       <div style={{ flex: 1, overflow: 'auto', paddingBottom: 24 }}>
         {installed && (
           <div style={{ margin: '14px 14px 0', padding: '10px 12px', background: 'var(--color-neutral-200)', borderLeft: '3px solid var(--color-accent)', fontSize: 12.5, lineHeight: 1.45 }}>

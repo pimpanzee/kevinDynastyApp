@@ -12,7 +12,7 @@ export type Theme = 'system' | 'light' | 'dark';
 
 const KEY = 'gridlock:theme';
 /** Status-bar colour for each look, matching --color-bg. */
-const BAR = { light: '#f3f2f2', dark: '#161514' };
+const BAR = { light: '#eef1f5', dark: '#0b0f15' };
 
 /** Runs inline in <head>, before anything renders. Keep it tiny and ES5. */
 export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('${KEY}');var d=document.documentElement;if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);var m=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<m.length;i++)m[i].setAttribute('content',t==='dark'?'${BAR.dark}':'${BAR.light}');}}catch(e){}})();`;

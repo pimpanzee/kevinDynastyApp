@@ -107,7 +107,11 @@ export interface BoxPlayerView {
   /** NFL injury designation: Q, D, O or IR. */
   injury?: string;
   /** For patching the row from live scores; absent on an empty slot. */
-  live?: { id: string; team: string; kickoff: string; position: string; sleeperId?: string };
+  live?: {
+    id: string; team: string; kickoff: string; position: string; sleeperId?: string;
+    /** NFL opponent that week and whether the player's team is at home, for the game line. Absent on a bye. */
+    opp?: string; home?: boolean;
+  };
 }
 
 export interface BoxRowView {
@@ -137,32 +141,8 @@ export interface MatchupDetailView {
   liveWindow: Array<[number, number]> | null;
   /** While games can be live: what the browser needs to rescore fresh stats. */
   scoring?: { rules: RuleSet; statsUrl: string };
-}
-
-export interface RosterPlayerView {
-  playerId: string;
-  name: string;
-  /** "SEA · WR" */
-  teamPos: string;
-  /** NFL injury designation: Q, D, O or IR. */
-  injury?: string;
-  salaryFmt: string;
-  yearsLabel: string;
-  /** Expand row: projected points for the current week. */
-  proj: string;
-  /** Expand row: season points to date. */
-  pts: string;
-}
-
-export interface RosterView {
-  franchises: Array<{ id: string; name: string; isMine: boolean }>;
-  franchiseId: string;
-  name: string;
-  isMine: boolean;
-  groups: Array<{ label: string; players: RosterPlayerView[] }>;
-  taxi: RosterPlayerView[];
-  footer: { count: number; adj: string; total: string; cap: string };
-  simulatedAt: string | null;
+  /** Sleeper's NFL scores for the week, for each player's game line. Absent before kickoff. */
+  scoresUrl?: string;
 }
 
 export interface StandingsTeamView {
@@ -254,6 +234,8 @@ export interface PlayerCardWeek {
   opp: string | null;
   /** True for weeks not yet played. */
   future: boolean;
+  /** Projected points that week in league scoring; null with no projection. */
+  proj?: number | null;
   /** Null when he didn't play (or the week is ahead). */
   game: {
     /** MFL's points, in this league's scoring. */
@@ -284,7 +266,9 @@ export interface PlayerCardData {
   owner?: { id: string; name: string };
   /** Rostered players only. `code` is MFL's contractStatus, shown as-is. */
   contract?: { salary: number; years: number; code: string; status: 'Active' | 'Taxi' | 'IR' };
-  season: { gp: number; fpts: number; rank: number | null };
+  season: { gp: number; fpts: number; rank: number | null; ovrRank?: number | null };
+  /** Free agents: the market price of his production (contract value), a bidding guide. */
+  market?: number;
   log: PlayerCardWeek[];
 }
 
@@ -301,12 +285,17 @@ export interface TxPlayer {
   injury?: string;
   /** Whether a player card was built for him, so the name can open it. */
   card: boolean;
+  /** His contract today, wherever he's rostered (absent when he's a free agent). */
+  salary?: number;
+  years?: number;
 }
 
 export interface TxPick {
   type: 'pick';
-  /** "2027 1st · Nosmo King's" */
+  /** "2027 R1" */
   label: string;
+  /** "Nosmo King's", or "PICK 1.05" for a current-year pick. */
+  from: string;
 }
 
 export type TxAsset = TxPlayer | TxPick;
@@ -347,48 +336,90 @@ export interface TransactionsData {
   builtAt: string;
 }
 
-/* ── Cap & picks ────────────────────────────────────────────────────────── */
+/* ── My Team / team pages ────────────────────────────────────────────────── */
 
-export interface CapPlayer {
+export interface TeamPlayer {
   id: string;
   name: string;
   pos: string;
+  /** MFL NFL team code. */
+  team: string;
+  bye: number | null;
+  injury?: string;
+  /** Position rank by PPG among rostered players. */
+  rank: number | null;
+  gp: number;
+  pts: number;
+  ppg: number | null;
+  salary: number;
+  /** Contract years left, never below 1. */
+  years: number;
+  /** MFL contractStatus, as-is (blank when none). */
+  status: string;
+  slot: 'ACTIVE' | 'IR' | 'TAXI';
+  market: number | null;
+  /** Per-season surplus: market − salary. */
+  value: number | null;
+  contractValue: number | null;
+}
+
+export interface TeamPick {
+  round: number;
+  held: boolean;
+  /** "Own pick", "via Second Wind", "Traded to Iron Lung FC". */
+  title: string;
+  /** Projected slot, "1.10"; blank when traded away. */
+  slot: string;
   salary: number;
 }
 
-export interface CapTeam {
+export interface TeamView {
   id: string;
   name: string;
-  abbrev: string;
-  icon?: string;
-  /** Salary counting against the cap: active roster and IR, not the taxi squad. */
-  salary: number;
+  icon: string | null;
+  record: string;
+  /** Null when the league doesn't use victory points. */
+  vp: number | null;
+  avgPf: number;
+  pp: number;
+  counts: { roster: number; ir: number; taxi: number };
   adj: number;
+  used: number;
   room: number;
-  /** Already committed for the next two seasons, at today's salaries. */
-  next: number;
-  after: number;
-  /** Contracts in their final year (counting players only). */
-  expiring: CapPlayer[];
-  expiringTotal: number;
-  counts: { roster: number; taxi: number; ir: number };
+  split: Array<{ label: string; amount: number }>;
+  roster: TeamPlayer[];
+  /** Player ids, best and worst contract value first. */
+  best: string[];
+  worst: string[];
+  committed: Array<{ year: number; contracts: number; picks: number }>;
+  expiring: string[];
+  picks: Array<{ year: number; picks: TeamPick[]; count: number; total: number }>;
 }
 
-export interface CapView {
-  cap: number;
+export interface TeamsData {
   season: number;
-  limits: { roster: number; taxi: number; ir: number };
-  teams: CapTeam[];
+  cap: number;
+  limits: { rosterMin: number; rosterMax: number; ir: number; taxi: number };
   myFranchiseId: string;
+  teams: TeamView[];
 }
 
-export interface PickBoardView {
-  years: Array<{
-    year: string;
-    rounds: number;
-    /** One row per original owner: the franchise holding each round's pick (null if MFL lists none). */
-    rows: Array<{ original: string; owners: Array<string | null> }>;
+/* ── Ratings ─────────────────────────────────────────────────────────────── */
+
+export interface RatingsView {
+  /** Ratings are through this week. */
+  week: number;
+  rows: Array<{
+    franchiseId: string;
+    name: string;
+    icon: string | null;
+    rank: number;
+    /** Places gained since last week (negative = dropped). */
+    move: number;
+    pwr: number;
+    elo: number;
+    allPlay: string;
+    luck: number;
   }>;
-  franchises: Array<{ id: string; name: string; abbrev: string; icon?: string }>;
   myFranchiseId: string;
 }

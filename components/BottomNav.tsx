@@ -2,128 +2,67 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 /**
- * Five-tab bottom bar. The active tab is derived from the current path, so
- * there is no per-page `active` prop that can drift out of sync; every page
- * under /more/ lights the More tab.
- *
- * Matchup Detail deliberately does not render this bar — it is a drill-in,
- * not a tab (see the handoff README).
+ * Four-tab bottom bar: MATCHUPS · MY TEAM · PLAYERS · LEAGUE. The active tab is
+ * derived from the path, so every page under a tab's prefix lights it.
+ * Drill-ins (matchup detail) don't render it.
  */
 
-const MatchupsIcon = (
-  <svg width="100%" height="100%" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m2.75 9.25 1.5 2.5 2 1.5m-4.5 0 1 1m1.5-2.5-1.5 1.5m3-1 8.5-8.5v-2h-2l-8.5 8.5" />
-    <path d="m10.25 12.25-2.25-2.25m2-2 2.25 2.25m1-1-1.5 2.5-2 1.5m4.5 0-1 1m-1.5-2.5 1.5 1.5m-7.25-5.25-4.25-4.25v-2h2l4.25 4.25" />
-  </svg>
+const icon = (children: ReactNode) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{children}</svg>
 );
 
-const RostersIcon = (
-  <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-const PlayersIcon = (
-  <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="7" />
-    <path d="m20 20-3.5-3.5" />
-  </svg>
-);
-
-const StandingsIcon = (
-  <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 12h11" />
-    <path d="M10 18h11" />
-    <path d="M10 6h11" />
-    <path d="M4 10h2" />
-    <path d="M4 6h1v4" />
-    <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
-  </svg>
-);
-
-const MoreIcon = (
-  <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="5" cy="12" r="1.25" />
-    <circle cx="12" cy="12" r="1.25" />
-    <circle cx="19" cy="12" r="1.25" />
-  </svg>
-);
-
-const TABS: Array<{ href: string; label: string; icon: ReactNode }> = [
-  { href: '/matchups', label: 'MATCHUPS', icon: MatchupsIcon },
-  { href: '/rosters', label: 'ROSTERS', icon: RostersIcon },
-  { href: '/players', label: 'PLAYERS', icon: PlayersIcon },
-  { href: '/standings', label: 'STANDINGS', icon: StandingsIcon },
-  { href: '/more', label: 'MORE', icon: MoreIcon },
+const TABS: Array<{ href: string; match: string[]; label: string; icon: ReactNode }> = [
+  {
+    href: '/matchups/', match: ['/matchups'], label: 'MATCHUPS',
+    icon: icon(<><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" /><line x1="13" x2="19" y1="19" y2="13" /><line x1="16" x2="20" y1="16" y2="20" /><line x1="19" x2="21" y1="21" y2="19" /><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" /><line x1="5" x2="9" y1="14" y2="18" /><line x1="7" x2="4" y1="17" y2="20" /><line x1="3" x2="5" y1="19" y2="21" /></>),
+  },
+  {
+    href: '/team/', match: ['/team'], label: 'MY TEAM',
+    icon: icon(<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" />),
+  },
+  {
+    href: '/players/', match: ['/players'], label: 'PLAYERS',
+    icon: icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>),
+  },
+  {
+    href: '/league/', match: ['/league'], label: 'LEAGUE',
+    icon: icon(<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></>),
+  },
 ];
 
-/**
- * Icon, label and spacing scale with the bar's height (container query units,
- * `cqh`), so the sizes follow BAR_H if it is ever changed again.
- */
-const ICON = 'clamp(20px, 30cqh, 34px)';
-const LABEL = 'clamp(9px, 11cqh, 12px)';
-const GAP = 'clamp(3px, 5cqh, 8px)';
-/**
- * Content height of the bar (the 2px top rule sits on top of it): one tall,
- * fixed height on every tab, so the bar never changes as you switch tabs.
- */
-const BAR_H = 98;
-
-const tabStyle = (active: boolean): CSSProperties => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: GAP,
-  padding: '0 2px',
-  minWidth: 0,
-  borderTop: `3px solid ${active ? 'var(--color-accent)' : 'transparent'}`,
-  marginTop: -3,
-  color: active ? 'var(--color-text)' : 'var(--color-neutral-600)',
-  cursor: 'pointer',
-});
-
 export default function BottomNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   return (
-    <div
+    <nav
+      aria-label="Tabs"
       style={{
-        display: 'grid',
-        // minmax(0, …): a long label can't widen its column past a fifth.
-        gridTemplateColumns: `repeat(${TABS.length},minmax(0,1fr))`,
-        gridTemplateRows: '1fr',
-        borderTop: '2px solid var(--color-text)',
-        boxSizing: 'content-box',
-        // A size container so the tabs can scale with its height. It cannot
-        // size itself from content, so the standard height is set explicitly.
-        containerType: 'size',
-        flex: 'none',
-        height: BAR_H,
+        display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))`,
+        height: 'calc(66px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)',
+        boxSizing: 'border-box', flex: 'none', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)',
       }}
     >
       {TABS.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(tab.href + '/');
+        const active = tab.match.some((m) => pathname === m || pathname.startsWith(m + '/'));
         return (
           <Link
             key={tab.href}
             href={tab.href}
             aria-current={active ? 'page' : undefined}
-            style={tabStyle(active)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
+              color: active ? 'var(--ink)' : 'var(--ink-3)',
+              background: active ? 'var(--bg-200)' : undefined,
+              boxShadow: active ? 'inset 0 3px 0 var(--volt)' : undefined,
+            }}
           >
-            <span style={{ display: 'flex', width: ICON, height: ICON }}>{tab.icon}</span>
-            <span style={{ font: `800 ${LABEL} var(--font-heading)`, letterSpacing: '.06em' }}>
-              {tab.label}
-            </span>
+            {tab.icon}
+            <span style={{ font: '700 12px/1 var(--font-display)', letterSpacing: '.12em' }}>{tab.label}</span>
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

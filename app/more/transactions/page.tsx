@@ -1,9 +1,6 @@
-import TransactionsScreen from './TransactionsScreen';
+import Redirect from '@/components/Redirect';
 
-/**
- * The league's in-season moves. The data is a static file built alongside the
- * page (/transactions.json) and loaded in the browser, like the Players screen.
- */
-export default function TransactionsPage() {
-  return <TransactionsScreen />;
+/** Old route, kept so saved links and Home Screen shortcuts still land. */
+export default function Page() {
+  return <Redirect to="/league/" />;
 }

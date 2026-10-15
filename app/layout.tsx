@@ -18,8 +18,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Follows the phone; a theme forced in Settings rewrites these (lib/theme.ts).
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f3f2f2' },
-    { media: '(prefers-color-scheme: dark)', color: '#161514' },
+    { media: '(prefers-color-scheme: light)', color: '#eef1f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0f15' },
   ],
 };
 

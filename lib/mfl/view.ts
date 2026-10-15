@@ -1,7 +1,7 @@
 import { FRANCHISE_ID, GAME_DURATION_MS, SEASON } from '@/lib/config';
 import { barWidth, fmtMoney, fmtScore, scoreBar, shareLeft, winPct } from '@/lib/format';
 import type {
-  BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, Phase, RosterPlayerView, RosterView,
+  BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, Phase,
   SideView, StandingsView, WeekOption, WeekView,
 } from '@/lib/types';
 import { formatClock, formatKickoff, isSimulated, resolveNow } from './clock';
@@ -12,10 +12,10 @@ import { getInjuries } from './injuries';
 import { lineupIssue, type LineupProblem } from '@/lib/lineupAlerts';
 import { getPlayers, lookup, type Player } from './players';
 import { getRosters, getSalaryAdjustments } from './rosters';
-import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, weekPhase, type NflWeek } from './schedule';
+import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek, teamKickoffs, teamOpponents, weekPhase, type NflWeek } from './schedule';
 import { getProjections, getSeasonPoints } from './scores';
 import { scoreBreakdown, statLine, type Breakdown, type RuleSet, type Stats } from '@/lib/scoring';
-import { getScoringRules, getSleeperIds, getWeekStats, sleeperStatsUrl } from '@/lib/stats/sleeper';
+import { getScoringRules, getSleeperIds, getWeekStats, sleeperScoresUrl, sleeperStatsUrl } from '@/lib/stats/sleeper';
 import { computeStandings, gamesBack, sortDivision, vpBack, type StandingsRow } from './standings';
 
 /**
@@ -148,7 +148,8 @@ function gatedScore(
 }
 
 function sideMeta(record: string, yetToPlay: number): string {
-  return `${record} · ${yetToPlay} YTP`;
+  // "7-3", not "7-3-0": ties only show when there are some.
+  return `${record.replace(/-0$/, '')} · ${yetToPlay} YTP`;
 }
 
 interface BuiltSide {
@@ -442,6 +443,9 @@ interface BoxEntry {
   kickoff: string;
   name: string;
   position: string;
+  /** NFL opponent that week, and whether the player's team is at home. Absent on a bye. */
+  opp?: string;
+  home?: boolean;
   line: string;
   pts: string;
   ptsExact?: number;
@@ -459,7 +463,7 @@ function boxPlayer(e: BoxEntry): BoxPlayerView {
   return {
     name: e.name, line: e.line, pts: e.pts, ptsExact: e.ptsExact, proj: e.proj,
     byline: e.byline, breakdown: e.breakdown, injury: e.injury,
-    live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId },
+    live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId, opp: e.opp, home: e.home },
   };
 }
 
@@ -510,6 +514,7 @@ export async function getMatchupDetailView(
   const results = phase === 'pre' ? null : boxes;
   const nflWeek = ctx.nfl.find((w) => w.week === week);
   const kickoffs = teamKickoffs(nflWeek);
+  const opponents = teamOpponents(nflWeek);
 
   const allPlayerIds = [...rosters.values()].flat().map((s) => s.playerId);
   const projections = await getProjections(week, allPlayerIds);
@@ -550,6 +555,7 @@ export async function getMatchupDetailView(
           kickoff: kickoff ? formatKickoff(kickoff) : 'TBD',
           name: player.name,
           position: player.position,
+          ...opponents.get(player.team),
           line,
           pts: fmtScore(points),
           ptsExact: points,
@@ -583,6 +589,7 @@ export async function getMatchupDetailView(
         kickoff: kickoff ? formatKickoff(kickoff) : 'TBD',
         name: player.name,
         position: player.position,
+        ...opponents.get(player.team),
         line: `${player.team} · ${kickoff ? formatKickoff(kickoff) : 'TBD'}`,
         sleeperId: scoring?.ids[playerId],
         pts: '—',
@@ -667,6 +674,7 @@ export async function getMatchupDetailView(
     simulatedAt: ctx.simulatedAt,
     liveWindow: pollWindow,
     scoring: pollWindow && scoring ? { rules: scoring.rules, statsUrl: sleeperStatsUrl(week) } : undefined,
+    scoresUrl: phase === 'pre' ? undefined : sleeperScoresUrl(week),
   };
 }
 
@@ -725,75 +733,6 @@ function scoringDetail(
 }
 
 /* ── Rosters ────────────────────────────────────────────────────────────── */
-
-export async function getRosterView(franchiseId?: string, nowOverride?: string | null): Promise<RosterView> {
-  const ctx = await loadContext(nowOverride);
-  const target = franchiseId && ctx.league.franchises.some((f) => f.id === franchiseId) ? franchiseId : FRANCHISE_ID;
-
-  const [rosters, adjustments, injuries] = await Promise.all([
-    // MFL's latest rosters, not the current week's: between weeks that would
-    // be last week's snapshot, missing every move made since.
-    getRosters(SEASON),
-    getSalaryAdjustments(),
-    getInjuries(),
-  ]);
-  const slots = rosters.get(target) ?? [];
-  const ids = slots.map((s) => s.playerId);
-
-  const [projections, seasonPoints] = await Promise.all([
-    getProjections(ctx.current, ids),
-    getSeasonPoints(ids),
-  ]);
-
-  const toView = (slot: (typeof slots)[number]): RosterPlayerView => {
-    const player = lookup(ctx.players, slot.playerId);
-    const pts = seasonPoints.get(slot.playerId);
-    return {
-      playerId: slot.playerId,
-      name: player.name,
-      teamPos: `${player.team} · ${player.position}`,
-      injury: injuries.get(slot.playerId),
-      salaryFmt: fmtMoney(slot.salary),
-      yearsLabel: `${slot.contractYear}yr`,
-      proj: fmtScore(projections.get(slot.playerId) ?? 0),
-      pts: pts === null || pts === undefined ? '—' : fmtScore(pts),
-    };
-  };
-
-  // Injured reserve still counts toward the roster and the cap, so those
-  // players sit in their position group; only the taxi squad is separated.
-  const active = slots.filter((s) => s.status !== 'TAXI_SQUAD');
-  const groups = POSITION_ORDER.map((pos) => ({
-    label: pos,
-    players: active
-      .filter((s) => lookup(ctx.players, s.playerId).position === pos)
-      .sort((a, b) => lookup(ctx.players, a.playerId).name.localeCompare(lookup(ctx.players, b.playerId).name))
-      .map(toView),
-  })).filter((g) => g.players.length > 0);
-
-  const taxi = slots.filter((s) => s.status === 'TAXI_SQUAD').map(toView);
-
-  const adj = adjustments.get(target) ?? 0;
-  const salaryTotal = active.reduce((t, s) => t + s.salary, 0) + adj;
-
-  const franchise = ctx.league.franchises.find((f) => f.id === target);
-
-  return {
-    franchises: ctx.league.franchises.map((f) => ({ id: f.id, name: f.name, isMine: f.isMine })),
-    franchiseId: target,
-    name: franchise?.name ?? target,
-    isMine: target === FRANCHISE_ID,
-    groups,
-    taxi,
-    footer: {
-      count: active.length,
-      adj: `${adj >= 0 ? '+' : ''}${fmtMoney(adj)}`,
-      total: fmtMoney(salaryTotal),
-      cap: fmtMoney(ctx.league.salaryCap),
-    },
-    simulatedAt: ctx.simulatedAt,
-  };
-}
 
 /* ── Standings ──────────────────────────────────────────────────────────── */
 

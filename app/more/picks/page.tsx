@@ -1,7 +1,6 @@
-import { getPickBoard } from '@/lib/cap';
-import PicksScreen from './PicksScreen';
+import Redirect from '@/components/Redirect';
 
-/** Who holds every future draft pick. */
-export default async function PicksPage() {
-  return <PicksScreen view={await getPickBoard()} />;
+/** Old route, kept so saved links and Home Screen shortcuts still land. */
+export default function Page() {
+  return <Redirect to="/team/picks/" />;
 }

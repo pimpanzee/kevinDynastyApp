@@ -31,7 +31,7 @@ export interface League {
   limits: { roster: number; taxi: number; ir: number };
   franchises: Franchise[];
   /** Ordered conference → division groups, for the standings screen. */
-  groups: Array<{ id: string; label: string; franchiseIds: string[] }>;
+  groups: Array<{ id: string; label: string; division: string; franchiseIds: string[] }>;
   /** Starting-lineup requirements, used to project a best lineup. */
   lineup: { min: number; max: number; positions: Record<string, { min: number; max: number }> };
   /**
@@ -125,6 +125,7 @@ export async function getLeague(season: string = SEASON): Promise<League> {
       return {
         id: d.id ?? '',
         label: `${cname} · ${(d.name ?? '').trim()}`.toUpperCase(),
+        division: (d.name ?? '').trim(),
         franchiseIds: franchises.filter((f) => f.divisionId === d.id).map((f) => f.id),
       };
     })

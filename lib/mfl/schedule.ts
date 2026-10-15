@@ -74,6 +74,17 @@ export function teamKickoffs(week: NflWeek | undefined): Map<string, number> {
   return map;
 }
 
+/** Map each NFL team to its opponent that week, and whether it's the home side. */
+export function teamOpponents(week: NflWeek | undefined): Map<string, { opp: string; home: boolean }> {
+  const map = new Map<string, { opp: string; home: boolean }>();
+  for (const g of week?.games ?? []) {
+    const [a, b] = g.teams;
+    map.set(a, { opp: b, home: g.home === a });
+    map.set(b, { opp: a, home: g.home === b });
+  }
+  return map;
+}
+
 /**
  * How long after the last kickoff a whole week counts as over. Longer than
  * one game's run so overtime and delays don't end the week while a late game
