@@ -170,7 +170,7 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 
 Canvas boards: `A · League › Standings`, `A · League › Ratings`, `A · League › Activity`, `A · League › Hollow Point`.
 
-- League tabs: **STANDINGS · RATINGS · ACTIVITY** (league-wide Cap and Picks cut for now).
+- League tabs, left to right: **ACTIVITY · STANDINGS · RATINGS** (league-wide Cap and Picks cut for now).
 
 ### Standings
 
