@@ -197,16 +197,17 @@ Canvas boards: `A · League › Standings`, `A · League › Activity`, `A · Le
 
 ### Activity
 
-- Filter chips: ALL · TRADES · WAIVERS · DROPS · IR / TAXI, plus an ALL TEAMS picker.
-- Grouped by week (`THIS WEEK · WEEK 11 · 4 MOVES`), newest first.
-- Each move: kind tag (TRADE in volt; others grey), team, time, COMMISH tag when the commissioner
-  made it. Your moves get the raised row and a volt left edge.
+- Filter chips only: ALL · TRADES · WAIVERS · DROPS · IR / TAXI (no team filter).
+- Grouped by week (`THIS WEEK · WEEK 11`), newest first.
+- Each entry: kind tag (TRADE in volt; others grey), title, time, COMMISH tag when the commissioner
+  made it. Entries that are yours get the raised row and a volt left edge.
 - Trade: two columns, `RIDGE RUNNERS GET` / `IRON LUNG FC GET`, each asset with colored position,
   NFL team, salary and years; picks in pick purple (`2026 R3 · Ridge Runners'`).
-- Other moves: one line per player — `+` added (blue), `−` dropped (orange), `→` status change —
-  with the note on the right: a waiver/free-agent add shows his new salary and years
-  (`$52.80 · 1 YR`), a drop shows the dead cap it created (`$2.64 dead`, orange), IR/taxi moves say
-  `TO IR` / `OFF TAXI`.
+- **Waivers run daily**: every claim from one run is a single WAIVER entry (`Waiver run · 3 claims`),
+  with a labelled block per team listing its adds and drops; your block is raised.
+- Moves: one line per player — `+` added (blue), `−` dropped (orange), `→` status change. Right side:
+  an add shows his new salary and years (`$52.80 · 1 YR`); IR/taxi moves say `TO IR` / `OFF TAXI`;
+  drops show nothing extra (no dead cap).
 - Source: MFL transactions (`lib/transactions.ts`).
 
 ## League contract rules (from the league constitution)
@@ -263,8 +264,6 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
 - Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Matchups screen pre-game / final states haven't been mocked yet.
-- Matchups Top 6 race assumes the top six overall make the playoffs; with division winners + a wild card
-  per conference it needs rethinking (e.g. show your path: division lead / wild-card gap).
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
 
 ## Already in code (PR #41)
