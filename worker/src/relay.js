@@ -131,6 +131,10 @@ export class WriteRelay {
     try {
       if (url.pathname === '/me') return json(await this.me());
       if (url.pathname === '/audit') return json({ entries: this.audit() });
+      if (url.pathname === '/waivers') {
+        const result = await this.waivers();
+        return json(result, result.status ?? 200);
+      }
       if (url.pathname === '/mine') {
         const result = await this.mine(url.searchParams.get('week'));
         return json(result, result.status ?? 200);
@@ -291,6 +295,39 @@ export class WriteRelay {
     }
   }
 
+  /**
+   * Live free agents and the owner's pending blind bids, for the claim
+   * screen. Bids are private until MFL runs waivers: never cached or logged.
+   */
+  async waivers() {
+    const c = await this.cookie();
+    if (!c) return { error: 'No MFL login is set up on the relay', status: 503 };
+    if (c.expired_at) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
+    const { MFL_HOST, MFL_SEASON, MFL_LEAGUE_ID } = this.env;
+    const league = `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1`;
+    try {
+      const [fa, pending] = await Promise.all([
+        this.read(c, `${league}&TYPE=freeAgents`),
+        this.read(c, `${league}&TYPE=pendingWaivers`),
+      ]);
+      const freeAgents = list(fa.freeAgents?.leagueUnit)
+        .flatMap((u) => list(u.player))
+        .map((p) => p.id)
+        .filter(Boolean);
+      const bids = readPendingBids(pending.pendingWaivers);
+      return {
+        freeAgents,
+        pending: bids,
+        // Only when the shape wasn't understood, so the claim screen can say so
+        // (and never offer to rewrite a list it couldn't read).
+        pendingUnread: bids === null ? JSON.stringify(pending.pendingWaivers ?? null).slice(0, 1500) : undefined,
+        fetchedAt: Date.now(),
+      };
+    } catch (e) {
+      return { error: e.message, signedOut: e.signedOut || undefined, status: e.signedOut ? 401 : 502 };
+    }
+  }
+
   async write(type, rawParams) {
     const checked = validateWrite(type, rawParams);
     if (checked.error) return { ok: false, error: checked.error, status: 400 };
@@ -356,6 +393,43 @@ export class WriteRelay {
       .toArray()
       .map((r) => ({ ...r, params: JSON.parse(r.params) }));
   }
+}
+
+/**
+ * The owner's pending blind bids, in priority order, as
+ * [{ player, bid, drop }], or null when the reply's shape isn't one we know.
+ * MFL doesn't document this export's fields, so this accepts the shapes it
+ * plausibly uses: a PICKS-style "player_bid_drop" string, or objects with
+ * player/amount/drop fields, and gives up rather than guess.
+ */
+export function readPendingBids(root) {
+  if (root === undefined || root === null || root === '') return [];
+  const out = [];
+  let understood = true;
+  const visit = (node) => {
+    if (typeof node === 'string') {
+      for (const m of node.matchAll(/(\d{2,8})_(\d{1,4}(?:\.\d{1,2})?)_(\d{2,8})/g)) {
+        out.push({ player: m[1], bid: Number(m[2]), drop: m[3] === '0000' ? null : m[3] });
+      }
+      return;
+    }
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (typeof node !== 'object') return;
+    const player = node.player_id ?? node.playerId ?? node.add ?? (typeof node.player === 'string' ? node.player : undefined) ?? node.id;
+    const bid = node.amount ?? node.bid ?? node.bbid;
+    if (/^\d{2,8}$/.test(String(player ?? '')) && bid !== undefined && !Number.isNaN(Number(bid))) {
+      const drop = node.drop ?? node.drop_id ?? node.dropPlayer;
+      out.push({ player: String(player), bid: Number(bid), drop: drop && drop !== '0000' ? String(drop) : null });
+      return;
+    }
+    const values = Object.values(node);
+    if (!values.length) return;
+    values.forEach(visit);
+  };
+  visit(root);
+  // A non-empty reply that yielded nothing is a shape we don't know.
+  if (!out.length && JSON.stringify(root).replace(/[^0-9]/g, '').length > 0) understood = false;
+  return understood ? out : null;
 }
 
 /** MFL wraps a single item as an object. */

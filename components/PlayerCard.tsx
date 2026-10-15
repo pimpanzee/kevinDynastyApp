@@ -9,6 +9,7 @@ import InjuryTag from '@/components/InjuryTag';
 import { posColor } from '@/components/pos';
 import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY, money, pts1 } from '@/components/team/format';
+import { deadCap } from '@/lib/cap';
 import { useMyTeam } from '@/lib/myTeam';
 import type { PlayerCardData, PlayerCardWeek } from '@/lib/types';
 
@@ -97,8 +98,6 @@ export function PlayerLink({ playerId, children, style }: { playerId?: string; c
 
 const cache = new Map<string, PlayerCardData>();
 
-/** Dead cap if cut: this season's cap hit × years left × 30% (league rule). */
-const deadCap = (salary: number, years: number) => salary * years * 0.3;
 
 function Sheet({ id, onClose }: { id: string; onClose: () => void }) {
   const [data, setData] = useState<PlayerCardData | null>(cache.get(id) ?? null);
