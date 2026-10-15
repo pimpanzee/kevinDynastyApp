@@ -72,8 +72,9 @@ Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
   above the rows: CONTRACTS · DRAFT PICKS.
 - Amount column: contracts total, with `+$191.00 picks` under it in purple. ROOM = cap − contracts − picks.
 - Pick salaries come from the Picks tab calculation (same projected slots and rookie scale).
-- Open: rookie contracts presumably run more than one season — once the rookie contract length is
-  known (check MFL league settings in the code pass), carry each pick's salary into the later years it covers.
+- Rookie contracts are treated as **2 years** (options to extend are ignored here). Draft year: the
+  pick's rookie salary is in DRAFT PICKS. Second year: that salary × 1.10 moves into CONTRACTS.
+- Future years' contract amounts include the +10%/yr appreciation (see League contract rules).
 
 ### Picks tab
 
@@ -135,7 +136,9 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 4. **VALUE (per season)** = market price − salary.
    - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
-5. **Contract value** = VALUE × years left (YRS, min 1). Used for the Cap tab lists.
+5. **Contract value** = sum over the years left of (market price − that year's cap hit), where the cap
+   hit rises 10% a year (`salary × 1.1^k` for k = 0…years left − 1). Used for the Cap tab lists.
+   (The mockup simplifies this to VALUE × years.)
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"
@@ -149,12 +152,48 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 - Put the calculation in one module (e.g. `lib/contractValue.ts`) so the Roster column, the Cap lists,
   and later the League team pages / trade screen all read the same numbers.
 
+## League contract rules (from the league constitution)
+
+Use these anywhere the app projects cap hits.
+
+- Contracts: base value, **max 5 years**, **min $5**. The cap hit rises **10% a year**:
+  year k (k = 0 for the signing year) costs `base × 1.1^k`.
+- Rookie contracts: 2 years for the app's projections (extension options ignored).
+- **Dead cap if cut** = current year's cap hit × years remaining (including this one) × 30%.
+  Example, $100 for 5 years:
+
+  | Year (remaining) | Cap hit | Dead cap if cut |
+  |---|---|---|
+  | 1 (5) | $100.00 | $150.00 |
+  | 2 (4) | $110.00 | $132.00 |
+  | 3 (3) | $121.00 | $108.90 |
+  | 4 (2) | $133.10 | $79.86 |
+  | 5 (1) | $146.41 | $43.92 |
+
+- When dead cap lands: single-year deals take it all in the current league year. Multi-year deals
+  take it all in the current year if cut **before** the Article 8 date; after that date it is split
+  between the current season and the next. (Article 8 date: get it from the league before coding;
+  assume an even 50/50 split unless the constitution says otherwise.)
+- Practice (taxi) squad: 100% cap hit reduction for the current contract year — counts $0 toward
+  this year's cap.
+
+## Player card
+
+To do: mock up the player card (canvas board `Player card sheet` is the as-built version).
+
+- For a player on your roster, show **dead cap if cut**: this year's cap hit, years remaining, and the
+  dead cap amount from the rule above. If cutting now would split it (multi-year deal, after the
+  Article 8 date), show both parts — this season and next.
+- Also show his contract by year (cap hit for each remaining year with the +10% appreciation) and
+  the contract VALUE from the Roster tab.
+- Natural place for the full (untruncated) stat line from the matchup page.
+
 ## Open questions
 
 - Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
-- Whether the player card shows the full (untruncated) stat line.
 - Matchups screen pre-game / final states haven't been mocked yet.
+- The Article 8 dead-cap split date, and how the split is divided.
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
 
 ## Already in code (PR #41)
