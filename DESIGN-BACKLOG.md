@@ -271,9 +271,10 @@ chips filter, column headers sort; tap the active header again to flip).
 - Table, scrolls sideways with the player column pinned: PLAYER (name, injury tag,
   `POS · TM · this week's opponent`) · WK PROJ · PPG · YTD PTS · POS RNK · OVR RNK. Sorted column
   shown in the display face with a volt underline in its header; byes and missing values sink.
-- **All players adds an OWNER column** right after the player, so it shows without scrolling:
-  the franchise's logo chip with its initials (yours in volt), or `FA` outlined in blue for a free
-  agent (claimable). Your players' rows are raised with the volt left edge.
+- **All players shows the owner inside the frozen player cell** (not a separate column), at the
+  right end of the name line: the franchise's chip with its initials (yours in volt), or `FA`
+  outlined in blue for a free agent (claimable). The frozen cell is a little wider (176px) to fit
+  it; long names truncate before the chip. Your players' rows are raised with the volt left edge.
 - Rows open the player card (owner mode = mine / other team / free agent).
 
 ## League contract rules (from the league constitution)
