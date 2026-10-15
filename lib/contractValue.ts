@@ -45,7 +45,20 @@ const median = (xs: number[]) => {
 };
 
 export function computeContractValues(players: ValueInput[], minSalary: number): Map<string, ValueResult> {
+  return buildMarket(players, minSalary).values;
+}
+
+/**
+ * The league market: every rostered player's VALUE, and `priceFor`, the
+ * market price of a given PPG at a position — for a free agent, what his
+ * production would cost (where he'd slot into the rostered ranking).
+ */
+export function buildMarket(players: ValueInput[], minSalary: number): {
+  values: Map<string, ValueResult>;
+  priceFor: (pos: string, ppg: number) => number | null;
+} {
   const out = new Map<string, ValueResult>();
+  const pricers = new Map<string, { ranked: ValueInput[]; priceAt: (rank: number) => number | null }>();
   const byPos = new Map<string, ValueInput[]>();
   for (const p of players) {
     if (!byPos.has(p.pos)) byPos.set(p.pos, []);
@@ -70,6 +83,7 @@ export function computeContractValues(players: ValueInput[], minSalary: number):
       }
       return null;
     };
+    pricers.set(list[0].pos, { ranked, priceAt });
 
     for (const p of list) {
       const rank = rankOf.get(p.id) ?? null;
@@ -84,7 +98,14 @@ export function computeContractValues(players: ValueInput[], minSalary: number):
       out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: total });
     }
   }
-  return out;
+  const priceFor = (pos: string, ppg: number) => {
+    const m = pricers.get(pos);
+    if (!m) return null;
+    const rank = m.ranked.filter((p) => (p.ppg ?? 0) > ppg).length + 1;
+    const price = m.priceAt(rank);
+    return price === null ? null : Math.round(price);
+  };
+  return { values: out, priceFor };
 }
 
 /** "+$150", "−$88", or "fair" inside the band. */

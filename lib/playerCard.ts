@@ -7,8 +7,10 @@ import { getPlayerDetails, getPlayers } from '@/lib/mfl/players';
 import { getRosters, type RosterSlot } from '@/lib/mfl/rosters';
 import { getNflSchedule, lastCompletedWeek } from '@/lib/mfl/schedule';
 import { mflScores } from '@/lib/players';
-import type { Stats } from '@/lib/scoring';
-import { getSleeperIds, getSleeperTable } from '@/lib/stats/sleeper';
+import { scorePoints, type Stats } from '@/lib/scoring';
+import { getSeasonTotals } from '@/lib/seasonTotals';
+import { getMarketPricer } from '@/lib/team';
+import { getScoringRules, getSleeperIds, getSleeperTable } from '@/lib/stats/sleeper';
 import type { PlayerCardData, PlayerCardWeek } from '@/lib/types';
 
 /**
@@ -27,7 +29,7 @@ const LOG_KEYS = [
   'pass_att', 'pass_cmp', 'pass_yd', 'pass_td', 'pass_int',
   'rush_att', 'rush_yd', 'rush_td',
   'rec_tgt', 'rec', 'rec_yd', 'rec_td',
-  'kr', 'kr_yd', 'pr', 'pr_yd', 'st_td',
+  'kr', 'kr_yd', 'pr', 'pr_yd', 'st_td', 'pass_sack', 'pass_sack_yds', 'fum_lost',
 ];
 
 function keep(s: Stats | undefined): Record<string, number> {
@@ -61,18 +63,25 @@ async function loadContext() {
 
   // Every week that has kicked off; a week in progress shows the games played so far.
   const started = nfl.filter((w) => w.games.some((g) => g.kickoff <= now)).map((w) => w.week);
-  const weeks = new Map<number, { stats: Record<string, Stats>; points: Map<string, number>; ranks: Map<string, number> }>();
+  const rules = await getScoringRules();
+  const weeks = new Map<number, { stats: Record<string, Stats>; points: Map<string, number>; ranks: Map<string, number>; proj: Record<string, Stats> }>();
   for (const week of started) {
     const settled = week <= done;
-    const [stats, points] = await Promise.all([getSleeperTable('stats', week, settled), mflScores(week, settled)]);
-    weeks.set(week, { stats, points, ranks: positionRanks(points, positionOf) });
+    const [stats, points, proj] = await Promise.all([
+      getSleeperTable('stats', week, settled), mflScores(week, settled),
+      getSleeperTable('projections', week, settled).catch(() => ({}) as Record<string, Stats>),
+    ]);
+    weeks.set(week, { stats, points, ranks: positionRanks(points, positionOf), proj });
   }
-  const [seasonStats, ytd] = await Promise.all([getSleeperTable('stats', null, false), mflScores('YTD', false)]);
+  // Season to date from the finished weeks, so a simulated clock never sees the future.
+  const [{ totals }, priceFor] = await Promise.all([getSeasonTotals(), getMarketPricer()]);
+  const ytd = new Map([...totals].map(([id, t]) => [id, t.pts]));
+  const ovr = new Map([...ytd].filter(([id]) => POSITIONS.has(positionOf(id) ?? '')).sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i + 1]));
 
   const held = new Map<string, { franchiseId: string; slot: RosterSlot }>();
   for (const [franchiseId, list] of rosters) for (const slot of list) held.set(slot.playerId, { franchiseId, slot });
 
-  return { now, league, players, details, injuries, byes, nfl, sleeperIds, weeks, seasonStats, ytd, ytdRanks: positionRanks(ytd, positionOf), held };
+  return { now, league, players, details, injuries, byes, nfl, sleeperIds, weeks, ytd, totals, ovr, rules, priceFor, ytdRanks: positionRanks(ytd, positionOf), held };
 }
 
 let context: ReturnType<typeof loadContext> | null = null;
@@ -98,10 +107,12 @@ export async function getPlayerCard(id: string): Promise<PlayerCardData | null> 
     const stats = played && sid ? played.stats[sid] : undefined;
     const fpts = played?.points.get(id);
     const didPlay = !!played && ((stats?.gp ?? 0) > 0 || (fpts ?? 0) !== 0);
+    const projStats = played && sid ? played.proj[sid] : undefined;
     return {
       week: w.week,
       opp: game && opp ? (game.home && game.home !== p.team ? `@ ${opp}` : opp) : null,
       future: !played,
+      proj: projStats && (projStats.gp ?? 1) > 0 ? Math.round(scorePoints(p.position, projStats, ctx.rules) * 10) / 10 : null,
       game: didPlay
         ? {
             fpts: fpts ?? 0,
@@ -137,7 +148,11 @@ export async function getPlayerCard(id: string): Promise<PlayerCardData | null> 
       gp: log.filter((w) => w.game).length,
       fpts: ctx.ytd.get(id) ?? 0,
       rank: ctx.ytdRanks.get(id) ?? null,
+      ovrRank: ctx.ovr.get(id) ?? null,
     },
+    market: !held && ctx.totals.get(id)?.gp
+      ? ctx.priceFor(p.position, ctx.totals.get(id)!.pts / ctx.totals.get(id)!.gp) ?? undefined
+      : undefined,
     log,
   };
 }

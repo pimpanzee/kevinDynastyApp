@@ -234,6 +234,8 @@ export interface PlayerCardWeek {
   opp: string | null;
   /** True for weeks not yet played. */
   future: boolean;
+  /** Projected points that week in league scoring; null with no projection. */
+  proj?: number | null;
   /** Null when he didn't play (or the week is ahead). */
   game: {
     /** MFL's points, in this league's scoring. */
@@ -264,7 +266,9 @@ export interface PlayerCardData {
   owner?: { id: string; name: string };
   /** Rostered players only. `code` is MFL's contractStatus, shown as-is. */
   contract?: { salary: number; years: number; code: string; status: 'Active' | 'Taxi' | 'IR' };
-  season: { gp: number; fpts: number; rank: number | null };
+  season: { gp: number; fpts: number; rank: number | null; ovrRank?: number | null };
+  /** Free agents: the market price of his production (contract value), a bidding guide. */
+  market?: number;
   log: PlayerCardWeek[];
 }
 

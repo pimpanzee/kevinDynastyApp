@@ -16,6 +16,7 @@ export default function BottomSheet({
   children,
   fixed = false,
   maxHeight = '86%',
+  height,
 }: {
   label: string;
   onClose: () => void;
@@ -23,6 +24,8 @@ export default function BottomSheet({
   children: ReactNode;
   fixed?: boolean;
   maxHeight?: string;
+  /** A fixed height, so the sheet doesn't jump as its content loads. */
+  height?: string;
 }) {
   const [drag, setDrag] = useState(0);
   const start = useRef<number | null>(null);
@@ -47,7 +50,7 @@ export default function BottomSheet({
         aria-label={label}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 390, margin: '0 auto', maxHeight, display: 'flex', flexDirection: 'column',
+          width: '100%', maxWidth: 390, margin: '0 auto', maxHeight, height, display: 'flex', flexDirection: 'column',
           background: 'var(--bg-100)', color: 'var(--ink)', borderTop: '1px solid var(--edge)', borderRadius: '14px 14px 0 0',
           boxShadow: 'var(--sheet-shadow)', paddingBottom: 'env(safe-area-inset-bottom)',
           transform: drag ? `translateY(${drag}px)` : undefined, transition: drag ? undefined : 'transform .15s',
@@ -71,7 +74,7 @@ export default function BottomSheet({
             </button>
           </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{children}</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>{children}</div>
       </section>
     </div>
   );

@@ -1,5 +1,5 @@
 import { FRANCHISE_ID, SEASON } from '@/lib/config';
-import { computeContractValues } from '@/lib/contractValue';
+import { buildMarket } from '@/lib/contractValue';
 import { getByeWeeks } from '@/lib/mfl/byes';
 import { TTL } from '@/lib/mfl/cache';
 import { asArray, mflGet } from '@/lib/mfl/client';
@@ -32,7 +32,7 @@ interface RawPicks {
 }
 interface RawPick { year?: string; round?: string; originalPickFor?: string }
 
-async function load(): Promise<TeamsData> {
+async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number) => number | null }> {
   const [league, players, rosters, adjustments, injuries, byes, { done, totals }, picksBody] = await Promise.all([
     getLeague(), getPlayers(), getRosters(SEASON), getSalaryAdjustments(), getInjuries(), getByeWeeks(), getSeasonTotals(),
     mflGet<RawPicks>('futureDraftPicks', { ttl: TTL.ROSTERS, cacheKey: `futureDraftPicks:${SEASON}` }),
@@ -53,7 +53,8 @@ async function load(): Promise<TeamsData> {
       },
     };
   })).filter((x) => POSITIONS.includes(x.p.position));
-  const values = computeContractValues(all.map((x) => x.input), minSalary);
+  const market = buildMarket(all.map((x) => x.input), minSalary);
+  const values = market.values;
 
   // Projected draft order from the current standings: worst record picks first.
   const order = sortDivision([...standings.values()]).map((r) => r.franchiseId);
@@ -151,6 +152,7 @@ async function load(): Promise<TeamsData> {
   });
 
   return {
+    priceFor: market.priceFor,
     season, cap: league.salaryCap,
     limits: { rosterMin: ROSTER_MIN, rosterMax: league.limits.roster, ir: league.limits.ir, taxi: league.limits.taxi },
     myFranchiseId: FRANCHISE_ID,
@@ -158,5 +160,11 @@ async function load(): Promise<TeamsData> {
   };
 }
 
-let cache: Promise<TeamsData> | null = null;
-export const getTeamsData = () => (cache ??= load());
+let cache: ReturnType<typeof load> | null = null;
+/** Every team, for the screens (plain data only, so it can be passed to the client). */
+export const getTeamsData = async (): Promise<TeamsData> => {
+  const { priceFor: _priceFor, ...data } = await (cache ??= load());
+  return data;
+};
+/** Market price for a PPG at a position (a free agent's bidding guide). */
+export const getMarketPricer = async () => (await (cache ??= load())).priceFor;

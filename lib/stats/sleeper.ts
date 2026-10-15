@@ -164,7 +164,7 @@ export async function getScoringRules(season: string = SEASON): Promise<RuleSet>
 }
 
 /** Kept beyond the scoring keys: games played, return counts and snaps, for the player card. */
-const TABLE_EXTRA = ['gp', 'kr', 'pr', 'off_snp', 'tm_off_snp'];
+const TABLE_EXTRA = ['gp', 'kr', 'pr', 'off_snp', 'tm_off_snp', 'pass_sack'];
 
 /**
  * A whole Sleeper table — one week's stats or projections, or season-to-date
@@ -178,7 +178,7 @@ export async function getSleeperTable(
   season: string = SEASON,
 ): Promise<Record<string, Stats>> {
   return cached(
-    `sleeper2:${kind}:${season}:${week ?? 'season'}`,
+    `sleeper3:${kind}:${season}:${week ?? 'season'}`,
     settled ? TTL.FINAL_RESULTS : TTL.LIVE,
     async () => {
       const body = await getJson<Record<string, Stats>>(
