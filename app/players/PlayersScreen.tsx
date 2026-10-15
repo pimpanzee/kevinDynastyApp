@@ -7,7 +7,7 @@ import InjuryTag from '@/components/InjuryTag';
 import PhoneFrame from '@/components/PhoneFrame';
 import { usePlayerCard } from '@/components/PlayerCard';
 import SubTabs from '@/components/SubTabs';
-import { teamInitials } from '@/components/TeamAvatar';
+import TeamAvatar from '@/components/TeamAvatar';
 import { posColor } from '@/components/pos';
 import { DISPLAY, pts1 } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
@@ -176,10 +176,16 @@ export default function PlayersScreen() {
                       <span style={{ font: '600 14px/1.2 var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
                       <InjuryTag tag={r.injury} />
                       {list === 'all' && (
-                        // Who rosters him: the team's chip (yours in volt), or FA outlined in blue.
-                        <span title={owner?.name ?? 'Free agent'} style={{ flex: 'none', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 18, padding: '0 4px', boxSizing: 'border-box', borderRadius: 3, background: !owner ? 'transparent' : isMine ? 'var(--volt)' : 'var(--bg-300)', color: !owner ? 'var(--rise)' : isMine ? 'var(--on-volt)' : 'var(--ink)', border: !owner ? '1px solid var(--rise)' : 0, font: DISPLAY(10, 800), letterSpacing: '.04em' }}>
-                          {owner ? teamInitials(owner.name) : 'FA'}
-                        </span>
+                        // Who rosters him: the team's logo (initials without one, yours in volt), or FA outlined in blue.
+                        owner ? (
+                          <span title={owner.name} style={{ flex: 'none', marginLeft: 'auto', display: 'inline-flex' }}>
+                            <TeamAvatar name={owner.name} icon={owner.icon} size={20} mine={isMine} />
+                          </span>
+                        ) : (
+                          <span title="Free agent" style={{ flex: 'none', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 18, padding: '0 4px', boxSizing: 'border-box', borderRadius: 3, color: 'var(--rise)', border: '1px solid var(--rise)', font: DISPLAY(10, 800), letterSpacing: '.04em' }}>
+                            FA
+                          </span>
+                        )
                       )}
                     </span>
                     <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis' }}>

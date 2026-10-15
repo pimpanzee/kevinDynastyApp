@@ -219,7 +219,7 @@ export interface PlayersData {
   lastWeek: number | null;
   /** False when Sleeper has no projections for projWeek yet. */
   hasProj: boolean;
-  franchises: Array<{ id: string; abbrev: string; name: string }>;
+  franchises: Array<{ id: string; abbrev: string; name: string; icon: string | null }>;
   /** The build's default team; the viewer's own choice replaces it in the browser. */
   myFranchiseId: string;
   players: PlayerRow[];

@@ -8,7 +8,7 @@ import HeaderBar, { HeaderButton } from '@/components/HeaderBar';
 import LineupAlert from '@/components/LineupAlert';
 import MedianRace from '@/components/MedianRace';
 import PhoneFrame from '@/components/PhoneFrame';
-import TeamAvatar, { teamInitials } from '@/components/TeamAvatar';
+import TeamAvatar from '@/components/TeamAvatar';
 import WeekMenu from '@/components/WeekMenu';
 import { barWidth } from '@/lib/format';
 import { applyLineupsToWeek, applyLiveToWeek, startersOf } from '@/lib/live';
@@ -177,8 +177,8 @@ function GameRow({ m, state, href }: { m: MatchupView; state: GameState; href: s
     const { num, proj } = scoreLines(side, state);
     const tone = pre || leads ? 'var(--ink)' : 'var(--ink-2)';
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr auto', alignItems: 'center', gap: 8, minHeight: 36 }}>
-        <span style={{ font: DISPLAY(12), letterSpacing: '.08em', color: 'var(--ink-3)' }}>{teamInitials(side.name)}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: 10, minHeight: 36 }}>
+        <TeamAvatar name={side.name} icon={side.icon ?? null} size={28} />
         <div style={{ minWidth: 0 }}>
           <div style={{ font: '600 14px/1.2 var(--font-body)', color: tone, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{side.name}</div>
           <div style={{ font: '500 11px/1.2 var(--font-body)', color: 'var(--ink-3)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{state === 'active' ? side.meta : recordOnly(side.meta)}</div>
