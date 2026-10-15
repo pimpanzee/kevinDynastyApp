@@ -17,9 +17,17 @@
  *
  * Season and league are fixed by configuration, not the caller, so this
  * cannot be used as a general MFL proxy.
+ *
+ * GET /me, POST /write and GET /audit are the write relay (relay.js): they
+ * need the APP_TOKEN secret as a Bearer token and act as the owner whose MFL
+ * login cookie is the MFL_COOKIE secret. A scheduled run checks that cookie
+ * daily, which records how long an MFL login lasts.
  */
 
 import { fetchGamePlays, fetchScoreboard, indexPlayers } from './plays.js';
+import { WriteRelay } from './relay.js';
+
+export { WriteRelay };
 
 const MAX_WEEK = 22;
 /** After MFL rejects a request, leave it alone this long before trying again. */
@@ -43,6 +51,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     const url = new URL(request.url);
+    if (RELAY_ROUTES[url.pathname]) return relay(request, url, env, cors);
     if (request.method !== 'GET') return json({ error: 'Not found' }, 404, cors);
 
     if (url.pathname === '/news') {
@@ -72,7 +81,44 @@ export default {
     for (const [k, v] of Object.entries(cors)) headers.set(k, v);
     return new Response(res.body, { status: res.status, headers });
   },
+
+  /** Daily: is the MFL login still good? Records its lifetime (relay.js `cookies`). */
+  async scheduled(event, env, ctx) {
+    if (!env.MFL_COOKIE) return;
+    const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
+    ctx.waitUntil(stub.fetch('https://relay/me'));
+  },
 };
+
+/** Write-relay routes and the method each takes. */
+const RELAY_ROUTES = { '/me': 'GET', '/write': 'POST', '/audit': 'GET' };
+
+async function relay(request, url, env, cors) {
+  if (request.method !== RELAY_ROUTES[url.pathname]) return json({ error: 'Not found' }, 404, cors);
+  if (!env.APP_TOKEN) return json({ error: 'The write relay is not set up' }, 503, cors);
+  if (!(await sameSecret(request.headers.get('Authorization') ?? '', `Bearer ${env.APP_TOKEN}`))) {
+    return json({ error: 'Unauthorized' }, 401, cors);
+  }
+  const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
+  const res = await stub.fetch(`https://relay${url.pathname}`, {
+    method: request.method,
+    headers: { 'Content-Type': 'application/json' },
+    body: request.method === 'POST' ? await request.text() : undefined,
+  });
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
+}
+
+/** Constant-time comparison, by hashing both sides to the same length first. */
+async function sameSecret(given, expected) {
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(given)),
+    crypto.subtle.digest('SHA-256', enc.encode(expected)),
+  ]);
+  return crypto.subtle.timingSafeEqual(a, b);
+}
 
 /** A player's latest ESPN news, trimmed to what the card shows and cached at the edge. */
 async function news(player, cors, ctx) {
@@ -394,7 +440,12 @@ function payload(entry, stale, maxAgeMs) {
 function corsHeaders(origin, env) {
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim());
   return origin && allowed.includes(origin)
-    ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'GET, OPTIONS', Vary: 'Origin' }
+    ? {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+        Vary: 'Origin',
+      }
     : { Vary: 'Origin' };
 }
 

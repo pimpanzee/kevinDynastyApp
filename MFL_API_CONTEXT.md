@@ -87,7 +87,11 @@ Three tiers, from least to most access:
      `+ / =` — URL-escape if putting it anywhere that needs escaping.
    - No formal "logout" call — just stop sending/storage-clear the cookie.
 
-**Recommendation for this app:** use the APIKEY approach per user. It avoids
+**Correction (Oct 2026):** the APIKEY works for export (read) requests only,
+never import (write) requests. Writes need the login cookie; the write relay
+in `worker/src/relay.js` holds it as a Cloudflare secret.
+
+**Recommendation for reads:** use the APIKEY approach per user. It avoids
 storing raw MFL passwords anywhere in the app, and each teammate can get their
 own key from their own MFL account. Store keys server-side (env vars / secure
 store), never in client-side code.

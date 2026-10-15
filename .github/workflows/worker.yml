@@ -34,3 +34,4 @@ jobs:
             --var MFL_SEASON:${{ vars.MFL_SEASON || '2025' }}
             --var MFL_LEAGUE_ID:${{ vars.MFL_LEAGUE_ID || '63396' }}
             --var MFL_HOST:${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}
+            --var MFL_USER_AGENT:${{ vars.MFL_USER_AGENT || 'gridlock/1.0' }}
