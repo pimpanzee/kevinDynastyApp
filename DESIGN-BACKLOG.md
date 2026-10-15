@@ -170,10 +170,9 @@ Use these anywhere the app projects cap hits.
   | 4 (2) | $133.10 | $79.86 |
   | 5 (1) | $146.41 | $43.92 |
 
-- When dead cap lands: single-year deals take it all in the current league year. Multi-year deals
-  take it all in the current year if cut **before** the Article 8 date; after that date it is split
-  between the current season and the next. (Article 8 date: get it from the league before coding;
-  assume an even 50/50 split unless the constitution says otherwise.)
+- When dead cap lands (current year vs split with next season after the Article 8 date) is **not**
+  modelled — the date changes each year. The app shows the total dead cap; managers halve it
+  themselves when a split applies.
 - Practice (taxi) squad: 100% cap hit reduction for the current contract year — counts $0 toward
   this year's cap.
 
@@ -182,8 +181,7 @@ Use these anywhere the app projects cap hits.
 To do: mock up the player card (canvas board `Player card sheet` is the as-built version).
 
 - For a player on your roster, show **dead cap if cut**: this year's cap hit, years remaining, and the
-  dead cap amount from the rule above. If cutting now would split it (multi-year deal, after the
-  Article 8 date), show both parts — this season and next.
+  total dead cap amount from the rule above (no split shown).
 - Also show his contract by year (cap hit for each remaining year with the +10% appreciation) and
   the contract VALUE from the Roster tab.
 - Natural place for the full (untruncated) stat line from the matchup page.
@@ -193,7 +191,6 @@ To do: mock up the player card (canvas board `Player card sheet` is the as-built
 - Game line team codes: short (SF, KC, GB) vs MFL codes (SFO, KCC, GBP).
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Matchups screen pre-game / final states haven't been mocked yet.
-- The Article 8 dead-cap split date, and how the split is divided.
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
 
 ## Already in code (PR #41)
