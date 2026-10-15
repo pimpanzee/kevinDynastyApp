@@ -61,6 +61,26 @@ Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
   (division rank and player count dropped; value in ink, label in grey). VP, average PF and potential points (season total of best possible
   lineups) are already computed per team in `lib/mfl/standings.ts` (`vp`, `avgPf`, `pp`).
 
+- The header is identical on Roster, Cap and Picks: team name + that one line, then the tab bar.
+  Cap and Picks drop their CAP ROOM / 2026 COMMITTED / 2026 PICKS block; no summary block on
+  those tabs for now. The ROOM / ROSTER / IR / TAXI strip stays on the Roster tab only.
+
+### Picks tab
+
+- Row: round chip (`R1`) · who it belongs to (`Own pick`, `via Second Wind`, `Traded to Iron Lung FC`) —
+  no "1st round" title. Right side: projected slot (`PROJ 1.10`) over its rookie salary (`$92.00`).
+- Traded-away picks stay listed, dimmed, with no slot or salary.
+- Every year shows a projected slot, not just the current one: the original owner's projected finish
+  from the current standings (the same projection for 2027 and 2028 until those seasons start).
+- Year header right side: picks held · total rookie salary (`4 PICKS · $191.00`).
+- Rookie salary scale (league base value by slot), slots 1–12:
+  - R1: 125, 122, 119, 116, 112, 108, 104, 100, 96, 92, 88, 84
+  - R2: 72, 69, 66, 63, 60, 57, 53, 49, 45, 41, 37, 33
+  - R3: 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6
+  - R4: 5 for every slot
+  Keep it as a constant in one place (e.g. `lib/rookieScale.ts`); check whether MFL exposes it before hard-coding.
+- Slots are written `2.10`, not `2.1`.
+
 ### Roster table
 
 - Columns: PLAYER · POS RNK · **PPG** · YTD PTS · SALARY · **VALUE** · YRS · STATUS.
