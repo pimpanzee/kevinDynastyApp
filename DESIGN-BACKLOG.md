@@ -388,7 +388,13 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
 - No contract-by-year table and no VALUE on the card.
 ## Open questions
 
-- Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
+None. Resolved at the start of the code pass:
+
+- Rookie contracts: MFL roster `contractStatus` holds the rookie-draft round as `"1.0"`–`"4.0"`
+  (sometimes with a trailing space; trim it) or `"Rd1"`. `"FT1"` is a franchise tag; blank is a
+  normal contract. Checked against the 2025 draft results: every rostered 2025 draftee carries the
+  code and their salaries match the rookie scale (year-2 salaries are ×1.1). Treat any status
+  matching `/^(\d)\.0$|^Rd\d$/` as a rookie contract for the VALUE market exclusion.
 
 ## Already in code (PR #41)
 
