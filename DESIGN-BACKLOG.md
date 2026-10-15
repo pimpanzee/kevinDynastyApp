@@ -57,13 +57,12 @@ Canvas board `A · Score breakdown sheet`. Tapping a player's points on the matc
 - Header: position chip, name, `TEAM · status · game line` (live status in red). No owner/slot line.
 - FANTASY POINTS total, `proj X` and `+/−X VS PROJ`.
 - One row per stat the player actually recorded: label, rule (`0.1 per yd`), raw stat, points
-  (negatives in `--fall`), then TOTAL. Optional note chip (BEST / LIVE).
+  (negatives in `--fall`), then TOTAL. A LIVE note while the game is on; no BEST indicator.
 - No by-quarter chart, no PLAYER CARD / DONE buttons — close with the X, the scrim or a drag down.
 - League scoring (from MFL):
   - Passing: 4 per TD, 0.04 per yd, −3 per INT, −0.1 per sack yard, 2 per 2-pt.
   - Rushing: 6 per TD, 0.1 per yd, 2 per 2-pt. Receiving: 6 per TD, 0.1 per yd, **0.5 per catch**, 2 per 2-pt.
-  - Kicking: 3 per FG made; a made FG of 31+ yards also earns 0.1 per yard of its full length
-    (45 yds = 3 + 4.5; 30 yds or shorter adds nothing); −1 per FG missed, 1 per XP, −1 per XP missed.
+  - No kickers in this league, so kicking rules are ignored.
   - Returns: 6 per punt or kickoff return TD, 0.1 per punt return yard. Fumbles lost: −3.
   - Read the rules from MFL's league `rules` export rather than hard-coding them, if `lib/scoring.ts` doesn't already.
 
