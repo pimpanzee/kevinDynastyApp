@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import BottomSheet from '@/components/BottomSheet';
 import HeaderBar from '@/components/HeaderBar';
 import InjuryTag from '@/components/InjuryTag';
+import LineupAlert from '@/components/LineupAlert';
 import PhoneFrame from '@/components/PhoneFrame';
 import { posColor } from '@/components/pos';
+import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
 import { getMine, isError, write, type Mine, type RelayError } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 import SectionHead from './SectionHead';
@@ -17,6 +19,14 @@ export interface LineupPlayer {
   pos: string;
   team: string;
   injury?: string;
+  /** The build's projection week: "@ BUF" away, "BUF" at home, null on a bye. Absent when unknown. */
+  opp?: string | null;
+  /** Projected points in league scoring that week. */
+  proj?: number | null;
+  /** Season points per game, in league scoring. */
+  ppg?: number | null;
+  /** Share of ESPN leagues starting him this week, 0–100. */
+  startPct?: number | null;
 }
 
 type Slot = Mine['roster'][number]['status'];
@@ -34,6 +44,8 @@ const MOVES: Record<Slot, Move[]> = {
   TAXI_SQUAD: [{ type: 'taxi_squad', param: 'PROMOTE', label: 'Promote to active roster', done: 'promoted to the active roster' }],
 };
 
+const ISSUE_TEXT: Record<LineupIssue, string> = { IR: 'on IR', OUT: 'out', BYE: 'on a bye', DOUBTFUL: 'doubtful', 'NO PROJ': 'not projected to play' };
+
 interface Notice {
   tone: 'ok' | 'bad';
   text: string;
@@ -42,21 +54,35 @@ interface Notice {
 function kickoffLabel(ms: number | undefined, now: number): string {
   if (!ms) return 'BYE';
   if (ms <= now) return 'LOCKED';
-  return new Date(ms).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  // "SUN 1:00" in ET, as the rest of the app writes kickoffs.
+  const parts = new Intl.DateTimeFormat('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }).formatToParts(new Date(ms));
+  const get = (t: string) => parts.find((x) => x.type === t)?.value ?? '';
+  return `${get('weekday').toUpperCase()} ${get('hour')}:${get('minute')}`;
 }
 
+const one = (n: number) => n.toFixed(1);
+
+/** The widths of the stat and button columns, shared by the header row and every player row. */
+const COL = { ppg: 34, pct: 42, proj: 38, act: 48, more: 36, gap: 6 };
+
 /**
- * Your lineup for MFL's current week, read live through the write relay: tap
- * START or BENCH to change it, then submit. Players lock at their own
- * kickoff. The ⋯ on each player moves them to or from IR and the taxi squad.
- * Every change is confirmed first, and the roster is re-read after each one.
+ * Your lineup for MFL's current week, read live through the write relay.
+ * Tap ⇄ on a player to swap him: the players he can trade places with and
+ * keep the lineup legal get a SWAP button, the rest grey out. Changes stay on
+ * this screen until you submit and confirm. Players lock at their own
+ * kickoff. The ⋯ on each player moves him to or from IR and the taxi squad,
+ * which goes to MFL as soon as it is confirmed. The roster is re-read after
+ * every write.
  */
 export default function LineupScreen({
   players,
+  projWeek,
   rules,
   limits,
 }: {
   players: Record<string, LineupPlayer>;
+  /** The week the build's opponents and projections are for. */
+  projWeek: number;
   rules: TeamsData['lineup'];
   limits: TeamsData['limits'];
 }) {
@@ -68,6 +94,7 @@ export default function LineupScreen({
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [moving, setMoving] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
@@ -79,8 +106,14 @@ export default function LineupScreen({
     setLoadError(null);
     setMine(r);
     setStarters(new Set(r.starters));
+    setSel(null);
     setNow(Date.now());
   }, []);
+
+  // Bring the first player he can swap with into view; on the bench that's often below the fold.
+  useEffect(() => {
+    if (sel) document.querySelector('[data-swap-target]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [sel]);
 
   useEffect(() => {
     load();
@@ -93,19 +126,49 @@ export default function LineupScreen({
     if (!mine || mine.roster.every((p) => players[p.id] || extra[p.id])) return;
     fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/players.json`)
       .then((r) => r.json())
-      .then((d: { players?: Array<{ id: string; name: string; pos: string; nflTeam: string; injury?: string }> }) => {
+      .then((d: { projWeek?: number; players?: Array<{ id: string; name: string; pos: string; nflTeam: string; injury?: string; next: { opp: string } | null; proj: { pts: number | null }; season: { gp: number; pts: number } }> }) => {
         const found: Record<string, LineupPlayer> = {};
-        for (const p of d.players ?? []) found[p.id] = { name: p.name, pos: p.pos, team: p.nflTeam, injury: p.injury };
+        for (const p of d.players ?? []) {
+          found[p.id] = {
+            name: p.name, pos: p.pos, team: p.nflTeam, injury: p.injury,
+            ...(d.projWeek === projWeek ? { opp: p.next?.opp ?? null, proj: p.proj.pts } : {}),
+            ppg: p.season.gp ? p.season.pts / p.season.gp : null,
+          };
+        }
         setExtra(found);
       })
       .catch(() => {});
-  }, [mine, players, extra]);
+  }, [mine, players, extra, projWeek]);
 
   const info = (id: string): LineupPlayer => players[id] ?? extra[id] ?? { name: `Player ${id}`, pos: '', team: '' };
   const locked = (id: string) => {
     const k = mine?.kickoffs[info(id).team];
     return k !== undefined && k <= now;
   };
+  const slotOf = (id: string): Slot => mine?.roster.find((p) => p.id === id)?.status ?? 'ROSTER';
+  // Opponents and projections come from the build; use them only when it was built for this week.
+  const weekOk = mine?.week === projWeek;
+  const proj = (id: string) => (weekOk ? info(id).proj ?? null : null);
+  const issue = (id: string): LineupIssue | null => {
+    const p = info(id);
+    if (!weekOk) return p.injury === 'IR' ? 'IR' : p.injury === 'O' ? 'OUT' : p.injury === 'D' ? 'DOUBTFUL' : null;
+    return lineupIssue({ injury: p.injury, bye: p.opp === null, proj: p.proj ?? null });
+  };
+
+  const counts = (ids: Iterable<string>) => {
+    const c: Record<string, number> = {};
+    let total = 0;
+    for (const id of ids) {
+      c[info(id).pos] = (c[info(id).pos] ?? 0) + 1;
+      total++;
+    }
+    return { c, total };
+  };
+  const legal = (ids: Iterable<string>) => {
+    const { c, total } = counts(ids);
+    return total >= rules.min && total <= rules.max && Object.entries(rules.positions).every(([pos, lim]) => (c[pos] ?? 0) >= lim.min && (c[pos] ?? 0) <= lim.max);
+  };
+  const projTotal = (ids: Iterable<string>) => [...ids].reduce((t, id) => t + (proj(id) ?? 0), 0);
 
   const rows = useMemo(() => {
     if (!mine) return null;
@@ -113,7 +176,7 @@ export default function LineupScreen({
       [...ids].sort((a, b) => {
         const pa = POS_ORDER.indexOf(info(a).pos);
         const pb = POS_ORDER.indexOf(info(b).pos);
-        return (pa < 0 ? 9 : pa) - (pb < 0 ? 9 : pb) || info(a).name.localeCompare(info(b).name);
+        return (pa < 0 ? 9 : pa) - (pb < 0 ? 9 : pb) || (proj(b) ?? -1) - (proj(a) ?? -1) || info(a).name.localeCompare(info(b).name);
       });
     const of = (s: Slot) => mine.roster.filter((p) => p.status === s).map((p) => p.id);
     const active = of('ROSTER');
@@ -123,32 +186,65 @@ export default function LineupScreen({
       ir: sort(of('INJURED_RESERVE')),
       taxi: sort(of('TAXI_SQUAD')),
     };
-    // info reads players/extra, both listed.
+    // info and proj read players/extra/weekOk, all covered by mine and the lists here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mine, starters, players, extra]);
 
   const original = useMemo(() => new Set(mine?.starters ?? []), [mine]);
+  const isActive = (id: string) => mine?.roster.some((p) => p.id === id && p.status === 'ROSTER') ?? false;
   const added = rows ? rows.starters.filter((id) => !original.has(id)) : [];
-  const removed = mine ? mine.starters.filter((id) => !starters.has(id) && mine.roster.some((p) => p.id === id && p.status === 'ROSTER')) : [];
+  const removed = mine ? mine.starters.filter((id) => !starters.has(id) && isActive(id)) : [];
   const changed = added.length + removed.length > 0;
+  const activeStarters = rows?.starters ?? [];
+  const valid = legal(activeStarters);
 
-  // Starter rules: per position and overall.
-  const counts: Record<string, number> = {};
-  for (const id of rows?.starters ?? []) counts[info(id).pos] = (counts[info(id).pos] ?? 0) + 1;
-  const total = rows?.starters.length ?? 0;
-  const posChecks = Object.entries(rules.positions).map(([pos, lim]) => ({ pos, n: counts[pos] ?? 0, ok: (counts[pos] ?? 0) >= lim.min && (counts[pos] ?? 0) <= lim.max, lim }));
-  const totalOk = total >= rules.min && total <= rules.max;
-  const valid = totalOk && posChecks.every((c) => c.ok);
+  // Who the selected player can trade places with, keeping the lineup legal.
+  const targets = new Set<string>();
+  let canSolo = false;
+  if (sel && rows) {
+    const selStarting = starters.has(sel);
+    for (const id of selStarting ? rows.bench : rows.starters) {
+      if (locked(id)) continue;
+      const next = new Set(activeStarters);
+      if (selStarting) {
+        next.delete(sel);
+        next.add(id);
+      } else {
+        next.delete(id);
+        next.add(sel);
+      }
+      if (legal(next)) targets.add(id);
+    }
+    const solo = new Set(activeStarters);
+    if (selStarting) solo.delete(sel);
+    else solo.add(sel);
+    canSolo = legal(solo);
+  }
 
-  const toggle = (id: string) => {
-    if (locked(id)) return;
+  const pick = (id: string) => {
     setNotice(null);
+    setSel(id);
+  };
+  const swapWith = (id: string) => {
+    if (!sel) return;
     setStarters((s) => {
       const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const [out, inn] = s.has(sel) ? [sel, id] : [id, sel];
+      next.delete(out);
+      next.add(inn);
       return next;
     });
+    setSel(null);
+  };
+  const solo = () => {
+    if (!sel) return;
+    setStarters((s) => {
+      const next = new Set(s);
+      if (next.has(sel)) next.delete(sel);
+      else next.add(sel);
+      return next;
+    });
+    setSel(null);
   };
 
   const afterWrite = async (r: { ok: true } | RelayError, success: string) => {
@@ -170,7 +266,7 @@ export default function LineupScreen({
   const submit = async () => {
     if (!mine) return;
     setBusy(true);
-    const ids = [...starters].filter((id) => mine.roster.some((p) => p.id === id && p.status === 'ROSTER'));
+    const ids = [...starters].filter(isActive);
     const r = await write('lineup', { W: String(mine.week), STARTERS: ids.join(',') });
     setConfirming(false);
     await afterWrite(r, `Week ${mine.week} lineup saved on MFL.`);
@@ -185,19 +281,59 @@ export default function LineupScreen({
     setBusy(false);
   };
 
-  const slotOf = (id: string) => mine?.roster.find((p) => p.id === id)?.status ?? 'ROSTER';
   const movingSlot = moving ? slotOf(moving) : null;
+  const { c: posCount, total } = counts(activeStarters);
+  const problems = activeStarters
+    .filter((id) => !locked(id))
+    .map((id) => ({ id, issue: issue(id) }))
+    .filter((p): p is { id: string; issue: LineupIssue } => p.issue !== null);
+  const diff = projTotal(activeStarters) - projTotal(mine?.starters.filter(isActive) ?? []);
 
   return (
     <PhoneFrame style={{ position: 'relative' }}>
-      <HeaderBar back="/team/" title={mine ? `WEEK ${mine.week} LINEUP` : 'LINEUP'} />
-      <div style={{ flex: 1, overflow: 'auto', paddingBottom: changed ? 84 : 24 }}>
-        {notice && (
-          <div role="status" style={{ margin: '12px 16px 0', padding: '10px 12px', borderRadius: 2, font: '500 13px/1.4 var(--font-body)', background: notice.tone === 'ok' ? 'var(--rise-tint)' : 'var(--live-tint)', color: 'var(--ink)', boxShadow: `inset 3px 0 0 ${notice.tone === 'ok' ? 'var(--rise)' : 'var(--live)'}` }}>
-            {notice.text}
-          </div>
-        )}
+      <HeaderBar
+        back="/team/"
+        title={mine ? `WEEK ${mine.week} LINEUP` : 'LINEUP'}
+        right={mine && weekOk ? (
+          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, marginRight: 8 }}>
+            <span style={{ font: DISPLAY(20, 800), fontVariantNumeric: 'tabular-nums' }}>{one(projTotal(activeStarters))}</span>
+            <span style={{ font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>PROJECTED</span>
+          </span>
+        ) : undefined}
+      />
 
+      {mine && rows && (
+        <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: `repeat(${1 + Object.keys(rules.positions).length}, minmax(0, 1fr))`, background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
+          <RuleCell value={total} label={`START ${rules.min === rules.max ? rules.min : `${rules.min}–${rules.max}`}`} ok={total >= rules.min && total <= rules.max} />
+          {Object.entries(rules.positions).map(([pos, lim]) => {
+            const n = posCount[pos] ?? 0;
+            return <RuleCell key={pos} value={n} label={`${pos} ${lim.min}–${lim.max}`} ok={n >= lim.min && n <= lim.max} />;
+          })}
+        </div>
+      )}
+
+      {notice && (
+        <div role="status" style={{ flex: 'none', padding: '10px 16px', font: '500 13px/1.4 var(--font-body)', background: notice.tone === 'ok' ? 'var(--rise-tint)' : 'var(--live-tint)', color: 'var(--ink)', boxShadow: `inset 0 -1px 0 ${notice.tone === 'ok' ? 'var(--rise)' : 'var(--live)'}` }}>
+          {notice.text}
+        </div>
+      )}
+
+      {sel && (
+        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px 6px 16px', background: 'var(--bg-200)', borderBottom: '1px solid var(--edge)' }}>
+          <span style={{ flex: 1, font: '500 13px/1.35 var(--font-body)' }}>
+            {starters.has(sel) ? `Pick a bench player to swap in for ${info(sel).name}.` : `Pick a starter to swap out for ${info(sel).name}.`}
+            {targets.size === 0 && !canSolo && ' Nobody fits without breaking the lineup rules.'}
+          </span>
+          {canSolo && (
+            <button type="button" onClick={solo} style={{ ...btn(false), height: 36, padding: '0 12px', font: DISPLAY(12) }}>
+              {starters.has(sel) ? 'JUST BENCH' : 'JUST START'}
+            </button>
+          )}
+          <button type="button" onClick={() => setSel(null)} aria-label="Cancel swap" style={iconBtn(44)}>{CloseIcon}</button>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflow: 'auto', paddingBottom: 24 }}>
         {loadError && !mine && (
           <div style={{ padding: '24px 16px', font: '500 14px/1.5 var(--font-body)', color: 'var(--ink-2)' }}>
             <p style={{ margin: 0 }}>{loadError.signedOut ? 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.' : loadError.error}</p>
@@ -210,16 +346,7 @@ export default function LineupScreen({
 
         {mine && rows && (
           <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '12px 16px 4px' }}>
-              <Chip ok={totalOk} text={`${total} STARTERS`} title={`${rules.min}–${rules.max} starters`} />
-              {posChecks.map((c) => (
-                <Chip key={c.pos} ok={c.ok} text={`${c.pos} ${c.n}`} title={`${c.pos}: ${c.lim.min}–${c.lim.max}`} />
-              ))}
-            </div>
-            <p style={{ margin: '4px 16px 0', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
-              {rules.min === rules.max ? `${rules.min}` : `${rules.min}–${rules.max}`} starters; {posChecks.map((c) => `${c.pos} ${c.lim.min}–${c.lim.max}`).join(', ')}. Players lock at their own kickoff.
-            </p>
-
+            {!sel && problems.length > 0 && <LineupAlert alerts={problems.map((p) => ({ name: info(p.id).name, issue: p.issue, kickoff: mine.kickoffs[info(p.id).team] ?? null }))} />}
             <Section label={`STARTERS · ${rows.starters.length}`} ids={rows.starters} />
             <Section label={`BENCH · ${rows.bench.length}`} ids={rows.bench} />
             <Section label={`IR · ${rows.ir.length} OF ${limits.ir}`} ids={rows.ir} />
@@ -228,21 +355,31 @@ export default function LineupScreen({
         )}
       </div>
 
-      {mine && changed && (
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', gap: 8, padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)' }}>
+      {mine && changed && !sel && (
+        <div style={{ flex: 'none', display: 'flex', gap: 8, padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)' }}>
           <button type="button" onClick={() => { setStarters(new Set(mine.starters)); setNotice(null); }} style={btn(false)}>UNDO</button>
           <button type="button" disabled={!valid || busy} onClick={() => setConfirming(true)} style={{ ...btn(true), flex: 1, opacity: valid ? 1 : 0.5 }}>
-            {valid ? 'SUBMIT LINEUP' : 'LINEUP NOT LEGAL YET'}
+            {!valid ? 'LINEUP NOT LEGAL YET' : weekOk ? `SUBMIT LINEUP · ${diff >= 0 ? '+' : '−'}${one(Math.abs(diff))}` : 'SUBMIT LINEUP'}
           </button>
         </div>
       )}
 
       {confirming && mine && (
         <BottomSheet label="Confirm lineup" onClose={() => setConfirming(false)} header={<SheetTitle>Submit week {mine.week} lineup?</SheetTitle>}>
-          <div style={{ padding: '0 16px 16px', font: '500 14px/1.5 var(--font-body)' }}>
-            {added.length > 0 && <p style={{ margin: '0 0 6px' }}><b style={{ color: 'var(--rise)' }}>In:</b> {added.map((id) => info(id).name).join(', ')}</p>}
-            {removed.length > 0 && <p style={{ margin: '0 0 6px' }}><b style={{ color: 'var(--fall)' }}>Out:</b> {removed.map((id) => info(id).name).join(', ')}</p>}
-            <p style={{ margin: '0 0 14px', color: 'var(--ink-3)', fontSize: 12.5 }}>You can change it again until each player&apos;s kickoff.</p>
+          <div style={{ padding: '0 16px 16px', font: '500 14px/1.5 var(--font-body)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {added.length > 0 && <p style={{ margin: 0 }}><b style={{ color: 'var(--rise)' }}>In:</b> {added.map((id) => info(id).name).join(', ')}</p>}
+            {removed.length > 0 && <p style={{ margin: 0 }}><b style={{ color: 'var(--fall)' }}>Out:</b> {removed.map((id) => info(id).name).join(', ')}</p>}
+            {weekOk && (
+              <p style={{ margin: 0, color: 'var(--ink-2)' }}>
+                Projected <b style={{ color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{one(projTotal(mine.starters.filter(isActive)))} → {one(projTotal(activeStarters))}</b>
+              </p>
+            )}
+            {problems.length > 0 && (
+              <p role="alert" style={{ margin: '4px 0 0', padding: '8px 10px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', fontSize: 13 }}>
+                {problems.map((p) => `${info(p.id).name} is ${ISSUE_TEXT[p.issue]} and still starting.`).join(' ')}
+              </p>
+            )}
+            <p style={{ margin: '0 0 8px', color: 'var(--ink-3)', fontSize: 12.5 }}>You can change it again until each player&apos;s kickoff.</p>
             <button type="button" disabled={busy} onClick={submit} style={{ ...btn(true), width: '100%' }}>{busy ? 'SUBMITTING…' : 'SUBMIT TO MFL'}</button>
           </div>
         </BottomSheet>
@@ -274,59 +411,123 @@ export default function LineupScreen({
 
   function Section({ label, ids }: { label: string; ids: string[] }) {
     if (!ids.length) return null;
+    const head: CSSProperties = { flex: 'none', textAlign: 'right' };
     return (
       <>
-        <div style={{ marginTop: 12 }}><SectionHead label={label} /></div>
-        {ids.map((id) => {
-          const p = info(id);
-          const slot = slotOf(id);
-          const isLocked = locked(id);
-          const starting = starters.has(id);
-          return (
-            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, padding: '0 8px 0 16px', borderBottom: '1px solid var(--line)' }}>
-              <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                  <span style={{ font: '600 14px/1.2 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
-                  <InjuryTag tag={p.injury} />
-                </span>
-                <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
-                  <b style={{ fontWeight: 700, color: posColor(p.pos) }}>{p.pos || '—'}</b> · {p.team || '—'} · <span style={{ color: isLocked ? 'var(--fall)' : undefined }}>{kickoffLabel(mine!.kickoffs[p.team], now)}</span>
-                </span>
-              </span>
-              {slot === 'ROSTER' && (
-                <button type="button" disabled={isLocked} aria-pressed={starting} onClick={() => toggle(id)} style={{ flex: 'none', width: 72, height: 32, borderRadius: 2, border: `1px solid ${starting ? 'var(--volt)' : 'var(--edge)'}`, background: starting ? 'var(--volt)' : 'transparent', color: starting ? 'var(--on-volt)' : 'var(--ink-2)', font: DISPLAY(12), letterSpacing: '.1em', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.45 : 1 }}>
-                  {starting ? 'START' : 'BENCH'}
-                </button>
-              )}
-              <button type="button" aria-label={`Roster moves for ${p.name}`} onClick={() => { setNotice(null); setMoving(id); }} style={{ flex: 'none', width: 40, height: 40, border: 0, background: 'none', color: 'var(--ink-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
-              </button>
-            </div>
-          );
-        })}
+        <div style={{ marginTop: 4 }}><SectionHead label={label} /></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: COL.gap, height: 24, paddingLeft: 16, borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)' }}>
+          <span style={{ flex: 1 }}>PLAYER</span>
+          <span style={{ ...head, width: COL.ppg }}>PPG</span>
+          <span style={{ ...head, width: COL.pct }}>START%</span>
+          <span style={{ ...head, width: COL.proj }}>PROJ</span>
+          <span style={{ flex: 'none', width: COL.act + COL.gap + COL.more }} />
+        </div>
+        {ids.map((id) => <Row key={id} id={id} />)}
       </>
+    );
+  }
+
+  function Row({ id }: { id: string }) {
+    const p = info(id);
+    const active = slotOf(id) === 'ROSTER';
+    const starting = starters.has(id);
+    const isLocked = locked(id);
+    const bad = starting && active && issue(id) !== null;
+    const tag = active && starting && !original.has(id) ? 'IN' : active && !starting && original.has(id) ? 'OUT' : null;
+    const mode = !active ? 'none' : isLocked ? 'lock' : !sel ? 'swap' : sel === id ? 'cancel' : targets.has(id) ? 'target' : 'dim';
+    const pr = proj(id);
+    const matchup = !weekOk || p.opp === undefined ? p.team || '—' : p.opp === null ? `${p.team} · BYE WEEK` : `${p.team} ${p.opp.startsWith('@') ? p.opp : `vs ${p.opp}`}`;
+    const kick = p.opp === null && weekOk ? null : kickoffLabel(mine!.kickoffs[p.team], now);
+    const num: CSSProperties = { flex: 'none', textAlign: 'right', font: '500 13px/1 var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' };
+
+    return (
+      <div
+        data-swap-target={mode === 'target' || undefined}
+        style={{
+          display: 'flex', alignItems: 'center', gap: COL.gap, minHeight: 56, paddingLeft: 16, borderBottom: '1px solid var(--line)',
+          background: sel === id ? 'var(--bg-200)' : mode === 'target' ? 'color-mix(in srgb, var(--volt) 7%, transparent)' : undefined,
+          boxShadow: sel === id || mode === 'target' ? 'inset 3px 0 0 var(--volt)' : undefined,
+          opacity: mode === 'dim' || (sel && mode === 'lock') ? 0.4 : 1,
+        }}
+      >
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+            <span style={{ font: '600 14px/1.2 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+            <InjuryTag tag={p.injury} />
+            {tag && (
+              <span style={{ flex: 'none', font: '700 9.5px/1 var(--font-display)', letterSpacing: '.08em', padding: '3px 4px', borderRadius: 2, color: 'var(--on-volt)', background: tag === 'IN' ? 'var(--rise)' : 'var(--fall)' }}>{tag}</span>
+            )}
+          </span>
+          <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <b style={{ fontWeight: 700, color: posColor(p.pos) }}>{p.pos || '—'}</b> · {matchup}
+            {kick && <> · <span style={{ color: isLocked ? 'var(--fall)' : undefined }}>{kick}</span></>}
+          </span>
+        </span>
+        <span style={{ ...num, width: COL.ppg }}>{p.ppg ? one(p.ppg) : '—'}</span>
+        <span style={{ ...num, width: COL.pct }}>{p.startPct === undefined || p.startPct === null ? '—' : `${Math.round(p.startPct)}%`}</span>
+        <span style={{ ...num, width: COL.proj, font: DISPLAY(17), color: bad ? 'var(--live)' : active && !starting ? 'var(--ink-2)' : 'var(--ink)' }}>{pr === null ? '—' : one(pr)}</span>
+        <span style={{ flex: 'none', width: COL.act, display: 'flex', justifyContent: 'flex-end' }}>
+          {mode === 'swap' && <button type="button" aria-label={`Swap ${p.name}`} onClick={() => pick(id)} style={actBtn('idle')}>{SwapIcon}</button>}
+          {mode === 'target' && <button type="button" aria-label={`Swap in ${p.name}`} onClick={() => swapWith(id)} style={{ ...actBtn('on'), font: DISPLAY(12), letterSpacing: '.1em' }}>SWAP</button>}
+          {mode === 'cancel' && <button type="button" aria-label="Cancel swap" onClick={() => setSel(null)} style={actBtn('ring')}>{CloseIcon}</button>}
+          {mode === 'dim' && <button type="button" disabled aria-label={`${p.name} can’t swap here`} style={actBtn('off')}>{SwapIcon}</button>}
+          {mode === 'lock' && <span role="img" aria-label="Locked: his game has started" style={{ ...actBtn('off'), border: 0 }}>{LockIcon}</span>}
+        </span>
+        <button type="button" aria-label={`Roster moves for ${p.name}`} onClick={() => { setNotice(null); setSel(null); setMoving(id); }} style={iconBtn(COL.more)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+        </button>
+      </div>
     );
   }
 }
 
-function Chip({ ok, text, title }: { ok: boolean; text: string; title: string }) {
+function RuleCell({ value, label, ok }: { value: number; label: string; ok: boolean }) {
   return (
-    <span title={title} style={{ font: DISPLAY(12), letterSpacing: '.08em', padding: '5px 8px', borderRadius: 2, border: `1px solid ${ok ? 'var(--line)' : 'var(--live)'}`, color: ok ? 'var(--ink-2)' : 'var(--live)', background: ok ? 'transparent' : 'var(--live-tint)' }}>
-      {text}
-    </span>
+    <div title={ok ? undefined : 'Outside the league’s lineup rules'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, height: 46, background: ok ? undefined : 'var(--live-tint)', boxShadow: ok ? undefined : 'inset 0 -2px 0 var(--live)' }}>
+      <span style={{ font: DISPLAY(17), fontVariantNumeric: 'tabular-nums', color: ok ? 'var(--ink)' : 'var(--live)' }}>{value}</span>
+      <span style={{ font: DISPLAY(10), letterSpacing: '.08em', whiteSpace: 'nowrap', color: ok ? 'var(--ink-3)' : 'var(--live)' }}>{label}</span>
+    </div>
   );
 }
 
-function SheetTitle({ children }: { children: React.ReactNode }) {
+function SheetTitle({ children }: { children: ReactNode }) {
   return <div style={{ padding: '14px 16px 10px', font: DISPLAY(20, 800), letterSpacing: '.02em' }}>{children}</div>;
 }
 
-function btn(primary: boolean) {
+const SwapIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M7 4 3 8l4 4" /><path d="M3 8h14" /><path d="m17 20 4-4-4-4" /><path d="M21 16H7" />
+  </svg>
+);
+const CloseIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+);
+const LockIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="4" y="11" width="16" height="10" rx="1" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
+function actBtn(kind: 'idle' | 'on' | 'ring' | 'off'): CSSProperties {
+  return {
+    width: 44, height: 36, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+    cursor: kind === 'off' ? 'default' : 'pointer',
+    border: `1px solid ${kind === 'on' || kind === 'ring' ? 'var(--volt)' : kind === 'off' ? 'var(--line)' : 'var(--edge)'}`,
+    background: kind === 'on' ? 'var(--volt)' : 'transparent',
+    color: kind === 'on' ? 'var(--on-volt)' : kind === 'ring' ? 'var(--ink)' : kind === 'off' ? 'var(--ink-3)' : 'var(--ink)',
+  };
+}
+
+function iconBtn(width: number): CSSProperties {
+  return { flex: 'none', width, height: 44, border: 0, padding: 0, background: 'none', color: 'var(--ink-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+}
+
+function btn(primary: boolean): CSSProperties {
   return {
     height: 44, padding: '0 16px', borderRadius: 2, cursor: 'pointer',
     border: `1px solid ${primary ? 'var(--volt)' : 'var(--edge)'}`,
     background: primary ? 'var(--volt)' : 'transparent',
     color: primary ? 'var(--on-volt)' : 'var(--ink)',
     font: DISPLAY(14), letterSpacing: '.1em',
-  } as const;
+  };
 }
