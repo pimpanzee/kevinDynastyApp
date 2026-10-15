@@ -19,8 +19,9 @@ target design, the top row is the app as built today).
   Players; Settings. Season totals come from finished weeks (`lib/seasonTotals.ts`) so a
   simulated clock never sees the future.
 - **Not yet built:** the early-season PPG blend toward last season (fewer than 4 games played) in
-  contract value; a live game clock on the status line (shows `Live` in red); kickoff-time-based
-  VP column when the league's season has no victory points (2025 data has none — VP is hidden then).
+  contract value; a live game clock on the status line (shows `Live` in red for now). VP shows only when
+  the season's MFL settings use victory points: 2026 does, 2025 doesn't, so on 2025 data the VP
+  column and header item are hidden.
 - Canvas rows: Matchups (`NavA-Matchups`, `NavA-DetailStacked`, `NavA-ScoreBreakdown`) · My Team
   (`NavA-MyTeam`, `NavA-MyTeamCap`, `NavA-MyTeamPicks`, `NavA-PlayerCard`) · League
   (`NavA-LeagueActivity`, `NavA-League`, `NavA-LeagueRatings`, `NavA-TeamPage`) · Players
