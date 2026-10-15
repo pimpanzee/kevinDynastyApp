@@ -3,7 +3,39 @@
 Design decisions settled on the Option A (Hashmark) canvas, waiting for one code pass once
 every screen's design is final. Nothing here is built yet unless marked.
 
-Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa — boards `A · Matchups` and `A · Matchup detail`.
+Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa (Design artifact; the `Option A` rows are the
+target design, the top row is the app as built today).
+
+## Status
+
+- **Designed:** Matchups, Matchup detail, Score breakdown sheet, My Team (Roster, Cap, Picks),
+  Player card, League (Activity, Standings, Ratings, team page).
+- **Next:** Players tab (not designed yet). Settings / More not reviewed.
+- **Then:** one code pass for everything here (start with the open questions that need real data).
+- Canvas rows: Matchups (`NavA-Matchups`, `NavA-DetailStacked`, `NavA-ScoreBreakdown`) · My Team
+  (`NavA-MyTeam`, `NavA-MyTeamCap`, `NavA-MyTeamPicks`, `NavA-PlayerCard`) · League
+  (`NavA-LeagueActivity`, `NavA-League`, `NavA-LeagueRatings`, `NavA-TeamPage`). Several boards have
+  canvas tweaks for states (matchup, phase, owner, news, scenario).
+- Working on the canvas from a new session: read the board from the artifact before editing it
+  (files may have changed since); publish back to the same URL.
+
+## Shared conventions (apply to every screen)
+
+- Hashmark dark tokens. **Volt** (`--volt`) always means *you*: your score, your row's left edge,
+  active tabs. `--rise` (blue) = good / up / added; `--fall` (orange) = bad / down / dropped /
+  expiring; `--live` (red) = live game clock and alerts. Position colors `--pos-qb/rb/wr/te`, picks
+  `--pos-pick` (purple).
+- Your row in any list: raised (`--bg-200`) with a 3px volt left edge — no YOU tags.
+- Money: `$1,196.80` with thousands separators; contract VALUE in whole dollars (`+$150`).
+- Wide tables (roster, standings, ratings, game log) scroll sideways with the identifying column
+  pinned; no wrapping.
+- Detail views open as bottom sheets over the current screen (score breakdown, player card), closed
+  by X, scrim tap or drag down — no extra buttons.
+- Bottom tab bar on every screen including drill-ins: MATCHUPS · MY TEAM · PLAYERS · LEAGUE; the
+  current section lit. LEAGUE opens Activity.
+- Section headers: volt skew mark + condensed caps label, count/summary on the right.
+- Status line under a player: `POS · TM · STATUS` (position colored, team grey, live clock red).
+
 
 ## Matchups screen
 
@@ -68,7 +100,7 @@ Canvas board `A · Score breakdown sheet`. Tapping a player's points on the matc
 
 ## My Team
 
-Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`.
+Canvas boards: `A · My Team › Roster`, `A · My Team › Cap`, `A · My Team › Picks`, `A · Player card`.
 
 ### Team header (all three tabs)
 
