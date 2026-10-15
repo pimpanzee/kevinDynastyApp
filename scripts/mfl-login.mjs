@@ -60,9 +60,12 @@ for (let hop = 0; ; hop++) {
 const text = await res.text();
 const error = /<error[^>]*>([\s\S]*?)<\/error>/i.exec(text);
 const status = /<status\b([^>]*)>/i.exec(text);
-const cookie = status && /cookie_value="([^"]+)"/.exec(status[1]);
+// MFL names the attribute after the cookie: <status MFL_USER_ID="...">OK</status>.
+const cookie = status && /\bMFL_USER_ID="([^"]+)"/.exec(status[1]);
 if (error || !cookie) {
-  console.error(`Login failed: ${error ? error[1].trim() : `unexpected reply (HTTP ${res.status})`}`);
+  // Show the reply's shape (tag and attribute names only), never its values.
+  const shape = text.replace(/="[^"]*"/g, '="…"').replace(/>[^<]*</g, '><').slice(0, 300);
+  console.error(`Login failed: ${error ? error[1].trim() : `unexpected reply (HTTP ${res.status}): ${shape}`}`);
   process.exit(1);
 }
 
