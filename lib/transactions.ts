@@ -5,6 +5,7 @@ import { asArray, mflGet, num } from '@/lib/mfl/client';
 import { getInjuries } from '@/lib/mfl/injuries';
 import { getLeague, type Franchise } from '@/lib/mfl/league';
 import { getPlayers, lookup, type Player } from '@/lib/mfl/players';
+import { getRosters } from '@/lib/mfl/rosters';
 import { getNflSchedule, type NflWeek } from '@/lib/mfl/schedule';
 import { getPlayerCardIds } from '@/lib/playerCard';
 import type { TransactionsData, TxAsset, TxMove, TxPlayer } from '@/lib/types';
@@ -51,10 +52,6 @@ function when(ms: number): string {
 /** "14071,16188," → ["14071", "16188"]. */
 const ids = (list: string | undefined): string[] => (list ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
-/** 1 → "1st", 12 → "12th". */
-const ordinal = (n: number): string =>
-  `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')}`;
-
 /** "Nosmo King's", "Monks of Vegas'". */
 const possessive = (name: string): string => (/s$/i.test(name) ? `${name}'` : `${name}'s`);
 
@@ -72,7 +69,7 @@ function weekOf(schedule: NflWeek[], ms: number): number {
 
 export async function getTransactionsData(): Promise<TransactionsData> {
   const now = resolveNow().getTime();
-  const [body, league, players, injuries, schedule, cardIds] = await Promise.all([
+  const [body, league, players, injuries, schedule, cardIds, rosters] = await Promise.all([
     mflGet<{ transactions?: { transaction?: RawTx | RawTx[] } }>('transactions', {
       ttl: TTL.ROSTERS,
       cacheKey: `transactions:${SEASON}`,
@@ -82,7 +79,11 @@ export async function getTransactionsData(): Promise<TransactionsData> {
     getInjuries(),
     getNflSchedule(),
     getPlayerCardIds(),
+    getRosters(SEASON),
   ]);
+  // Where each player is under contract today: his salary and years, shown on adds and trades.
+  const contract = new Map<string, { salary: number; years: number }>();
+  for (const slots of rosters.values()) for (const s of slots) contract.set(s.playerId, { salary: s.salary, years: Math.max(1, s.contractYear) });
 
   const franchises = new Map<string, Franchise>(league.franchises.map((f) => [f.id, f]));
   const cards = new Set(cardIds);
@@ -92,7 +93,7 @@ export async function getTransactionsData(): Promise<TransactionsData> {
     const p: Player = lookup(players, id);
     return {
       type: 'player', id, name: p.fullName, pos: p.position, nflTeam: p.team,
-      injury: injuries.get(id), card: cards.has(id),
+      injury: injuries.get(id), card: cards.has(id), ...contract.get(id),
     };
   };
 
@@ -102,13 +103,13 @@ export async function getTransactionsData(): Promise<TransactionsData> {
     if (fp) {
       const [, owner, year, round] = fp;
       const from = franchises.get(owner)?.name ?? `Team ${owner}`;
-      return { type: 'pick', label: `${year} ${ordinal(Number(round))} · ${possessive(from)}` };
+      return { type: 'pick', label: `${year} R${round}`, from: possessive(from) };
     }
     const dp = /^DP_(\d+)_(\d+)$/.exec(token);
     if (dp) {
       const round = Number(dp[1]) + 1;
       const pick = Number(dp[2]) + 1;
-      return { type: 'pick', label: `${SEASON} ${ordinal(round)} · PICK ${round}.${String(pick).padStart(2, '0')}` };
+      return { type: 'pick', label: `${SEASON} R${round}`, from: `PICK ${round}.${String(pick).padStart(2, '0')}` };
     }
     return player(token);
   };

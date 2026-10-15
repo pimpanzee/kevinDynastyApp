@@ -1,9 +1,9 @@
-import TransactionsScreen from './TransactionsScreen';
+import ActivityScreen from './ActivityScreen';
 
 /**
- * The league's in-season moves. The data is a static file built alongside the
- * page (/transactions.json) and loaded in the browser, like the Players screen.
+ * League › Activity, where the LEAGUE tab opens. The moves are a static file
+ * built alongside the page (/transactions.json) and loaded in the browser.
  */
-export default function TransactionsPage() {
-  return <TransactionsScreen />;
+export default function LeaguePage() {
+  return <ActivityScreen />;
 }

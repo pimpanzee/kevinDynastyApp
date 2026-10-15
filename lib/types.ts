@@ -285,12 +285,17 @@ export interface TxPlayer {
   injury?: string;
   /** Whether a player card was built for him, so the name can open it. */
   card: boolean;
+  /** His contract today, wherever he's rostered (absent when he's a free agent). */
+  salary?: number;
+  years?: number;
 }
 
 export interface TxPick {
   type: 'pick';
-  /** "2027 1st · Nosmo King's" */
+  /** "2027 R1" */
   label: string;
+  /** "Nosmo King's", or "PICK 1.05" for a current-year pick. */
+  from: string;
 }
 
 export type TxAsset = TxPlayer | TxPick;
@@ -397,4 +402,24 @@ export interface TeamsData {
   limits: { rosterMin: number; rosterMax: number; ir: number; taxi: number };
   myFranchiseId: string;
   teams: TeamView[];
+}
+
+/* ── Ratings ─────────────────────────────────────────────────────────────── */
+
+export interface RatingsView {
+  /** Ratings are through this week. */
+  week: number;
+  rows: Array<{
+    franchiseId: string;
+    name: string;
+    icon: string | null;
+    rank: number;
+    /** Places gained since last week (negative = dropped). */
+    move: number;
+    pwr: number;
+    elo: number;
+    allPlay: string;
+    luck: number;
+  }>;
+  myFranchiseId: string;
 }
