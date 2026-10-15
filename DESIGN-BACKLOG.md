@@ -175,16 +175,18 @@ Canvas boards: `A · League › Standings`, `A · League › Activity`, `A · Le
 ### Standings
 
 - Split by conference, then division (2 conferences × 2 divisions × 3 teams; names from MFL).
-  Conference header, then per division a sub-header row `DIVISION NAME · VP · W-L · PF` and its teams,
-  ordered by VP then PF.
+  Conference header, then per division a sub-header row with the division name and the column
+  labels, then its teams ordered by VP then PF.
+- Columns: TEAM (logo + name) · **VP** · W-L · STRK · PF · PA · AVG PF · AVG PA · DIV (W-L) · CONF (W-L).
+  Wide table: scrolls sideways with the team column pinned. VP in the display face; streak in blue
+  (W) or orange (L); PF/PA one decimal with thousands separators.
+- Team logo: the MFL franchise icon in a 26px rounded square; team initials on a tint as fallback.
+- No seed tags (DIV / WC) and no YOU tag — your row is just raised (`--bg-200`) with a volt left edge.
 - Playoffs: per conference, the **two division winners + one wild card** (best VP among the
-  non-winners in that conference, PF breaks ties) = 6 teams.
-- Seed tag in the first column: `DIV` (volt) for each division leader, `WC` (grey) for the team
-  holding the wild card. No overall rank number.
-- Under each conference, one line on the wild-card race:
-  `WILD CARD · Gridiron Ghosts leads Mahomes Depot by 3 VP`, or on a VP tie
+  non-winners in that conference, PF breaks ties) = 6 teams. Under each conference, one line on the
+  wild-card race: `WILD CARD · Gridiron Ghosts leads Mahomes Depot by 3 VP`, or on a VP tie
   `… holds it over North End Nine on points (both 9 VP)`.
-- Your row raised (`--bg-200`) with a volt left edge and a YOU tag; rows open the team page.
+- Rows open the team page.
 
 ### Team page (another team)
 
