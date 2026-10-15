@@ -201,7 +201,7 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
      - another team's: `Hollow Point · $272.80 · 2 YRS`
      - free agent: `Free agent` (in volt) `· $423 MARKET` — the contract-value market price for his
        production, as a bidding guide.
-- Stat strip: YTD PTS · PPG · POS RNK.
+- Stat strip: YTD PTS · PPG · POS RNK · OVR RNK (rank by fantasy points across all positions, `#14`).
 - LATEST NEWS (before the game log): newest item open (headline, `18 hours ago · via FantasyPros`,
   body clamped to 2 lines), older items as one-line headlines, `ALL NEWS (n)` link. Source: the news
   feed the app already uses.
