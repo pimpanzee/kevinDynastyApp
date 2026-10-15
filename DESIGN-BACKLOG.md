@@ -168,9 +168,9 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 
 ## League
 
-Canvas boards: `A · League › Standings`, `A · League › Activity`, `A · League › Hollow Point`.
+Canvas boards: `A · League › Standings`, `A · League › Ratings`, `A · League › Activity`, `A · League › Hollow Point`.
 
-- League tabs: **STANDINGS · ACTIVITY** only (league-wide Cap and Picks cut for now).
+- League tabs: **STANDINGS · RATINGS · ACTIVITY** (league-wide Cap and Picks cut for now).
 
 ### Standings
 
@@ -187,6 +187,25 @@ Canvas boards: `A · League › Standings`, `A · League › Activity`, `A · Le
   wild-card race: `WILD CARD · Gridiron Ghosts leads Mahomes Depot by 3 VP`, or on a VP tie
   `… holds it over North End Nine on points (both 9 VP)`.
 - Rows open the team page.
+
+### Ratings (this season only)
+
+Canvas board `A · League › Ratings`. One table ranked by power score; scrolls sideways with rank + team pinned.
+- Row: rank (leader in volt), move since last week (`▲2` blue / `▼1` orange / `–`), logo, name ·
+  **PWR** · ELO · ALL-PLAY · LUCK. Your row raised with a volt left edge. Rows open the team page.
+- **PWR** (0–100, 50 = average team): z-score of each input across the league, weighted
+  all-play win % 40% · last-3-weeks scoring 25% · PF 20% · lineup efficiency (PF ÷ potential points) 15%,
+  then `50 + 15 × weighted z`, clamped to 0–100, rounded.
+- **ELO**: every team starts the season at 1500; after each matchup the winner takes
+  `K × (result − expected)` from the loser, expected = `1 / (1 + 10^((Rb − Ra)/400))`, K = 32, scaled
+  up a little by margin (e.g. × `ln(|margin| + 1)` capped). Current season only for now — all-time
+  ELO (every MFL season, with a 1/3 pull toward 1500 between seasons) is a later option.
+- **ALL-PLAY**: record if you'd played every other team every week (`86-24` after 10 weeks × 11 opponents).
+- **LUCK**: actual wins − all-play expected wins (`all-play W% × games`), one decimal, blue when
+  ≥ +0.5, orange when ≤ −0.5, grey in between.
+- A short explainer under the table says what each number means.
+- Inputs: MFL weekly results and scores (already fetched for standings) and potential points
+  (`lib/mfl/standings.ts`).
 
 ### Team page (another team)
 
