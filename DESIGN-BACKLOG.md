@@ -1,7 +1,7 @@
 # Design backlog
 
-Design decisions settled on the Option A (Hashmark) canvas, waiting for one code pass once
-every screen's design is final. Nothing here is built yet unless marked.
+Design decisions settled on the Option A (Hashmark) canvas. The code pass has built every
+screen below; see "Code pass" under Status for what's in and what's left.
 
 Canvas: https://claude.ai/artifact/CDgoN9eCg8NCKutK6Ceowa (Design artifact; the `Option A` rows are the
 target design, the top row is the app as built today).
@@ -12,7 +12,15 @@ target design, the top row is the app as built today).
   Player card, League (Activity, Standings, Ratings, team page).
 - **Designed since:** Players (Free agents, All players), Settings (More is folded in).
 - **Design pass complete** (plus Matchups states and the Hashmark light palette). Next is the code pass.
-- **Then:** one code pass for everything here (start with the open questions that need real data).
+- **Code pass (done, PR #41):** Hashmark tokens and light/dark; 4-tab bar (MATCHUPS · MY TEAM ·
+  PLAYERS · LEAGUE) with old routes redirecting; Matchups, Matchup detail (stacked), Score breakdown
+  sheet; My Team Roster/Cap/Picks with contract value (`lib/contractValue.ts`, `lib/rookieScale.ts`,
+  `lib/team.ts`); Player card; League Activity/Standings/Ratings (`lib/ratings.ts`) and team pages;
+  Players; Settings. Season totals come from finished weeks (`lib/seasonTotals.ts`) so a
+  simulated clock never sees the future.
+- **Not yet built:** the early-season PPG blend toward last season (fewer than 4 games played) in
+  contract value; a live game clock on the status line (shows `Live` in red); kickoff-time-based
+  VP column when the league's season has no victory points (2025 data has none — VP is hidden then).
 - Canvas rows: Matchups (`NavA-Matchups`, `NavA-DetailStacked`, `NavA-ScoreBreakdown`) · My Team
   (`NavA-MyTeam`, `NavA-MyTeamCap`, `NavA-MyTeamPicks`, `NavA-PlayerCard`) · League
   (`NavA-LeagueActivity`, `NavA-League`, `NavA-LeagueRatings`, `NavA-TeamPage`) · Players
