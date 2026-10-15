@@ -352,7 +352,6 @@ Hashmark style, replacing the as-built light card. Opens from the Roster rows an
 - Pre-week kickoff time: where it lives on Matchups now that the strip is gone.
 - Matchups screen pre-game / final states haven't been mocked yet.
 - Contract value: how MFL marks a rookie-draft contract in this league — check against the real roster data at the start of the code pass.
-
 - Light mode palette for the Appearance setting (tokens only; layouts stay the same).
 
 ## Already in code (PR #41)
