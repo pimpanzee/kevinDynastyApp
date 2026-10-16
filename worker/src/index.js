@@ -18,7 +18,7 @@
  * Season and league are fixed by configuration, not the caller, so this
  * cannot be used as a general MFL proxy.
  *
- * GET /me, POST /write and GET /audit are the write relay (relay.js): they
+ * GET /me, GET /mine, POST /write and GET /audit are the write relay (relay.js): they
  * need the APP_TOKEN secret as a Bearer token and act as the owner whose MFL
  * login cookie is the MFL_COOKIE secret. A scheduled run checks that cookie
  * daily, which records how long an MFL login lasts.
@@ -91,7 +91,7 @@ export default {
 };
 
 /** Write-relay routes and the method each takes. */
-const RELAY_ROUTES = { '/me': 'GET', '/write': 'POST', '/audit': 'GET' };
+const RELAY_ROUTES = { '/me': 'GET', '/mine': 'GET', '/write': 'POST', '/audit': 'GET' };
 
 async function relay(request, url, env, cors) {
   if (request.method !== RELAY_ROUTES[url.pathname]) return json({ error: 'Not found' }, 404, cors);
@@ -100,7 +100,7 @@ async function relay(request, url, env, cors) {
     return json({ error: 'Unauthorized' }, 401, cors);
   }
   const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
-  const res = await stub.fetch(`https://relay${url.pathname}`, {
+  const res = await stub.fetch(`https://relay${url.pathname}${url.search}`, {
     method: request.method,
     headers: { 'Content-Type': 'application/json' },
     body: request.method === 'POST' ? await request.text() : undefined,

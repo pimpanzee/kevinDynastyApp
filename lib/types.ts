@@ -400,6 +400,8 @@ export interface TeamsData {
   season: number;
   cap: number;
   limits: { rosterMin: number; rosterMax: number; ir: number; taxi: number };
+  /** Starter rules: total and per-position minimum and maximum. */
+  lineup: { min: number; max: number; positions: Record<string, { min: number; max: number }> };
   myFranchiseId: string;
   teams: TeamView[];
 }
