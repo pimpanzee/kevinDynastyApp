@@ -10,7 +10,9 @@ import SubTabs from '@/components/SubTabs';
 import TeamAvatar from '@/components/TeamAvatar';
 import { posColor } from '@/components/pos';
 import { DISPLAY, pts1 } from '@/components/team/format';
+import { BidSheet, ClaimsPanel, useWaivers, WaiverNotice, type PlayerInfo, type WaiverRules } from '@/components/players/Waivers';
 import { useMyTeam } from '@/lib/myTeam';
+import { useCanMove } from '@/lib/relay';
 import type { PlayerRow, PlayersData } from '@/lib/types';
 
 /**
@@ -18,9 +20,11 @@ import type { PlayerRow, PlayersData } from '@/lib/types';
  * sorted by any column (tap the active header again to flip). All players
  * shows who rosters each one inside the pinned cell. Rows open the card.
  * The data is a static file built with the site (/players.json).
+ * With moves set up, free agents get a BID chip (a blind bid claim) and
+ * MY CLAIMS lists your pending bids; who is free is then read live from MFL.
  */
 
-type List = 'fa' | 'all';
+type List = 'fa' | 'all' | 'claims';
 type Pos = 'ALL' | PlayerRow['pos'];
 type ColKey = 'proj' | 'ppg' | 'pts' | 'posRank' | 'ovrRank';
 
@@ -41,7 +45,7 @@ interface Row extends PlayerRow {
   ovrRank: number | null;
 }
 
-export default function PlayersScreen() {
+export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
   const [data, setData] = useState<PlayersData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -64,6 +68,17 @@ export default function PlayersScreen() {
   const [sort, setSort] = useState<{ key: ColKey; desc: boolean }>({ key: 'proj', desc: true });
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [list, pos, q, sort]);
+
+  const canMove = useCanMove();
+  const byId = useMemo(() => new Map(data?.players.map((p) => [p.id, p])), [data]);
+  const info = (id: string): PlayerInfo => {
+    const p = byId.get(id);
+    return p ? { name: p.name, pos: p.pos, team: p.nflTeam, injury: p.injury } : { name: `Player ${id}`, pos: '', team: '' };
+  };
+  const w = useWaivers(rules, canMove, (id) => info(id).name);
+  // The bid sheet: a new claim on a player, or claim number `edit` from MY CLAIMS.
+  const [bidding, setBidding] = useState<{ id: string; edit?: number } | null>(null);
+  const live = w.freeAgents;
 
   // Ranks by season points, among everyone listed.
   const rows: Row[] = useMemo(() => {
@@ -94,14 +109,14 @@ export default function PlayersScreen() {
       }
     };
     return rows
-      .filter((r) => (list === 'all' || !r.owner) && (pos === 'ALL' || r.pos === pos) && (!needle || r.name.toLowerCase().includes(needle)))
+      .filter((r) => (list === 'all' || (live ? live.has(r.id) : !r.owner)) && (pos === 'ALL' || r.pos === pos) && (!needle || r.name.toLowerCase().includes(needle)))
       .sort((a, b) => {
         const va = value(a), vb = value(b);
         // Byes and missing values sink, whichever way the column sorts.
         if (va === null || vb === null) return va === null && vb === null ? 0 : va === null ? 1 : -1;
         return sort.desc ? vb - va : va - vb;
       });
-  }, [rows, list, pos, q, sort]);
+  }, [rows, list, pos, q, sort, live]);
 
   const pickSort = (c: (typeof COLS)[number]) =>
     setSort((s) => (s.key === c.key ? { key: c.key, desc: !s.desc } : { key: c.key, desc: !c.low }));
@@ -111,10 +126,20 @@ export default function PlayersScreen() {
       <HeaderBar />
       <SubTabs
         label="Player lists"
-        tabs={[{ key: 'fa', label: 'FREE AGENTS' }, { key: 'all', label: 'ALL PLAYERS' }]}
+        tabs={[
+          { key: 'fa', label: 'FREE AGENTS' },
+          { key: 'all', label: 'ALL PLAYERS' },
+          ...(canMove ? [{ key: 'claims', label: `MY CLAIMS${w.pending?.length ? ` · ${w.pending.length}` : ''}` }] : []),
+        ]}
         active={list}
-        onSelect={(k) => setList(k as List)}
+        onSelect={(k) => { setList(k as List); w.setNotice(null); }}
       />
+      {list === 'claims' ? (
+        <div style={{ flex: 1, overflow: 'auto', paddingBottom: 24 }}>
+          <ClaimsPanel w={w} info={info} onEdit={(i) => w.pending && setBidding({ id: w.pending[i].player, edit: i })} />
+        </div>
+      ) : (
+      <>
       <div style={{ flex: 'none', display: 'grid', gap: 8, padding: '10px 16px', background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
         <label style={{ position: 'relative', display: 'block' }}>
           <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Search players by name</span>
@@ -138,6 +163,7 @@ export default function PlayersScreen() {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
+        {list === 'fa' && w.notice?.tone === 'ok' && <div style={{ position: 'sticky', left: 0, width: 390, maxWidth: '100vw', paddingBottom: 12 }}><WaiverNotice w={w} /></div>}
         {error ? (
           <div style={{ padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
             {error}. <button type="button" onClick={load} style={{ border: 0, background: 'none', color: 'var(--ink)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Try again</button>
@@ -162,6 +188,7 @@ export default function PlayersScreen() {
               const isMine = !!r.owner && r.owner === mine;
               const owner = r.owner ? owners.get(r.owner) : undefined;
               const bg = isMine ? 'var(--bg-200)' : 'var(--bg-000)';
+              const claimable = list === 'fa' && canMove && !!live?.has(r.id);
               const cells: Array<[ColKey, string]> = [
                 ['proj', r.next ? (r.proj.pts !== null ? r.proj.pts.toFixed(1) : '—') : 'BYE'],
                 ['ppg', r.ppg !== null ? r.ppg.toFixed(1) : '—'],
@@ -170,11 +197,24 @@ export default function PlayersScreen() {
                 ['ovrRank', r.ovrRank ? `#${r.ovrRank}` : '—'],
               ];
               return (
-                <button key={r.id} type="button" onClick={() => card?.open(r.id)} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', height: 48, width: '100%', padding: 0, border: 0, borderBottom: '1px solid var(--line)', background: isMine ? 'var(--bg-200)' : 'transparent', color: 'var(--ink)', textAlign: 'left', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                // The row opens the card; the name is its keyboard target, and BID is its own button.
+                <div key={r.id} onClick={() => card?.open(r.id)} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', height: 48, width: '100%', borderBottom: '1px solid var(--line)', background: isMine ? 'var(--bg-200)' : 'transparent', color: 'var(--ink)', textAlign: 'left', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', cursor: 'pointer' }}>
                   <span style={{ position: 'sticky', left: 0, zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, height: '100%', padding: '0 10px 0 16px', boxSizing: 'border-box', minWidth: 0, background: bg, boxShadow: `${isMine ? 'inset 3px 0 0 var(--volt), ' : ''}1px 0 0 var(--line)` }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                      <span style={{ font: '600 14px/1.2 var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); card?.open(r.id); }} style={{ minWidth: 0, padding: 0, border: 0, background: 'none', color: 'inherit', textAlign: 'left', font: '600 14px/1.2 var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{r.name}</button>
                       <InjuryTag tag={r.injury} />
+                      {claimable && (
+                        // Same slot as the owner chip on All players. Always a new claim, so one player
+                        // can get several bids with different drops; claims change from MY CLAIMS.
+                        <button
+                          type="button"
+                          aria-label={`Bid on ${r.name}`}
+                          onClick={(e) => { e.stopPropagation(); w.setNotice(null); setBidding({ id: r.id }); }}
+                          style={{ flex: 'none', minWidth: 38, height: 26, margin: '-4px -4px -4px auto', padding: '0 6px', boxSizing: 'border-box', borderRadius: 3, border: '1px solid var(--volt)', background: 'transparent', color: 'var(--volt)', font: DISPLAY(11, 800), letterSpacing: '.06em', cursor: 'pointer' }}
+                        >
+                          BID
+                        </button>
+                      )}
                       {list === 'all' && (
                         // Who rosters him: the team's logo (initials without one, yours in volt), or FA outlined in blue.
                         owner ? (
@@ -195,7 +235,7 @@ export default function PlayersScreen() {
                   {cells.map(([k, text]) => (
                     <span key={k} style={{ textAlign: 'right', paddingRight: 18, font: sort.key === k ? DISPLAY(15) : '500 13px/1 var(--font-body)', color: text === '—' || text === 'BYE' ? 'var(--ink-3)' : 'var(--ink)' }}>{text}</span>
                   ))}
-                </button>
+                </div>
               );
             })}
             {shown.length === 0 && <div style={{ padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>No players match.</div>}
@@ -205,7 +245,10 @@ export default function PlayersScreen() {
           </div>
         )}
       </div>
+      </>
+      )}
       <BottomNav />
+      {bidding && <BidSheet id={bidding.id} edit={bidding.edit} w={w} info={info} onClose={() => setBidding(null)} />}
     </PhoneFrame>
   );
 }

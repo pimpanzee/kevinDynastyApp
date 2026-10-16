@@ -75,6 +75,9 @@ pickup goes through blind bids), `ir`, `taxi_squad`, `tradeProposal`,
 - **Live team read:** `GET /mine[?week=N]` returns your roster (with IR and
   taxi), that week's starters and each NFL team's kickoff, read fresh from MFL
   and never cached. The lineup screen (My Team → SET LINEUP) uses it.
+- **Waivers:** `GET /waivers` returns MFL's current free agents and your
+  pending blind bids (`pending`, in priority order, or `null` if MFL's reply
+  couldn't be read, in which case the app won't rewrite them). Never cached.
 - **Audit log:** every write, its parameters and MFL's reply, kept in the
   relay's Durable Object. `GET /audit` returns the last 100.
 - **Login lifetime:** a daily scheduled run calls `/me`, which records when the

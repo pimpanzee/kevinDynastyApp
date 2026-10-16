@@ -97,7 +97,22 @@ export interface Mine {
   fetchedAt: number;
 }
 
+export interface PendingBid {
+  player: string;
+  bid: number;
+  drop: string | null;
+}
+
+export interface Waivers {
+  /** Every free agent MFL has right now. */
+  freeAgents: string[];
+  /** Your pending blind bids in priority order; null when MFL's reply couldn't be read. */
+  pending: PendingBid[] | null;
+  fetchedAt: number;
+}
+
 export const getMe = () => call<Me>('/me');
+export const getWaivers = () => call<Waivers>('/waivers');
 export const getMine = (week?: number) => call<Mine>(`/mine${week ? `?week=${week}` : ''}`);
 
 /** One allowlisted MFL write (worker/src/relay.js `WRITES`). Never retried. */
