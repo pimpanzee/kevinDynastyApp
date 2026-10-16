@@ -28,25 +28,57 @@ export interface LineupPlayer {
   ppg?: number | null;
   /** Share of ESPN leagues starting him this week, 0–100. */
   startPct?: number | null;
+  /** The year he entered the NFL, from MFL. Taxi is for first and second year players. */
+  draftYear?: number;
 }
 
 type Slot = Mine['roster'][number]['status'];
-type Move = { type: 'ir' | 'taxi_squad'; param: 'ACTIVATE' | 'DEACTIVATE' | 'PROMOTE' | 'DEMOTE'; short: string; title: string; done: string; note: string };
+type MoveKey = 'IR' | 'TAXI' | 'ACTIVATE' | 'PROMOTE' | 'DROP';
+interface Move {
+  label: string;
+  /** Where he ends up; null once dropped. */
+  to: Slot | null;
+  type: 'ir' | 'taxi_squad' | 'fcfsWaiver';
+  param: 'ACTIVATE' | 'DEACTIVATE' | 'PROMOTE' | 'DEMOTE' | 'DROP';
+  /** The row's tag while queued. */
+  tag: string;
+  /** Its group on the review screen, and the line under each player there. */
+  group: string;
+  path: string;
+  note: string;
+  /** Filled when allowed (the move his status points to); otherwise an outline. */
+  suggest: boolean;
+  danger?: boolean;
+}
 
 const POS_ORDER = ['QB', 'RB', 'WR', 'TE'];
 /** An open starter slot, picked to start a bench player in it. */
 const OPEN = '@open';
 
-const TO_IR: Move = { type: 'ir', param: 'DEACTIVATE', short: 'IR', title: 'Move {name} to IR?', done: 'moved to IR', note: 'Takes effect on MFL right away. MFL decides whether he is eligible for IR.' };
-const TO_TAXI: Move = { type: 'taxi_squad', param: 'DEMOTE', short: 'TAXI', title: 'Move {name} to the taxi squad?', done: 'moved to the taxi squad', note: 'Takes effect on MFL right away. A taxi player costs $0 against this year’s cap; MFL decides who is taxi eligible.' };
-const ACTIVATE: Move = { type: 'ir', param: 'ACTIVATE', short: 'ACTIVATE', title: 'Activate {name} from IR?', done: 'activated from IR', note: 'Takes effect on MFL right away and needs an open active roster spot.' };
-const PROMOTE: Move = { type: 'taxi_squad', param: 'PROMOTE', short: 'PROMOTE', title: 'Promote {name} to the active roster?', done: 'promoted to the active roster', note: 'Promoting puts his salary back on this year’s cap. MFL decides whether he can go back to the taxi squad.' };
+/**
+ * Manage roster moves. MFL has no eligibility endpoint, so the IR and taxi
+ * rules below are read off the league's own rosters (every IR player is on an
+ * NFL reserve list; every taxi player is in his first or second year). MFL
+ * still has the last word. Active roster size is never blocked: an illegal
+ * roster is the owner's call, shown red in the counts.
+ */
+const MOVES: Record<MoveKey, Move> = {
+  IR: { label: 'IR', to: 'INJURED_RESERVE', type: 'ir', param: 'DEACTIVATE', tag: '→ IR', group: 'TO IR', path: 'Active → IR', note: 'Each IR move opens an active roster spot.', suggest: true },
+  TAXI: { label: 'TAXI', to: 'TAXI_SQUAD', type: 'taxi_squad', param: 'DEMOTE', tag: '→ TAXI', group: 'TO TAXI', path: 'Active → Taxi', note: 'A taxi player costs $0 against this year’s cap.', suggest: false },
+  ACTIVATE: { label: 'ACTIVATE', to: 'ROSTER', type: 'ir', param: 'ACTIVATE', tag: '→ ACTIVE', group: 'ACTIVATE FROM IR', path: 'IR → Active', note: 'Each activation uses an active roster spot.', suggest: true },
+  PROMOTE: { label: 'PROMOTE', to: 'ROSTER', type: 'taxi_squad', param: 'PROMOTE', tag: '→ ACTIVE', group: 'PROMOTE FROM TAXI', path: 'Taxi → Active', note: 'Promoting puts his salary back on this year’s cap, and he can’t go back to the taxi squad.', suggest: true },
+  DROP: { label: 'DROP', to: null, type: 'fcfsWaiver', param: 'DROP', tag: 'DROP', group: 'DROP', path: 'Released to waivers', note: 'Dropped players go to waivers. Dead cap from their contracts stays on your cap, and a drop can’t be undone here once it’s sent.', suggest: false, danger: true },
+};
+/** The order changes go to MFL: spots open up before anyone fills them. */
+const SEND_ORDER: MoveKey[] = ['DROP', 'IR', 'TAXI', 'ACTIVATE', 'PROMOTE'];
 
 const ISSUE_TEXT: Record<LineupIssue, string> = { IR: 'on IR', OUT: 'out', BYE: 'on a bye', DOUBTFUL: 'doubtful', 'NO PROJ': 'not projected to play' };
 
-/** The swap button's two greens: ready, and locked once his game has started. */
+/** The swap button is a volt outline with volt arrows; once his game has started, a duller green. */
 const LOCKED_BG = 'color-mix(in srgb, var(--volt) 28%, var(--bg-100))';
-const LOCKED_INK = 'color-mix(in srgb, var(--volt) 55%, var(--ink))';
+const LOCKED_INK = 'color-mix(in srgb, var(--volt) 55%, var(--ink-3))';
+const DROP_TINT = 'color-mix(in srgb, var(--fall) 7%, transparent)';
+const QUEUE_TINT = 'color-mix(in srgb, var(--volt) 6%, transparent)';
 
 interface Notice {
   tone: 'ok' | 'bad';
@@ -65,13 +97,14 @@ function kickoffLabel(ms: number | undefined, now: number): string {
 const one = (n: number) => n.toFixed(1);
 const plural = (n: number, pos: string) => `${n} ${pos}${n === 1 ? '' : 's'}`;
 
-/** The widths of the stat and button columns, shared by the header row and every player row. */
-const COL = { ppg: 34, pct: 42, proj: 38, act: 56, gap: 6 };
+/** The widths of the stat and button columns, shared by the header row and every player row. The button's
+ * cell (slot) is wider than the button so the numbers don't crowd it. */
+const COL = { ppg: 34, pct: 42, proj: 38, act: 56, slot: 70, gap: 6 };
 
 /**
  * Your team on MFL, read live through the write relay, in two modes on two
- * routes: LINEUP sets this week's starters, IR · TAXI moves players between
- * the active roster, IR and the taxi squad.
+ * routes: LINEUP sets this week's starters, MANAGE ROSTER moves players
+ * between the active roster, IR and the taxi squad, and drops them.
  *
  * Lineup: tap ⇄ on a player and the screen jumps to the other group, where
  * everyone he can trade places with (keeping the lineup legal) gets a SWAP
@@ -80,8 +113,11 @@ const COL = { ppg: 34, pct: 42, proj: 38, act: 56, gap: 6 };
  * player says which rule he would break. Nothing reaches MFL until the
  * lineup is submitted and confirmed. Players lock at their own kickoff.
  *
- * IR · TAXI: each move is confirmed, then sent to MFL right away. The roster
- * is re-read after every write.
+ * Manage roster: each tap queues a move (UNDO takes it back) and the counts
+ * show the roster as it will be. A move a rule blocks is greyed out and says
+ * why when tapped. SUBMIT opens a review of every queued change; confirming
+ * sends them one at a time in SEND_ORDER. One that MFL rejects stays queued
+ * and the rest still go through. The roster is re-read afterwards.
  */
 export default function LineupScreen({
   mode,
@@ -89,6 +125,7 @@ export default function LineupScreen({
   projWeek,
   rules,
   limits,
+  season,
 }: {
   mode: 'lineup' | 'moves';
   players: Record<string, LineupPlayer>;
@@ -96,6 +133,8 @@ export default function LineupScreen({
   projWeek: number;
   rules: TeamsData['lineup'];
   limits: TeamsData['limits'];
+  /** The MFL season, for taxi eligibility. */
+  season: number;
 }) {
   const [mine, setMine] = useState<Mine | null>(null);
   const [loadError, setLoadError] = useState<RelayError | null>(null);
@@ -104,7 +143,9 @@ export default function LineupScreen({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [moving, setMoving] = useState<{ id: string; move: Move } | null>(null);
+  const [queued, setQueued] = useState<Record<string, MoveKey>>({});
+  const [reviewing, setReviewing] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const [why, setWhy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -305,13 +346,63 @@ export default function LineupScreen({
     setBusy(false);
   };
 
-  const move = async () => {
-    if (!moving) return;
+  // Queued moves for players still on the roster, and where everyone ends up once they go through.
+  const onRoster = (id: string) => mine?.roster.some((p) => p.id === id) ?? false;
+  const queue = Object.entries(queued).filter(([id]) => onRoster(id)) as Array<[string, MoveKey]>;
+  const slotAfter = (id: string, status: Slot): Slot | null => (queued[id] ? MOVES[queued[id]].to : status);
+  const countAfter = (s: Slot) => mine?.roster.filter((p) => slotAfter(p.id, p.status) === s).length ?? 0;
+  const activeAfter = countAfter('ROSTER');
+  const irAfter = countAfter('INJURED_RESERVE');
+  const taxiAfter = countAfter('TAXI_SQUAD');
+  const activeOk = (n: number) => n >= limits.rosterMin && n <= limits.rosterMax;
+
+  /** Why a move is blocked for him, or null when it is allowed. */
+  const blocked = (id: string, k: MoveKey): string | null => {
+    const p = info(id);
+    if (locked(id)) return `${p.name}’s game has started. Moves for him open again after it ends.`;
+    if (k === 'IR') {
+      if (p.injury !== 'IR') return `${p.name} isn’t on NFL injured reserve. Only players MFL lists as IR, IR-R or IR-PUP can go on IR.`;
+      if (irAfter >= limits.ir) return `IR is full (${limits.ir} of ${limits.ir}, counting your queued changes). Activate or drop someone on IR first.`;
+    }
+    if (k === 'TAXI') {
+      if (p.draftYear && p.draftYear < season - 1) return `${p.name} was drafted in ${p.draftYear}. Only first and second year players (drafted ${season - 1} or later) can go on the taxi squad.`;
+      if (taxiAfter >= limits.taxi) return `The taxi squad is full (${limits.taxi} of ${limits.taxi}, counting your queued changes). Promote or drop someone on it first.`;
+    }
+    return null;
+  };
+
+  const sendQueued = async () => {
+    const todo = SEND_ORDER.flatMap((k) => queue.filter(([, q]) => q === k).map(([id]) => ({ id, m: MOVES[k], k })));
     setBusy(true);
-    const { id, move: m } = moving;
-    const r = await write(m.type, { [m.param]: id });
-    setMoving(null);
-    await afterWrite(r, `${info(id).name} ${m.done}.`);
+    const failed: Array<{ id: string; k: MoveKey; error: string }> = [];
+    let signedOut = false;
+    for (const [i, { id, m, k }] of todo.entries()) {
+      // Once the MFL login has expired, every write after it would fail the same way.
+      if (signedOut) {
+        failed.push({ id, k, error: 'not sent' });
+        continue;
+      }
+      setProgress(`SENDING ${i + 1} OF ${todo.length}…`);
+      const r = await write(m.type, { [m.param]: id });
+      if (isError(r)) {
+        signedOut = Boolean(r.signedOut);
+        failed.push({ id, k, error: r.unknown ? `${r.error} Check your roster below before trying again.` : r.error });
+      }
+    }
+    // What MFL turned down stays queued, to fix or try again.
+    setQueued(Object.fromEntries(failed.map((f) => [f.id, f.k])));
+    setReviewing(false);
+    setProgress(null);
+    const sent = todo.length - failed.length;
+    const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
+    if (signedOut) {
+      setNotice({ tone: 'bad', text: `${sent ? `${changes(sent)} saved on MFL, then your` : 'Your'} MFL login on the relay expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare; the rest are still queued.` });
+    } else if (failed.length) {
+      setNotice({ tone: 'bad', text: `${sent} of ${changes(todo.length)} saved on MFL. Still queued: ${failed.map((f) => `${info(f.id).name} (${f.error})`).join('; ')}` });
+    } else {
+      setNotice({ tone: activeOk(activeAfter) ? 'ok' : 'bad', text: `${changes(sent)} saved on MFL.${activeOk(activeAfter) ? '' : ` Your active roster is now ${activeAfter}, outside ${limits.rosterMin}–${limits.rosterMax}.`}` });
+    }
+    await load();
     setBusy(false);
   };
 
@@ -330,10 +421,11 @@ export default function LineupScreen({
       ...Object.entries(rules.positions).map(([pos, lim]) => ({ value: counts[pos] ?? 0, label: `${pos} ${lim.min}–${lim.max}`, ok: (counts[pos] ?? 0) >= lim.min && (counts[pos] ?? 0) <= lim.max })),
     ]
     : rows
+      // As the roster will be once the queued changes go through.
       ? [
-        { value: rows.active.length, label: `ACTIVE ${limits.rosterMin}–${limits.rosterMax}`, ok: rows.active.length >= limits.rosterMin && rows.active.length <= limits.rosterMax },
-        { value: `${rows.ir.length}/${limits.ir}`, label: 'IR', ok: rows.ir.length <= limits.ir },
-        { value: `${rows.taxi.length}/${limits.taxi}`, label: 'TAXI', ok: rows.taxi.length <= limits.taxi },
+        { value: activeAfter, label: `ACTIVE ${limits.rosterMin}–${limits.rosterMax}`, ok: activeOk(activeAfter) },
+        { value: `${irAfter}/${limits.ir}`, label: 'IR', ok: irAfter <= limits.ir },
+        { value: `${taxiAfter}/${limits.taxi}`, label: 'TAXI', ok: taxiAfter <= limits.taxi },
       ]
       : [];
 
@@ -341,7 +433,7 @@ export default function LineupScreen({
     <PhoneFrame style={{ position: 'relative' }}>
       <HeaderBar
         back="/team/"
-        title={mode === 'moves' ? 'IR · TAXI' : mine ? `WEEK ${mine.week} LINEUP` : 'LINEUP'}
+        title={mode === 'moves' ? 'MANAGE ROSTER' : mine ? `WEEK ${mine.week} LINEUP` : 'LINEUP'}
         right={mode === 'lineup' && mine && weekOk ? (
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, marginRight: 8 }}>
             <span style={{ font: DISPLAY(20, 800), fontVariantNumeric: 'tabular-nums' }}>{one(projTotal(lineup))}</span>
@@ -349,7 +441,7 @@ export default function LineupScreen({
           </span>
         ) : undefined}
       />
-      <SubTabs label="Make moves" tabs={[{ key: 'lineup', label: 'LINEUP', href: '/team/lineup/' }, { key: 'moves', label: 'IR · TAXI', href: '/team/moves/' }]} active={mode} />
+      <SubTabs label="Make moves" tabs={[{ key: 'lineup', label: 'LINEUP', href: '/team/lineup/' }, { key: 'moves', label: 'MANAGE ROSTER', href: '/team/moves/' }]} active={mode} />
 
       {mine && rows && (
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
@@ -411,12 +503,12 @@ export default function LineupScreen({
 
         {mine && rows && mode === 'moves' && (
           <>
-            <Group label={`ACTIVE · ${rows.active.length}`}>{rows.active.map((id) => <MoveRow key={id} id={id} moves={[TO_IR, TO_TAXI]} />)}</Group>
+            <Group label={`ACTIVE · ${rows.active.length}`}>{rows.active.map((id) => <MoveRow key={id} id={id} moves={['IR', 'TAXI', 'DROP']} />)}</Group>
             <Group label={`IR · ${rows.ir.length} OF ${limits.ir}`}>
-              {rows.ir.length ? rows.ir.map((id) => <MoveRow key={id} id={id} moves={[ACTIVATE]} />) : <Empty text="Nobody on IR." />}
+              {rows.ir.length ? rows.ir.map((id) => <MoveRow key={id} id={id} moves={['ACTIVATE', 'DROP']} />) : <Empty text="Nobody on IR." />}
             </Group>
             <Group label={`TAXI · ${rows.taxi.length} OF ${limits.taxi}`}>
-              {rows.taxi.length ? rows.taxi.map((id) => <MoveRow key={id} id={id} moves={[PROMOTE]} />) : <Empty text="Nobody on the taxi squad." />}
+              {rows.taxi.length ? rows.taxi.map((id) => <MoveRow key={id} id={id} moves={['PROMOTE', 'DROP']} />) : <Empty text="Nobody on the taxi squad." />}
             </Group>
           </>
         )}
@@ -452,13 +544,60 @@ export default function LineupScreen({
         </BottomSheet>
       )}
 
-      {moving && (
-        <BottomSheet label="Roster move" onClose={() => setMoving(null)} header={<SheetTitle>{moving.move.title.replace('{name}', info(moving.id).name)}</SheetTitle>}>
-          <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ margin: 0, font: '500 13px/1.45 var(--font-body)', color: 'var(--ink-2)' }}>{moving.move.note}</p>
-            <button type="button" disabled={busy} onClick={move} style={{ ...btn(true), width: '100%' }}>{busy ? 'SENDING…' : `${moving.move.short === 'IR' ? 'MOVE TO IR' : moving.move.short === 'TAXI' ? 'MOVE TO TAXI' : moving.move.short} ON MFL`}</button>
+      {mode === 'moves' && mine && queue.length > 0 && (
+        <div style={{ flex: 'none', display: 'flex', gap: 8, padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)' }}>
+          <button type="button" disabled={busy} onClick={() => { setQueued({}); setNotice(null); }} style={{ ...btn(false), width: 96 }}>RESET</button>
+          <button type="button" disabled={busy} onClick={() => { setNotice(null); setReviewing(true); }} style={{ ...btn(true), flex: 1 }}>
+            SUBMIT {queue.length} {queue.length === 1 ? 'CHANGE' : 'CHANGES'}
+          </button>
+        </div>
+      )}
+
+      {reviewing && mine && rows && queue.length > 0 && (
+        <div role="dialog" aria-label="Review roster changes" style={{ position: 'absolute', inset: 0, zIndex: 20, display: 'flex', flexDirection: 'column', background: 'var(--bg-000)' }}>
+          <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 6, height: 56, padding: '0 16px 0 4px', borderBottom: '1px solid var(--edge)' }}>
+            <button type="button" disabled={busy} onClick={() => setReviewing(false)} aria-label="Back to Manage roster" style={{ ...iconBtn(44), color: 'var(--ink)' }}>{BackIcon}</button>
+            <span style={{ flex: 1, font: DISPLAY(22, 800), letterSpacing: '.04em', whiteSpace: 'nowrap' }}>REVIEW CHANGES</span>
           </div>
-        </BottomSheet>
+          <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
+            <RuleCell before={rows.active.length} value={activeAfter} label={`ACTIVE ${limits.rosterMin}–${limits.rosterMax}`} ok={activeOk(activeAfter)} />
+            <RuleCell before={`${rows.ir.length}/${limits.ir}`} value={`${irAfter}/${limits.ir}`} label="IR" ok={irAfter <= limits.ir} />
+            <RuleCell before={`${rows.taxi.length}/${limits.taxi}`} value={`${taxiAfter}/${limits.taxi}`} label="TAXI" ok={taxiAfter <= limits.taxi} />
+          </div>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            {SEND_ORDER.map((k) => {
+              const ids = rows.active.concat(rows.ir, rows.taxi).filter((id) => queued[id] === k);
+              if (!ids.length) return null;
+              const m = MOVES[k];
+              return (
+                <section key={k}>
+                  <div style={{ marginTop: 4 }}><SectionHead label={`${m.group} · ${ids.length}`} /></div>
+                  {ids.map((id) => (
+                    <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 48, padding: '0 8px 0 16px', borderBottom: '1px solid var(--line)' }}>
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ font: '600 14px/1.2 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{info(id).name}</span>
+                        <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                          <b style={{ fontWeight: 700, color: posColor(info(id).pos) }}>{info(id).pos || '—'}</b> · <span style={{ color: m.danger ? 'var(--fall)' : undefined }}>{m.path}</span>
+                        </span>
+                      </span>
+                      <button type="button" disabled={busy} onClick={() => unqueue(id)} aria-label={`Remove ${info(id).name} from these changes`} style={{ ...btn(false), height: 36, padding: 0, width: 64, font: DISPLAY(11.5), letterSpacing: '.06em', color: 'var(--ink-2)' }}>REMOVE</button>
+                    </div>
+                  ))}
+                  <p style={{ margin: 0, padding: '8px 16px 4px', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>{m.note}</p>
+                </section>
+              );
+            })}
+            <p style={{ margin: 0, padding: '16px 16px 24px', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
+              Sent to MFL in this order: drops, then IR and taxi moves, then activations and promotions. If MFL rejects one, the rest still go through and it stays queued.
+            </p>
+          </div>
+          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 16px calc(14px + env(safe-area-inset-bottom))', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)' }}>
+            <button type="button" disabled={busy} onClick={sendQueued} style={{ ...btn(true), width: '100%', height: 48 }}>
+              {progress ?? `SUBMIT ${queue.length} ${queue.length === 1 ? 'CHANGE' : 'CHANGES'} TO MFL`}
+            </button>
+            <button type="button" disabled={busy} onClick={() => setReviewing(false)} style={{ ...btn(false), width: '100%', border: 0, color: 'var(--ink-2)' }}>KEEP EDITING</button>
+          </div>
+        </div>
       )}
     </PhoneFrame>
   );
@@ -470,10 +609,10 @@ export default function LineupScreen({
         <div style={{ marginTop: 4 }}><SectionHead label={label} /></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: COL.gap, height: 24, padding: '0 8px 0 16px', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)' }}>
           <span style={{ flex: 1 }}>PLAYER</span>
+          <span style={{ ...head, width: COL.proj }}>PROJ</span>
           <span style={{ ...head, width: COL.ppg }}>PPG</span>
           {stats && <span style={{ ...head, width: COL.pct }}>START%</span>}
-          <span style={{ ...head, width: COL.proj }}>PROJ</span>
-          <span style={{ flex: 'none', width: stats ? COL.act : 112 }} />
+          <span style={{ flex: 'none', width: stats ? COL.slot : 112 }} />
         </div>
         {children}
       </section>
@@ -516,14 +655,14 @@ export default function LineupScreen({
   /** The swap-mode button for a row: ⇄ to pick, SWAP / START / BENCH on a legal partner, ✕ to cancel. */
   function Action({ id, label, targetText }: { id: string; label: string; targetText: string }) {
     if (id !== OPEN && id !== 'bench' && locked(id)) {
-      return <span role="img" aria-label={`${label}: locked, his game has started`} style={{ ...actBtn('locked'), opacity: sel ? 0.5 : 1 }}>{SwapIcon}</span>;
+      return <span role="img" aria-label={`${label}: locked, his game has started`} style={{ ...actBtn('lockedOutline'), opacity: sel ? 0.5 : 1 }}>{LockIcon}</span>;
     }
-    if (!sel) return <button type="button" aria-label={`Swap ${label}`} onClick={() => pick(id)} style={actBtn('ready')}>{SwapIcon}</button>;
+    if (!sel) return <button type="button" aria-label={`Swap ${label}`} onClick={() => pick(id)} style={actBtn('outline')}>{SwapIcon}</button>;
     if (sel === id) return <button type="button" aria-label="Cancel swap" onClick={cancel} style={actBtn('ring')}>{CloseIcon}</button>;
     const b = outcome(id);
     if (b === null) return <span style={{ width: COL.act }} />;
     if (!b.length) return <button type="button" aria-label={`${targetText} ${label}`} onClick={() => apply(id)} style={{ ...actBtn('ready'), font: DISPLAY(12), letterSpacing: '.08em' }}>{targetText}</button>;
-    return <button type="button" aria-label={`${label}: not allowed, tap for why`} onClick={() => explain(id, label)} style={{ ...actBtn('ready'), opacity: 0.3 }}>{SwapIcon}</button>;
+    return <button type="button" aria-label={`${label}: not allowed, tap for why`} onClick={() => explain(id, label)} style={{ ...actBtn('outline'), opacity: 0.3 }}>{SwapIcon}</button>;
   }
 
   function stateOf(id: string): 'sel' | 'target' | 'dim' | null {
@@ -548,10 +687,10 @@ export default function LineupScreen({
           <Name id={id} tag={tag} />
           <Line id={id} />
         </span>
+        <span style={{ ...num, width: COL.proj, font: DISPLAY(17), color: bad ? 'var(--live)' : starting ? 'var(--ink)' : 'var(--ink-2)' }}>{pr === null ? '—' : one(pr)}</span>
         <span style={{ ...num, width: COL.ppg }}>{p.ppg ? one(p.ppg) : '—'}</span>
         <span style={{ ...num, width: COL.pct }}>{p.startPct === undefined || p.startPct === null ? '—' : `${Math.round(p.startPct)}%`}</span>
-        <span style={{ ...num, width: COL.proj, font: DISPLAY(17), color: bad ? 'var(--live)' : starting ? 'var(--ink)' : 'var(--ink-2)' }}>{pr === null ? '—' : one(pr)}</span>
-        <span style={{ flex: 'none', width: COL.act, display: 'flex', justifyContent: 'flex-end' }}>
+        <span style={{ flex: 'none', width: COL.slot, display: 'flex', justifyContent: 'flex-end' }}>
           <Action id={id} label={p.name} targetText={sel === OPEN ? 'START' : 'SWAP'} />
         </span>
       </div>
@@ -567,7 +706,7 @@ export default function LineupScreen({
           <span style={{ font: DISPLAY(14), letterSpacing: '.1em', color: 'var(--ink-2)' }}>OPEN SLOT</span>
           <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)' }}>Start a bench player here</span>
         </span>
-        <span style={{ flex: 'none', width: COL.act, display: 'flex', justifyContent: 'flex-end' }}>
+        <span style={{ flex: 'none', width: COL.slot, display: 'flex', justifyContent: 'flex-end' }}>
           {first ? <Action id={OPEN} label="the open slot" targetText="START" /> : <span style={{ width: COL.act }} />}
         </span>
       </div>
@@ -582,46 +721,55 @@ export default function LineupScreen({
           <span style={{ font: DISPLAY(14), letterSpacing: '.1em', color: 'var(--ink-2)' }}>EMPTY BENCH SPOT</span>
           <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Bench {sel ? info(sel).name : 'him'} and leave his slot open</span>
         </span>
-        <span style={{ flex: 'none', width: COL.act, display: 'flex', justifyContent: 'flex-end' }}>
+        <span style={{ flex: 'none', width: COL.slot, display: 'flex', justifyContent: 'flex-end' }}>
           <Action id="bench" label="the empty bench spot" targetText="BENCH" />
         </span>
       </div>
     );
   }
 
-  function MoveRow({ id, moves }: { id: string; moves: Move[] }) {
+  function unqueue(id: string) {
+    setQueued((q) => {
+      const next = { ...q };
+      delete next[id];
+      if (!Object.keys(next).length) setReviewing(false);
+      return next;
+    });
+  }
+
+  function MoveRow({ id, moves }: { id: string; moves: MoveKey[] }) {
     const p = info(id);
     const num: CSSProperties = { flex: 'none', textAlign: 'right', font: '500 13px/1 var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' };
     const pr = proj(id);
-    const full = (m: Move) =>
-      m.param === 'DEACTIVATE' ? rows!.ir.length >= limits.ir
-        : m.param === 'DEMOTE' ? rows!.taxi.length >= limits.taxi
-          : rows!.active.length >= limits.rosterMax;
-    // Fill the button for the move his status points to (IR for a player out or on NFL IR, and the way back
-    // from IR or taxi); outline the rest.
-    const suggested = (m: Move) => (m.param === 'DEACTIVATE' ? p.injury === 'IR' || p.injury === 'O' : m.param !== 'DEMOTE');
+    const q = queued[id] ? MOVES[queued[id]] : null;
+    const width = (k: MoveKey) => (moves.length === 3 || MOVES[k].danger ? 44 : 92);
     return (
-      <div style={rowStyle(null)}>
+      <div style={{ ...rowStyle(null), background: q ? (q.danger ? DROP_TINT : QUEUE_TINT) : undefined, boxShadow: q ? `inset 3px 0 0 ${q.danger ? 'var(--fall)' : 'var(--volt)'}` : undefined }}>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Name id={id} />
-          <Line id={id} />
+          {q ? (
+            <span style={{ font: DISPLAY(11), letterSpacing: '.08em', color: q.danger ? 'var(--fall)' : 'var(--volt)', whiteSpace: 'nowrap' }}>{q.tag} · QUEUED</span>
+          ) : <Line id={id} />}
         </span>
-        <span style={{ ...num, width: COL.ppg }}>{p.ppg ? one(p.ppg) : '—'}</span>
         <span style={{ ...num, width: COL.proj, font: DISPLAY(17), color: 'var(--ink)' }}>{pr === null ? '—' : one(pr)}</span>
-        <span style={{ flex: 'none', width: 112, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-          {moves.map((m) => {
-            const isFull = full(m);
+        <span style={{ ...num, width: COL.ppg }}>{p.ppg ? one(p.ppg) : '—'}</span>
+        <span style={{ flex: 'none', width: 140, display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
+          {q ? (
+            <button type="button" disabled={busy} onClick={() => unqueue(id)} aria-label={`Undo ${q.label} for ${p.name}`} style={{ ...moveBtn('undo'), width: 92 }}>UNDO</button>
+          ) : moves.map((k) => {
+            const m = MOVES[k];
+            const why = blocked(id, k);
             return (
               <button
-                key={m.param}
+                key={k}
                 type="button"
-                disabled={busy || isFull}
-                title={isFull ? (m.param === 'DEACTIVATE' ? 'IR is full' : m.param === 'DEMOTE' ? 'Taxi squad is full' : 'Active roster is full') : undefined}
-                aria-label={`${m.short === 'IR' ? 'Move to IR' : m.short === 'TAXI' ? 'Move to taxi squad' : m.short}: ${p.name}${isFull ? ' (full)' : ''}`}
-                onClick={() => { setNotice(null); setMoving({ id, move: m }); }}
-                style={{ ...actBtn(isFull ? 'locked' : suggested(m) ? 'ready' : 'ring'), width: moves.length > 1 ? 53 : 112, font: DISPLAY(12), letterSpacing: '.08em', cursor: isFull ? 'default' : 'pointer' }}
+                disabled={busy}
+                aria-disabled={why ? true : undefined}
+                aria-label={`${m.label} ${p.name}${why ? ' (not available, tap for why)' : ''}`}
+                onClick={() => (why ? setNotice({ tone: 'bad', text: why }) : (setNotice(null), setQueued((qs) => ({ ...qs, [id]: k }))))}
+                style={{ ...moveBtn(why ? 'off' : m.danger ? 'danger' : m.suggest ? 'fill' : 'outline'), width: width(k) }}
               >
-                {m.short}
+                {m.label}
               </button>
             );
           })}
@@ -635,10 +783,14 @@ function Empty({ text }: { text: string }) {
   return <div style={{ padding: '14px 16px', font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}>{text}</div>;
 }
 
-function RuleCell({ value, label, ok }: { value: string | number; label: string; ok: boolean }) {
+/** One rule's count, red when outside the league's rules; with `before`, shown as "before → value". */
+function RuleCell({ value, label, ok, before }: { value: string | number; label: string; ok: boolean; before?: string | number }) {
   return (
-    <div title={ok ? undefined : 'Outside the league’s rules'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, height: 46, background: ok ? undefined : 'var(--live-tint)', boxShadow: ok ? undefined : 'inset 0 -2px 0 var(--live)' }}>
-      <span style={{ font: DISPLAY(17), fontVariantNumeric: 'tabular-nums', color: ok ? 'var(--ink)' : 'var(--live)' }}>{value}</span>
+    <div title={ok ? undefined : 'Outside the league’s rules'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, height: before === undefined ? 46 : 52, background: ok ? undefined : 'var(--live-tint)', boxShadow: ok ? undefined : 'inset 0 -2px 0 var(--live)' }}>
+      <span style={{ font: DISPLAY(before === undefined ? 17 : 16), fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: ok ? 'var(--ink)' : 'var(--live)' }}>
+        {before !== undefined && <span style={{ color: 'var(--ink-3)' }}>{before} → </span>}
+        {value}
+      </span>
       <span style={{ font: DISPLAY(10), letterSpacing: '.08em', whiteSpace: 'nowrap', color: ok ? 'var(--ink-3)' : 'var(--live)' }}>{label}</span>
     </div>
   );
@@ -653,17 +805,36 @@ const SwapIcon = (
     <path d="M7 4 3 8l4 4" /><path d="M3 8h14" /><path d="m17 20 4-4-4-4" /><path d="M21 16H7" />
   </svg>
 );
+const LockIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="5" y="11" width="14" height="10" rx="1.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+const BackIcon = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 18-6-6 6-6" /></svg>
+);
 const CloseIcon = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
 );
 
-function actBtn(kind: 'ready' | 'ring' | 'locked'): CSSProperties {
+function actBtn(kind: 'ready' | 'outline' | 'ring' | 'locked' | 'lockedOutline'): CSSProperties {
+  const locked = kind === 'locked' || kind === 'lockedOutline';
   return {
     flex: 'none', width: COL.act, height: 36, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-    cursor: kind === 'locked' ? 'default' : 'pointer',
-    border: `1px solid ${kind === 'locked' ? 'transparent' : 'var(--volt)'}`,
+    cursor: locked ? 'default' : 'pointer',
+    border: `1.5px solid ${kind === 'locked' ? 'transparent' : kind === 'lockedOutline' ? LOCKED_BG : 'var(--volt)'}`,
     background: kind === 'ready' ? 'var(--volt)' : kind === 'locked' ? LOCKED_BG : 'transparent',
-    color: kind === 'ready' ? 'var(--on-volt)' : kind === 'locked' ? LOCKED_INK : 'var(--ink)',
+    color: kind === 'ready' ? 'var(--on-volt)' : kind === 'outline' ? 'var(--volt)' : locked ? LOCKED_INK : 'var(--ink)',
+  };
+}
+
+/** Manage roster buttons: filled for the move his status points to, outlined otherwise, orange for a drop, grey when a rule blocks it. */
+function moveBtn(kind: 'fill' | 'outline' | 'danger' | 'off' | 'undo'): CSSProperties {
+  return {
+    flex: 'none', height: 36, padding: 0, borderRadius: 2, cursor: 'pointer', font: DISPLAY(11.5), letterSpacing: '.06em',
+    border: `1px solid ${kind === 'off' ? 'var(--line)' : kind === 'danger' ? 'var(--fall)' : kind === 'undo' ? 'var(--edge)' : 'var(--volt)'}`,
+    background: kind === 'fill' ? 'var(--volt)' : kind === 'off' ? 'var(--bg-200)' : 'transparent',
+    color: kind === 'fill' ? 'var(--on-volt)' : kind === 'off' ? 'var(--ink-3)' : kind === 'danger' ? 'var(--fall)' : 'var(--ink)',
   };
 }
 

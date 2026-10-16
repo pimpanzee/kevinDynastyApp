@@ -59,7 +59,7 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
       {tab === 'roster' && !teamId && canMove && (
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, margin: '10px 16px 0' }}>
           <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>
-          <Link href="/team/moves/" style={moveLink}>IR · TAXI</Link>
+          <Link href="/team/moves/" style={moveLink}>MANAGE ROSTER</Link>
         </div>
       )}
       {tab === 'roster' && <RosterTab data={data} team={team} />}
