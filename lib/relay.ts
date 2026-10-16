@@ -55,7 +55,7 @@ export interface RelayError {
   unknown?: boolean;
 }
 
-async function call<T>(path: string, init?: RequestInit): Promise<T | RelayError> {
+export async function call<T>(path: string, init?: RequestInit): Promise<T | RelayError> {
   const token = readToken();
   if (!RELAY || !token) return { error: 'Moves are not set up on this device (Settings → Make moves).' };
   try {

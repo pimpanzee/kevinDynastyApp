@@ -22,6 +22,10 @@
  * need the APP_TOKEN secret as a Bearer token and act as the owner whose MFL
  * login cookie is the MFL_COOKIE secret. A scheduled run checks that cookie
  * daily, which records how long an MFL login lasts.
+ *
+ * /push/* (same token) subscribes a device to push alerts, and a run every
+ * 15 minutes sends them: lineup lock, injuries, waiver results, the Tuesday
+ * recap (alerts.js, webpush.js).
  */
 
 import { fetchGamePlays, fetchScoreboard, indexPlayers } from './plays.js';
@@ -82,16 +86,25 @@ export default {
     return new Response(res.body, { status: res.status, headers });
   },
 
-  /** Daily: is the MFL login still good? Records its lifetime (relay.js `cookies`). */
+  /**
+   * Daily: is the MFL login still good? Records its lifetime (relay.js
+   * `cookies`). Every 15 minutes: the push alert checks (relay.js `alerts`).
+   */
   async scheduled(event, env, ctx) {
     if (!env.MFL_COOKIE) return;
     const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
-    ctx.waitUntil(stub.fetch('https://relay/me'));
+    ctx.waitUntil(stub.fetch(event.cron === DAILY_CRON ? 'https://relay/me' : 'https://relay/alerts'));
   },
 };
 
+/** Must match the daily cron in wrangler.toml. */
+const DAILY_CRON = '23 14 * * *';
+
 /** Write-relay routes and the method each takes. */
-const RELAY_ROUTES = { '/me': 'GET', '/mine': 'GET', '/waivers': 'GET', '/write': 'POST', '/audit': 'GET' };
+const RELAY_ROUTES = {
+  '/me': 'GET', '/mine': 'GET', '/waivers': 'GET', '/write': 'POST', '/audit': 'GET',
+  '/push/key': 'GET', '/push/subscribe': 'POST', '/push/unsubscribe': 'POST', '/push/test': 'POST',
+};
 
 async function relay(request, url, env, cors) {
   if (request.method !== RELAY_ROUTES[url.pathname]) return json({ error: 'Not found' }, 404, cors);
