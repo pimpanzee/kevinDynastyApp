@@ -13,6 +13,9 @@
  * - Redirects are never followed: fetch drops the Cookie header on the hop.
  */
 
+import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
+import { newVapidKeys, sendPush } from './webpush.js';
+
 const WRITE_TIMEOUT_MS = 15 * 1000;
 const CHECK_TIMEOUT_MS = 10 * 1000;
 /** How much of MFL's reply the audit log keeps. */
@@ -124,6 +127,27 @@ export class WriteRelay {
       expired_at INTEGER,
       franchise_id TEXT
     )`);
+    // Push alerts: the browsers subscribed, what each wants, alerts already
+    // sent (so each goes out once), and state carried between runs.
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS push_subs (
+      endpoint TEXT PRIMARY KEY,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      prefs TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`);
+    this.sql.exec('CREATE TABLE IF NOT EXISTS sent (key TEXT PRIMARY KEY, at INTEGER NOT NULL)');
+    this.sql.exec('CREATE TABLE IF NOT EXISTS state (k TEXT PRIMARY KEY, v TEXT NOT NULL)');
+  }
+
+  getState(k) {
+    const row = this.sql.exec('SELECT v FROM state WHERE k = ?', k).toArray()[0];
+    return row ? JSON.parse(row.v) : undefined;
+  }
+
+  setState(k, v) {
+    if (v === undefined) this.sql.exec('DELETE FROM state WHERE k = ?', k);
+    else this.sql.exec('INSERT OR REPLACE INTO state (k, v) VALUES (?, ?)', k, JSON.stringify(v));
   }
 
   async fetch(request) {
@@ -139,6 +163,23 @@ export class WriteRelay {
         const result = await this.mine(url.searchParams.get('week'));
         return json(result, result.status ?? 200);
       }
+      if (url.pathname === '/push/key') return json({ publicKey: (await this.vapid()).publicKey });
+      if (url.pathname === '/push/subscribe' && request.method === 'POST') {
+        const result = this.subscribe(await request.json().catch(() => null));
+        return json(result, result.status ?? 200);
+      }
+      if (url.pathname === '/push/unsubscribe' && request.method === 'POST') {
+        const body = await request.json().catch(() => null);
+        this.sql.exec('DELETE FROM push_subs WHERE endpoint = ?', String(body?.endpoint ?? ''));
+        return json({ ok: true });
+      }
+      if (url.pathname === '/push/test' && request.method === 'POST') {
+        const body = await request.json().catch(() => null);
+        const result = await this.testPush(String(body?.endpoint ?? ''));
+        return json(result, result.status ?? 200);
+      }
+      // Only the scheduled run reaches this; it isn't a public route (index.js).
+      if (url.pathname === '/alerts') return json(await this.alerts());
       if (url.pathname === '/write' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
         const result = await this.write(body?.type, body?.params);
@@ -378,6 +419,9 @@ export class WriteRelay {
     );
     this.sql.exec(`DELETE FROM audit WHERE id <= (SELECT MAX(id) FROM audit) - 5000`);
 
+    // Your own claim edits aren't waiver results: start the comparison over.
+    if (outcome.ok !== false && type === 'blindBidWaiverRequest') this.setState('pending', undefined);
+
     if (outcome.ok) return { ok: true };
     return {
       ok: outcome.ok,
@@ -385,6 +429,180 @@ export class WriteRelay {
       signedOut: outcome.signedOut || undefined,
       status: outcome.signedOut ? 401 : outcome.ok === null ? 504 : 422,
     };
+  }
+
+  /* ── Push alerts ───────────────────────────────────────────────────── */
+
+  /** The relay's VAPID keys, made on first use and kept here, so there's nothing to configure. */
+  async vapid() {
+    let keys = this.getState('vapid');
+    if (!keys) {
+      keys = await newVapidKeys();
+      this.setState('vapid', keys);
+    }
+    return keys;
+  }
+
+  subscribe(body) {
+    const sub = body?.subscription;
+    const endpoint = String(sub?.endpoint ?? '');
+    const { p256dh, auth } = sub?.keys ?? {};
+    if (!/^https:\/\/[^\s]{10,1000}$/.test(endpoint) || typeof p256dh !== 'string' || typeof auth !== 'string') {
+      return { error: 'Bad subscription', status: 400 };
+    }
+    const prefs = {};
+    for (const k of ALERT_TYPES) prefs[k] = body?.prefs?.[k] !== false;
+    this.sql.exec(
+      'INSERT OR REPLACE INTO push_subs (endpoint, p256dh, auth, prefs, created_at) VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM push_subs WHERE endpoint = ?), ?))',
+      endpoint, p256dh, auth, JSON.stringify(prefs), endpoint, Date.now(),
+    );
+    this.sql.exec(`DELETE FROM push_subs WHERE endpoint NOT IN (SELECT endpoint FROM push_subs ORDER BY created_at DESC LIMIT ${MAX_SUBS})`);
+    return { ok: true, prefs };
+  }
+
+  subs() {
+    return this.sql.exec('SELECT * FROM push_subs').toArray().map((r) => ({ ...r, prefs: JSON.parse(r.prefs) }));
+  }
+
+  async push(sub, alert) {
+    const site = (this.env.SITE_URL ?? '').replace(/\/$/, '');
+    const message = { title: alert.title, body: alert.body, tag: alert.key.split(':')[0], url: `${site}${alert.url ?? '/'}` };
+    try {
+      const r = await sendPush(sub, message, await this.vapid(), site || 'https://pimpanzee.github.io', { urgency: alert.urgent ? 'high' : 'normal' });
+      if (r.gone) this.sql.exec('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint);
+      return r;
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async testPush(endpoint) {
+    const sub = this.subs().find((s) => s.endpoint === endpoint);
+    if (!sub) return { error: 'This device is not subscribed', status: 404 };
+    const r = await this.push(sub, { key: 'test', title: 'Alerts are on', body: 'This is what an alert from THE LIAM looks like.', url: '/settings/' });
+    return r.ok ? { ok: true } : { error: `The push service refused it (${r.status ?? r.error})`, status: 502 };
+  }
+
+  /** Sends an alert of one type to every device that wants it, once per key. */
+  async notify(type, alert) {
+    if (!alert || this.sql.exec('SELECT 1 FROM sent WHERE key = ?', alert.key).toArray().length) return 0;
+    this.sql.exec('INSERT INTO sent (key, at) VALUES (?, ?)', alert.key, Date.now());
+    let n = 0;
+    for (const sub of this.subs()) {
+      if (sub.prefs[type] === false) continue;
+      if ((await this.push(sub, alert)).ok) n += 1;
+    }
+    return n;
+  }
+
+  /**
+   * The scheduled alert run (every 15 minutes). Reads only what the checks
+   * due right now need, and nothing at all when no device is subscribed.
+   */
+  async alerts() {
+    if (!this.subs().length) return { skipped: 'no-subscribers' };
+    const c = await this.cookie();
+    if (!c) return { skipped: 'no-cookie' };
+    if (c.expired_at) {
+      await this.notify('login', {
+        key: `login:${c.fingerprint}`,
+        title: 'Your MFL login expired',
+        body: 'Moves and alerts are paused until it is replaced: run scripts/mfl-login.mjs and update MFL_COOKIE in Cloudflare.',
+        url: '/settings/',
+      });
+      return { skipped: 'signed-out' };
+    }
+    const franchiseId = c.franchise_id ?? (await this.me()).franchiseId;
+    if (!franchiseId) return { skipped: 'no-franchise' };
+
+    const { MFL_HOST, MFL_SEASON, MFL_LEAGUE_ID } = this.env;
+    const league = `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1`;
+    const api = `https://api.myfantasyleague.com/${MFL_SEASON}/export?JSON=1`;
+    const now = Date.now();
+    const done = new Set(this.sql.exec('SELECT key FROM sent').toArray().map((r) => r.key));
+    this.sql.exec('DELETE FROM sent WHERE at < ?', now - 60 * 24 * 3600 * 1000);
+    const sent = [];
+    const errors = [];
+    const step = async (name, fn) => {
+      try {
+        await fn();
+      } catch (e) {
+        errors.push(`${name}: ${e.message}`);
+      }
+    };
+
+    // The week's kickoffs (re-read every 6 hours) and league basics (daily).
+    let sched = this.getState('sched');
+    if (!sched || now - sched.at > 6 * 3600 * 1000) {
+      const body = await this.read(c, `${api}&TYPE=nflSchedule`);
+      const kickoffs = {};
+      for (const g of list(body.nflSchedule?.matchup)) for (const t of list(g.team)) kickoffs[t.id] = Number(g.kickoff) * 1000;
+      sched = { week: Number(body.nflSchedule?.week) || 0, kickoffs, at: now };
+      this.setState('sched', sched);
+    }
+    let info = this.getState('league');
+    if (!info || now - info.at > 24 * 3600 * 1000) {
+      const body = await this.read(c, `${league}&TYPE=league`);
+      const franchises = {};
+      for (const f of list(body.league?.franchises?.franchise)) franchises[f.id] = String(f.name ?? '').trim();
+      info = { minStarters: Number(String(body.league?.starters?.count ?? '0').split('-')[0]) || 0, franchises, at: now };
+      this.setState('league', info);
+    }
+    const { week, kickoffs } = sched;
+    const names = async (ids) => (ids.length ? playerIndex(await this.read(c, `${api}&TYPE=players&PLAYERS=${[...new Set(ids)].join(',')}`)) : {});
+
+    // Lineup lock and injuries: starters only matter before their kickoff.
+    await step('lineup', async () => {
+      // Injuries and players aren't league data, so only the api host answers them.
+      const injuries = injuryIndex(await this.read(c, `${api}&TYPE=injuries`));
+      const prev = this.getState('injuries') ?? {};
+      this.setState('injuries', injuries);
+      const lockDue = Object.values(kickoffs).some((t) => t > now && t - now <= 90 * 60 * 1000);
+      const changed = Object.keys(injuries).some((id) => injuries[id].status !== prev[id]?.status);
+      if (!week || !(lockDue || changed)) return;
+      const live = await this.read(c, `${league}&TYPE=liveScoring&DETAILS=1&W=${week}`);
+      const side = list(live.liveScoring?.matchup).flatMap((m) => list(m.franchise)).concat(list(live.liveScoring?.franchise)).find((f) => f.id === franchiseId);
+      const starters = list(side?.players?.player).filter((p) => p.status === 'starter').map((p) => p.id);
+      const players = await names(starters);
+      const lock = lockAlerts({ now, week, kickoffs, starters, minStarters: info.minStarters, injuries, players, done });
+      for (const key of lock.checked) if (!lock.alerts.some((a) => a.key === key)) this.sql.exec('INSERT OR IGNORE INTO sent (key, at) VALUES (?, ?)', key, now);
+      for (const a of lock.alerts) if (await this.notify('lock', { ...a, urgent: true })) sent.push(a.key);
+      // A first run has no earlier statuses to compare with.
+      if (Object.keys(prev).length) {
+        for (const a of injuryAlerts({ now, week, prev, injuries, starters, kickoffs, players, done })) if (await this.notify('injury', a)) sent.push(a.key);
+      }
+    });
+
+    // Waiver results: compare this run's pending claims with the last run's.
+    await step('waivers', async () => {
+      const after = readPendingBids((await this.read(c, `${league}&TYPE=pendingWaivers`)).pendingWaivers);
+      if (after === null) return; // a reply we can't read: no comparison, no guesses
+      const before = this.getState('pending');
+      this.setState('pending', after);
+      if (!before?.length) return;
+      const tx = await this.read(c, `${league}&TYPE=transactions&TRANS_TYPE=BBID_WAIVER&DAYS=2`);
+      const recent = bbidAdds(tx).filter((a) => now - a.at < 6 * 3600 * 1000);
+      const adds = bbidAdds(tx, franchiseId).filter((a) => now - a.at < 6 * 3600 * 1000);
+      const ids = before.flatMap((b) => [b.player, b.drop].filter(Boolean)).concat(adds.flatMap((a) => a.dropped));
+      const a = waiverAlert({ before, after, adds, leagueRan: recent.length > 0, players: await names(ids) });
+      if (a && (await this.notify('waivers', a))) sent.push(a.key);
+    });
+
+    // Tuesday recap, from mid-morning Eastern.
+    await step('recap', async () => {
+      const d = new Date(now);
+      if (d.getUTCDay() !== 2 || d.getUTCHours() < 14 || !week) return;
+      const times = Object.values(kickoffs);
+      const recapWeek = times.length && times.every((t) => t < now) ? week : week - 1;
+      if (recapWeek < 1 || done.has(`recap:${recapWeek}`)) return;
+      const results = await this.read(c, `${league}&TYPE=weeklyResults&W=${recapWeek}`);
+      const mine = list(results.weeklyResults?.matchup).flatMap((m) => list(m.franchise)).find((f) => f.id === franchiseId);
+      const players = await names(list(mine?.player).map((p) => p.id));
+      const a = recapAlert({ week: recapWeek, results, franchiseId, franchises: info.franchises, players });
+      if (a && (await this.notify('recap', a))) sent.push(a.key);
+    });
+
+    return { week, sent, errors };
   }
 
   audit() {
@@ -432,10 +650,10 @@ export function readPendingBids(root) {
   return understood ? out : null;
 }
 
-/** MFL wraps a single item as an object. */
-function list(x) {
-  return x === undefined || x === null ? [] : Array.isArray(x) ? x : [x];
-}
+/** Alert types a device can turn on or off. */
+export const ALERT_TYPES = ['lock', 'injury', 'waivers', 'recap', 'login'];
+/** Devices kept at most (oldest dropped). */
+const MAX_SUBS = 10;
 
 function cookieInfo(c) {
   if (!c) return null;

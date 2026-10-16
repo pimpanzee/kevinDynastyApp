@@ -78,6 +78,15 @@ pickup goes through blind bids), `ir`, `taxi_squad`, `tradeProposal`,
 - **Waivers:** `GET /waivers` returns MFL's current free agents and your
   pending blind bids (`pending`, in priority order, or `null` if MFL's reply
   couldn't be read, in which case the app won't rewrite them). Never cached.
+- **Push alerts:** Settings → Alerts subscribes a device (`GET /push/key`,
+  `POST /push/subscribe`, `/push/unsubscribe`, `/push/test`). A run every 15
+  minutes (`src/alerts.js`) pushes: a lineup check 90 minutes before each
+  kickoff when a starter in it is out (or the lineup is short or has a bye),
+  a starter newly ruled Out/Doubtful/IR before his game, waiver results (won or
+  lost, once your pending claims are processed), the Tuesday recap, and a
+  notice when the MFL login expires. The VAPID keys are made by the relay on
+  first use and kept in its Durable Object, so there is nothing to set up.
+  On iPhone, push only works from the app added to the Home Screen.
 - **Audit log:** every write, its parameters and MFL's reply, kept in the
   relay's Durable Object. `GET /audit` returns the last 100.
 - **Login lifetime:** a daily scheduled run calls `/me`, which records when the

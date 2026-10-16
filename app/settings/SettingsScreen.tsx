@@ -10,8 +10,9 @@ import TeamAvatar from '@/components/TeamAvatar';
 import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY } from '@/components/team/format';
 import { saveTeam, useMyTeam } from '@/lib/myTeam';
-import { getMe, isError, readToken, saveToken } from '@/lib/relay';
+import { getMe, isError, readToken, saveToken, useCanMove } from '@/lib/relay';
 import { useTheme, type Theme } from '@/lib/theme';
+import Alerts from './Alerts';
 
 export interface FranchiseOption {
   id: string;
@@ -53,6 +54,7 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
   const team = useMyTeam(defaultTeam);
   const [open, setOpen] = useState(false);
   const [ago, setAgo] = useState('');
+  const canMove = useCanMove();
   useEffect(() => setAgo(updatedAgo()), []);
   const current = franchises.find((f) => f.id === team) ?? franchises[0];
 
@@ -104,6 +106,13 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
 
         <div style={{ marginTop: 12 }}><SectionHead label="MAKE MOVES" /></div>
         <MakeMoves />
+
+        {canMove && (
+          <>
+            <div style={{ marginTop: 12 }}><SectionHead label="ALERTS" /></div>
+            <Alerts />
+          </>
+        )}
 
         <div style={{ marginTop: 12 }}><SectionHead label="GET THE APP" /></div>
         <Row href="/settings/install/" title="Install the app" sub="Add The Liam to your Home Screen"

@@ -23,9 +23,11 @@ new_sqlite_classes = ["LiveScores"]
 tag = "v2"
 new_sqlite_classes = ["WriteRelay"]
 
-# Daily check that the MFL login still works, to learn how long one lasts.
+# Daily check that the MFL login still works, to learn how long one lasts
+# (keep in step with DAILY_CRON in src/index.js), and the push alert checks
+# every 15 minutes.
 [triggers]
-crons = ["23 14 * * *"]
+crons = ["23 14 * * *", "*/15 * * * *"]
 
 # Secrets, set in the Cloudflare dashboard (Worker → Settings → Variables and
 # Secrets), never here: MFL_COOKIE (your MFL login cookie, from
