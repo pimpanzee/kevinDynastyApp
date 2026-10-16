@@ -28,7 +28,7 @@ interface Player {
   pts: number;
 }
 
-type Tab = 'fa' | 'claims' | 'drop';
+type Tab = 'fa' | 'claims';
 type Notice = { tone: 'ok' | 'bad'; text: string };
 
 const EXPIRED = 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.';
@@ -37,8 +37,8 @@ const EXPIRED = 'Your MFL login on the relay has expired. Run scripts/mfl-login.
  * Waivers: every pickup here is a blind bid. FREE AGENTS lists who MFL says
  * is available right now; BID opens a sheet with the amount, an optional
  * drop, and what the claim does to your cap. MY CLAIMS lists your pending
- * bids in priority order. DROP releases a player at once, after showing his
- * dead cap. Everything is confirmed first and re-read from MFL afterwards.
+ * bids in priority order. Plain drops live on Manage roster. Every write
+ * is re-read from MFL afterwards.
  */
 export default function WaiversScreen({ cap, limits, adj }: { cap: number; limits: TeamsData['limits']; adj: Record<string, number> }) {
   const [tab, setTab] = useState<Tab>('fa');
@@ -51,7 +51,6 @@ export default function WaiversScreen({ cap, limits, adj }: { cap: number; limit
   const [query, setQuery] = useState('');
   const [pos, setPos] = useState<(typeof POSITIONS)[number]>('ALL');
   const [bidding, setBidding] = useState<string | null>(null);
-  const [dropping, setDropping] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [m, w] = await Promise.all([getMine(), getWaivers()]);
@@ -120,18 +119,9 @@ export default function WaiversScreen({ cap, limits, adj }: { cap: number; limit
     setBusy(false);
   };
 
-  const drop = async (id: string) => {
-    setBusy(true);
-    const r = await write('fcfsWaiver', { DROP: id });
-    setDropping(null);
-    await report(r, `${info(id).name} dropped.`);
-    setBusy(false);
-  };
-
   const tabs = [
     { key: 'fa', label: 'FREE AGENTS' },
     { key: 'claims', label: `MY CLAIMS${pending?.length ? ` · ${pending.length}` : ''}` },
-    { key: 'drop', label: 'DROP' },
   ];
 
   return (
@@ -201,18 +191,6 @@ export default function WaiversScreen({ cap, limits, adj }: { cap: number; limit
           </>
         )}
 
-        {mine && tab === 'drop' && (
-          <>
-            <p style={{ margin: '12px 16px 4px', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
-              A drop happens on MFL at once and can&apos;t be undone. To drop someone only if you win a player, add the drop to that claim instead.
-            </p>
-            {[...mine.roster].sort((a, b) => b.salary - a.salary).map((r) => (
-              <Row key={r.id} p={info(r.id)} detail={`${money(r.salary)} · ${Math.max(1, r.contractYear)} YR · dead ${money(deadCap(r.salary, r.contractYear))}${r.status === 'TAXI_SQUAD' ? ' · TAXI' : r.status === 'INJURED_RESERVE' ? ' · IR' : ''}`}>
-                <button type="button" onClick={() => { setNotice(null); setDropping(r.id); }} style={smallBtn(false)}>DROP</button>
-              </Row>
-            ))}
-          </>
-        )}
       </div>
 
       {bidding && mine && (
@@ -228,23 +206,6 @@ export default function WaiversScreen({ cap, limits, adj }: { cap: number; limit
         />
       )}
 
-      {dropping && mine && (() => {
-        const r = mine.roster.find((x) => x.id === dropping);
-        if (!r) return null;
-        const dead = deadCap(r.salary, r.contractYear);
-        const freed = r.status === 'TAXI_SQUAD' ? 0 : r.salary;
-        return (
-          <BottomSheet label="Drop player" onClose={() => setDropping(null)} header={<SheetTitle>Drop {info(r.id).name}?</SheetTitle>}>
-            <div style={{ padding: '0 16px 16px', font: '500 14px/1.5 var(--font-body)' }}>
-              <Line label="Salary off your cap" value={money(freed)} />
-              <Line label="Dead cap" value={money(dead)} tone="var(--fall)" />
-              <Line label="Room after (est.)" value={money(room + freed - dead)} tone={room + freed - dead < 0 ? 'var(--live)' : undefined} />
-              <p style={{ margin: '10px 0 14px', color: 'var(--ink-3)', fontSize: 12.5 }}>Takes effect on MFL right away. It can&apos;t be undone, and he goes to waivers.</p>
-              <button type="button" disabled={busy} onClick={() => drop(r.id)} style={{ ...bigBtn, background: 'var(--live)', borderColor: 'var(--live)', color: '#fff' }}>{busy ? 'DROPPING…' : `DROP ${info(r.id).name.toUpperCase()}`}</button>
-            </div>
-          </BottomSheet>
-        );
-      })()}
     </PhoneFrame>
   );
 }
