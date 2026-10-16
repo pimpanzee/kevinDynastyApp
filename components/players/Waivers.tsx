@@ -85,8 +85,9 @@ export function useWaivers({ cap, limits, adj }: WaiverRules, enabled: boolean, 
   const replaceClaims = async (next: PendingBid[], success: string) => {
     setBusy(true);
     const picks = next.map((b) => `${b.player}_${b.bid}_${b.drop ?? '0000'}`).join(',');
-    await report(await write('blindBidWaiverRequest', { PICKS: picks, REPLACE: '1' }), success);
+    const ok = await report(await write('blindBidWaiverRequest', { PICKS: picks, REPLACE: '1' }), success);
     setBusy(false);
+    return ok;
   };
 
   return {
@@ -101,7 +102,7 @@ export function useWaivers({ cap, limits, adj }: WaiverRules, enabled: boolean, 
 export type WaiversState = ReturnType<typeof useWaivers>;
 
 /** MY CLAIMS: cap room, roster count and your pending bids, highest priority first. */
-export function ClaimsPanel({ w, info }: { w: WaiversState; info: (id: string) => PlayerInfo }) {
+export function ClaimsPanel({ w, info, onEdit }: { w: WaiversState; info: (id: string) => PlayerInfo; onEdit: (index: number) => void }) {
   const { mine, pending, loadError, busy, room, active, rosterMax } = w;
   const total = (pending ?? []).reduce((t, b) => t + b.bid, 0);
   return (
@@ -137,7 +138,7 @@ export function ClaimsPanel({ w, info }: { w: WaiversState; info: (id: string) =
                     <b style={{ fontWeight: 700, color: posColor(p.pos) }}>{p.pos || '—'}</b> · {p.team || '—'}{b.drop ? ` · drop ${info(b.drop).name}` : ''}
                   </span>
                 </span>
-                <span style={{ flex: 'none', font: DISPLAY(18), fontVariantNumeric: 'tabular-nums' }}>${b.bid}</span>
+                <button type="button" disabled={busy} onClick={() => onEdit(i)} aria-label={`Change your bid on ${p.name}`} style={{ flex: 'none', height: 44, padding: '0 4px', border: 0, background: 'none', color: 'var(--ink)', font: DISPLAY(19), fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }}>${b.bid}</button>
                 <button type="button" disabled={busy} onClick={() => w.replaceClaims(pending.filter((_, j) => j !== i), `Claim on ${p.name} removed.`)} style={smallBtn(false)}>REMOVE</button>
               </div>
             );
@@ -170,11 +171,13 @@ function RelayProblem({ error }: { error: RelayError }) {
   );
 }
 
-export function BidSheet({ id, w, info, onClose }: { id: string; w: WaiversState; info: (id: string) => PlayerInfo; onClose: () => void }) {
+/** A new claim on `id`, or (with `edit`) a change to that pending claim, sent as the whole list with REPLACE. */
+export function BidSheet({ id, edit, w, info, onClose }: { id: string; edit?: number; w: WaiversState; info: (id: string) => PlayerInfo; onClose: () => void }) {
   const player = info(id);
   const roster = w.mine?.roster ?? [];
-  const [bid, setBid] = useState(MIN_BID);
-  const [dropId, setDropId] = useState<string | null>(null);
+  const old = edit !== undefined ? w.pending?.[edit] : undefined;
+  const [bid, setBid] = useState(old?.bid ?? MIN_BID);
+  const [dropId, setDropId] = useState<string | null>(old?.drop ?? null);
   const droppable = roster.filter((r) => r.status === 'ROSTER').sort((a, b) => a.salary - b.salary);
   const d = dropId ? roster.find((r) => r.id === dropId) : null;
   const freed = d ? d.salary : 0;
@@ -184,13 +187,16 @@ export function BidSheet({ id, w, info, onClose }: { id: string; w: WaiversState
   const rosterFull = w.active >= w.rosterMax;
 
   const confirm = async () => {
-    if (await w.placeBid(id, bid, dropId)) onClose();
+    if (old && w.pending) {
+      const next = w.pending.map((b, i) => (i === edit ? { player: id, bid, drop: dropId } : b));
+      if (await w.replaceClaims(next, `Claim changed: ${player.name} for $${bid}${dropId ? `, dropping ${info(dropId).name}` : ''}.`)) onClose();
+    } else if (await w.placeBid(id, bid, dropId)) onClose();
   };
 
   return (
     <BottomSheet label={`Bid on ${player.name}`} onClose={onClose} height="86%" header={
       <div style={{ padding: '10px 16px 12px' }}>
-        <div style={{ font: DISPLAY(11), letterSpacing: '.12em', color: 'var(--ink-3)' }}>BLIND BID</div>
+        <div style={{ font: DISPLAY(11), letterSpacing: '.12em', color: 'var(--ink-3)' }}>{old ? 'CHANGE CLAIM' : 'BLIND BID'}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
           <h2 style={{ margin: 0, font: '700 22px/1.05 var(--font-display)', letterSpacing: '.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</h2>
           <InjuryTag tag={player.injury ?? undefined} />
@@ -235,7 +241,7 @@ export function BidSheet({ id, w, info, onClose }: { id: string; w: WaiversState
             </div>
             {w.notice?.tone === 'bad' && <div style={{ margin: '0 -16px 12px' }}><WaiverNotice w={w} /></div>}
             <button type="button" disabled={!valid || w.busy} onClick={confirm} style={{ ...bigBtn, opacity: valid ? 1 : 0.5 }}>
-              {w.busy ? 'SENDING…' : `PLACE CLAIM · $${bid}`}
+              {w.busy ? 'SENDING…' : `${old ? 'UPDATE CLAIM' : 'PLACE CLAIM'} · $${bid}`}
             </button>
           </>
         )}

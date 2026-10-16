@@ -76,8 +76,8 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
     return p ? { name: p.name, pos: p.pos, team: p.nflTeam, injury: p.injury } : { name: `Player ${id}`, pos: '', team: '' };
   };
   const w = useWaivers(rules, canMove, (id) => info(id).name);
-  const [bidding, setBidding] = useState<string | null>(null);
-  const bids = useMemo(() => new Map((w.pending ?? []).map((b) => [b.player, b.bid])), [w.pending]);
+  // The bid sheet: a new claim on a player, or claim number `edit` from MY CLAIMS.
+  const [bidding, setBidding] = useState<{ id: string; edit?: number } | null>(null);
   const live = w.freeAgents;
 
   // Ranks by season points, among everyone listed.
@@ -136,7 +136,7 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
       />
       {list === 'claims' ? (
         <div style={{ flex: 1, overflow: 'auto', paddingBottom: 24 }}>
-          <ClaimsPanel w={w} info={info} />
+          <ClaimsPanel w={w} info={info} onEdit={(i) => w.pending && setBidding({ id: w.pending[i].player, edit: i })} />
         </div>
       ) : (
       <>
@@ -188,7 +188,6 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
               const isMine = !!r.owner && r.owner === mine;
               const owner = r.owner ? owners.get(r.owner) : undefined;
               const bg = isMine ? 'var(--bg-200)' : 'var(--bg-000)';
-              const bid = bids.get(r.id);
               const claimable = list === 'fa' && canMove && !!live?.has(r.id);
               const cells: Array<[ColKey, string]> = [
                 ['proj', r.next ? (r.proj.pts !== null ? r.proj.pts.toFixed(1) : '—') : 'BYE'],
@@ -205,14 +204,15 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
                       <button type="button" onClick={(e) => { e.stopPropagation(); card?.open(r.id); }} style={{ minWidth: 0, padding: 0, border: 0, background: 'none', color: 'inherit', textAlign: 'left', font: '600 14px/1.2 var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{r.name}</button>
                       <InjuryTag tag={r.injury} />
                       {claimable && (
-                        // Same slot as the owner chip on All players: BID, or your pending bid in volt.
+                        // Same slot as the owner chip on All players. Always a new claim, so one player
+                        // can get several bids with different drops; claims change from MY CLAIMS.
                         <button
                           type="button"
-                          aria-label={bid ? `Your claim on ${r.name}: $${bid}. Bid again` : `Bid on ${r.name}`}
-                          onClick={(e) => { e.stopPropagation(); w.setNotice(null); setBidding(r.id); }}
-                          style={{ flex: 'none', minWidth: 38, height: 26, margin: '-4px -4px -4px auto', padding: '0 6px', boxSizing: 'border-box', borderRadius: 3, border: '1px solid var(--volt)', background: bid ? 'var(--volt)' : 'transparent', color: bid ? 'var(--on-volt)' : 'var(--volt)', font: DISPLAY(11, 800), letterSpacing: '.06em', cursor: 'pointer' }}
+                          aria-label={`Bid on ${r.name}`}
+                          onClick={(e) => { e.stopPropagation(); w.setNotice(null); setBidding({ id: r.id }); }}
+                          style={{ flex: 'none', minWidth: 38, height: 26, margin: '-4px -4px -4px auto', padding: '0 6px', boxSizing: 'border-box', borderRadius: 3, border: '1px solid var(--volt)', background: 'transparent', color: 'var(--volt)', font: DISPLAY(11, 800), letterSpacing: '.06em', cursor: 'pointer' }}
                         >
-                          {bid ? `$${bid}` : 'BID'}
+                          BID
                         </button>
                       )}
                       {list === 'all' && (
@@ -248,7 +248,7 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
       </>
       )}
       <BottomNav />
-      {bidding && <BidSheet id={bidding} w={w} info={info} onClose={() => setBidding(null)} />}
+      {bidding && <BidSheet id={bidding.id} edit={bidding.edit} w={w} info={info} onClose={() => setBidding(null)} />}
     </PhoneFrame>
   );
 }
