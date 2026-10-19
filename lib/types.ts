@@ -192,6 +192,8 @@ export interface PlayerGame {
   opp: string;
   /** "SUN 1:00 ET" */
   kickoff: string;
+  /** Kickoff as epoch ms, so the browser can tell whether the game has started. */
+  at: number;
 }
 
 export interface PlayerRow {
