@@ -22,6 +22,8 @@ import type { PlayerRow, PlayersData } from '@/lib/types';
  * The data is a static file built with the site (/players.json).
  * With moves set up, free agents get a BID chip (a blind bid claim) and
  * MY CLAIMS lists your pending bids; who is free is then read live from MFL.
+ * YET TO PLAY keeps only players whose game this week hasn't kicked off,
+ * checked against the clock so rows drop off as games start.
  */
 
 type List = 'fa' | 'all' | 'claims';
@@ -66,8 +68,18 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
   const [pos, setPos] = useState<Pos>('ALL');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<{ key: ColKey; desc: boolean }>({ key: 'proj', desc: true });
+  const [ytp, setYtp] = useState(false);
   const [limit, setLimit] = useState(PAGE);
-  useEffect(() => setLimit(PAGE), [list, pos, q, sort]);
+  useEffect(() => setLimit(PAGE), [list, pos, q, sort, ytp]);
+  // The clock behind YET TO PLAY, ticking each minute while it's on.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ytp) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, [ytp]);
+  const yetToPlay = (r: PlayerRow) => !!r.next && r.next.at > now;
 
   const canMove = useCanMove();
   const byId = useMemo(() => new Map(data?.players.map((p) => [p.id, p])), [data]);
@@ -109,14 +121,14 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
       }
     };
     return rows
-      .filter((r) => (list === 'all' || (live ? live.has(r.id) : !r.owner)) && (pos === 'ALL' || r.pos === pos) && (!needle || r.name.toLowerCase().includes(needle)))
+      .filter((r) => (list === 'all' || (live ? live.has(r.id) : !r.owner)) && (pos === 'ALL' || r.pos === pos) && (!needle || r.name.toLowerCase().includes(needle)) && (!ytp || yetToPlay(r)))
       .sort((a, b) => {
         const va = value(a), vb = value(b);
         // Byes and missing values sink, whichever way the column sorts.
         if (va === null || vb === null) return va === null && vb === null ? 0 : va === null ? 1 : -1;
         return sort.desc ? vb - va : va - vb;
       });
-  }, [rows, list, pos, q, sort, live]);
+  }, [rows, list, pos, q, sort, live, ytp, now]);
 
   const pickSort = (c: (typeof COLS)[number]) =>
     setSort((s) => (s.key === c.key ? { key: c.key, desc: !s.desc } : { key: c.key, desc: !c.low }));
@@ -141,6 +153,7 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
       ) : (
       <>
       <div style={{ flex: 'none', display: 'grid', gap: 8, padding: '10px 16px', background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6 }}>
         <label style={{ position: 'relative', display: 'block' }}>
           <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Search players by name</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ position: 'absolute', left: 12, top: 14, color: 'var(--ink-3)' }}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -152,6 +165,17 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
             style={{ boxSizing: 'border-box', width: '100%', height: 44, padding: '0 12px 0 36px', font: '500 16px/1 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-000)', border: '1px solid var(--line)', borderRadius: 2 }}
           />
         </label>
+        <button
+          type="button"
+          aria-pressed={ytp}
+          onClick={() => setYtp((v) => !v)}
+          title="Only players whose game this week hasn't kicked off"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 44, padding: '0 10px', borderRadius: 2, border: `1px solid ${ytp ? 'var(--edge)' : 'var(--line)'}`, background: ytp ? 'var(--bg-300)' : 'transparent', color: ytp ? 'var(--ink)' : 'var(--ink-3)', font: DISPLAY(12), letterSpacing: '.1em', whiteSpace: 'nowrap', cursor: 'pointer' }}
+        >
+          <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', boxSizing: 'border-box', border: `1.5px solid ${ytp ? 'var(--volt)' : 'currentColor'}`, background: ytp ? 'var(--volt)' : 'transparent' }} />
+          YET TO PLAY
+        </button>
+        </div>
         <div role="group" aria-label="Position" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6 }}>
           {POSITIONS.map((p) => {
             const on = p === pos;
@@ -229,7 +253,7 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
                       )}
                     </span>
                     <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <b style={{ fontWeight: 700, color: posColor(r.pos) }}>{r.pos}</b> · {r.nflTeam}{r.next ? ` · ${r.next.opp}` : ' · BYE'}
+                      <b style={{ fontWeight: 700, color: posColor(r.pos) }}>{r.pos}</b> · {r.nflTeam}{r.next ? ` · ${r.next.opp}` : ' · BYE'}{ytp && r.next ? ` · ${r.next.kickoff.replace(/ ET$/, '')}` : ''}
                     </span>
                   </span>
                   {cells.map(([k, text]) => (
@@ -238,7 +262,11 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
                 </div>
               );
             })}
-            {shown.length === 0 && <div style={{ padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>No players match.</div>}
+            {shown.length === 0 && (
+              <div style={{ position: 'sticky', left: 0, width: 390, maxWidth: '100vw', boxSizing: 'border-box', padding: 16, font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
+                {ytp && !rows.some(yetToPlay) ? `Every Week ${data.projWeek} game has kicked off.` : 'No players match.'}
+              </div>
+            )}
             {shown.length > limit && (
               <button type="button" onClick={() => setLimit((l) => l + PAGE)} style={{ position: 'sticky', left: 0, display: 'block', width: 390, maxWidth: '100vw', height: 48, border: 0, background: 'none', color: 'var(--ink-2)', font: DISPLAY(12), letterSpacing: '.12em', cursor: 'pointer' }}>SHOW MORE</button>
             )}

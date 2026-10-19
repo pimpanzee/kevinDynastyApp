@@ -57,8 +57,8 @@ function gamesFor(week: NflWeek | undefined): Map<string, PlayerGame> {
     const [a, b] = g.teams;
     const kickoff = formatKickoff(g.kickoff);
     const label = (team: string, opp: string) => (g.home && g.home !== team ? `@ ${opp}` : opp);
-    out.set(a, { opp: label(a, b), kickoff });
-    out.set(b, { opp: label(b, a), kickoff });
+    out.set(a, { opp: label(a, b), kickoff, at: g.kickoff });
+    out.set(b, { opp: label(b, a), kickoff, at: g.kickoff });
   }
   return out;
 }
