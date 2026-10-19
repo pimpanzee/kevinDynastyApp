@@ -19,8 +19,13 @@ import type { TeamPick, TeamPlayer, TeamsData, TeamView } from '@/lib/types';
  */
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE'];
-/** League minimum for a legal active roster (MFL only stores the maximum). */
+/**
+ * League limits for the active roster, not counting IR and taxi. MFL's
+ * rosterSize (32) is a different, looser number, so the league's 20–22 rule
+ * lives here.
+ */
 const ROSTER_MIN = 20;
+const ROSTER_MAX = 22;
 /** Committed-by-year looks this many seasons ahead. */
 const YEARS_AHEAD = 3;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -155,7 +160,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
   return {
     priceFor: market.priceFor,
     season, cap: league.salaryCap,
-    limits: { rosterMin: ROSTER_MIN, rosterMax: league.limits.roster, ir: league.limits.ir, taxi: league.limits.taxi },
+    limits: { rosterMin: ROSTER_MIN, rosterMax: ROSTER_MAX, ir: league.limits.ir, taxi: league.limits.taxi },
     lineup: league.lineup,
     myFranchiseId: FRANCHISE_ID,
     teams,
