@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PlayerLink } from '@/components/PlayerCard';
 import LeagueFrame from '@/components/league/LeagueFrame';
 import { MINE_ROW } from '@/components/league/TeamChip';
@@ -8,6 +8,7 @@ import { posColor } from '@/components/pos';
 import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY, money } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
+import TeamLink from '@/components/league/TeamLink';
 import type { TransactionsData, TxAsset, TxMove, TxPlayer } from '@/lib/types';
 
 /**
@@ -113,12 +114,12 @@ export default function ActivityScreen() {
   );
 }
 
-function Head({ tag, title, when, commish }: { tag: string; title: string; when: string; commish?: boolean }) {
+function Head({ tag, title, when, commish }: { tag: string; title: ReactNode; when: string; commish?: boolean }) {
   const trade = tag === 'TRADE';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span style={{ flex: 'none', font: DISPLAY(10), letterSpacing: '.08em', padding: '3px 5px', borderRadius: 2, background: trade ? 'var(--volt)' : 'var(--bg-300)', color: trade ? 'var(--on-volt)' : 'var(--ink)' }}>{tag}</span>
-      <span style={{ minWidth: 0, font: DISPLAY(14), letterSpacing: '.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
+      <span style={{ minWidth: 0, font: DISPLAY(14), letterSpacing: '.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0 4px', margin: '-2px 0 -4px' }}>{title}</span>
       {commish && <span style={{ flex: 'none', font: DISPLAY(9.5), letterSpacing: '.08em', padding: '2px 4px', border: '1px solid var(--edge)', borderRadius: 2, color: 'var(--ink-2)' }}>COMMISH</span>}
       <span style={{ marginLeft: 'auto', flex: 'none', font: '500 11px/1 var(--font-body)', color: 'var(--ink-3)' }}>{when}</span>
     </div>
@@ -152,7 +153,7 @@ function WaiverRun({ claims, mine, name }: { claims: TxMove[]; mine: string; nam
       <Head tag="WAIVER" title={`Waiver run · ${n} ${n === 1 ? 'claim' : 'claims'}`} when={shortWhen(claims[0]!.when)} />
       {teams.map((t) => (
         <div key={t} style={{ margin: '8px -16px 0', padding: '2px 16px 0', ...(t === mine ? MINE_ROW : {}) }}>
-          <div style={{ paddingTop: 6, font: DISPLAY(12), letterSpacing: '.06em', color: 'var(--ink-2)', textTransform: 'uppercase' }}>{name(t)}</div>
+          <div style={{ paddingTop: 6, font: DISPLAY(12), letterSpacing: '.06em', color: 'var(--ink-2)', textTransform: 'uppercase' }}><TeamLink id={t} mine={mine} underline>{name(t)}</TeamLink></div>
           {claims.filter((c) => c.franchiseId === t).flatMap((c) => [
             ...c.adds.map((p) => <Line key={`a${c.id}${p.id}`} sign="+" p={p} note={contractNote(p, c.bid)} />),
             ...c.drops.map((p) => <Line key={`d${c.id}${p.id}`} sign="−" p={p} />),
@@ -173,7 +174,7 @@ function Move({ m, mine, name }: { m: TxMove; mine: string; name: (id: string) =
     const cols = [{ team: a.franchiseId, got: b?.gave ?? [] }, { team: b?.franchiseId ?? '', got: a.gave }];
     return (
       <div style={row}>
-        <Head tag="TRADE" title={`${name(a.franchiseId)} ⇄ ${name(b?.franchiseId ?? '')}`} when={when} commish={m.byCommish} />
+        <Head tag="TRADE" title={<><TeamLink id={a.franchiseId} mine={mine} underline>{name(a.franchiseId)}</TeamLink><span style={{ color: 'var(--ink-2)' }}> ⇄ </span><TeamLink id={b?.franchiseId} mine={mine} underline>{name(b?.franchiseId ?? '')}</TeamLink></>} when={when} commish={m.byCommish} />
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', marginTop: 8, border: '1px solid var(--line)', borderRadius: 4 }}>
           {cols.map((c, i) => (
             <div key={i} style={{ minWidth: 0, padding: '8px 10px', borderLeft: i ? '1px solid var(--line)' : undefined }}>
@@ -196,7 +197,7 @@ function Move({ m, mine, name }: { m: TxMove; mine: string; name: (id: string) =
       ];
   return (
     <div style={row}>
-      <Head tag={TAG[m.kind]} title={name(m.franchiseId)} when={when} commish={m.byCommish} />
+      <Head tag={TAG[m.kind]} title={<TeamLink id={m.franchiseId} mine={mine} underline>{name(m.franchiseId)}</TeamLink>} when={when} commish={m.byCommish} />
       <div style={{ marginTop: 6 }}>{lines}</div>
     </div>
   );

@@ -3,7 +3,7 @@ import { getLeague } from '@/lib/mfl/league';
 import { getTeamsData } from '@/lib/team';
 import TeamPageScreen from './TeamPageScreen';
 
-/** Another team's page, opened from Standings or Ratings. One page per franchise. */
+/** Another team's page, opened by tapping a team name anywhere. One page per franchise. */
 export const dynamicParams = false;
 
 export async function generateStaticParams() {

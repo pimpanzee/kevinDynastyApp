@@ -60,6 +60,7 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, margin: '10px 16px 0' }}>
           <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>
           <Link href="/team/moves/" style={moveLink}>MANAGE ROSTER</Link>
+          <Link href="/team/trades/" style={{ ...moveLink, gridColumn: '1 / -1', height: 36, background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)' }}>TRADE OFFERS</Link>
         </div>
       )}
       {tab === 'roster' && <RosterTab data={data} team={team} />}

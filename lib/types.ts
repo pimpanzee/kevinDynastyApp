@@ -376,6 +376,9 @@ export interface TeamPick {
   /** Projected slot, "1.10"; blank when traded away. */
   slot: string;
   salary: number;
+  /** Held picks: MFL's trade id (FP_<original>_<year>_<round>) and the projected slot number. */
+  asset?: string;
+  slotNum?: number;
 }
 
 export interface TeamView {
