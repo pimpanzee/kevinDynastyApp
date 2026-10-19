@@ -252,11 +252,13 @@ export class WriteRelay {
       return { ...base, signedIn: false, reason: 'mfl-error', error: message, cookie: cookieInfo(await this.cookie()) };
     }
     const leagues = body.myleagues?.league;
-    const league = (Array.isArray(leagues) ? leagues : leagues ? [leagues] : []).find((l) => l.league_id === MFL_LEAGUE_ID);
+    // Each league names itself by its home page URL (…/2026/home/63396); league_id only sometimes.
+    const all = Array.isArray(leagues) ? leagues : leagues ? [leagues] : [];
+    const league = all.find((l) => l.league_id === MFL_LEAGUE_ID || new RegExp(`/home/${MFL_LEAGUE_ID}(\\D|$)`).test(l.url ?? ''));
     // myleagues answers a dead cookie with an empty list, not an error.
     if (!league?.franchise_id) {
       this.markCookie(c.fingerprint, false);
-      return { ...base, signedIn: false, reason: 'not-in-league', cookie: cookieInfo(await this.cookie()) };
+      return { ...base, signedIn: false, reason: all.length ? 'not-in-league' : 'no-leagues', leagues: all.length, cookie: cookieInfo(await this.cookie()) };
     }
     this.markCookie(c.fingerprint, true, league.franchise_id);
     return {
