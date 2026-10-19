@@ -216,6 +216,19 @@ export class WriteRelay {
     }
   }
 
+  /**
+   * Whether the cookie is still marked expired after asking MFL again. A
+   * mark can be stale (a misread), so it never blocks without a fresh check.
+   */
+  async expired(c) {
+    if (!c.expired_at) return false;
+    const who = await this.me();
+    if (!who.signedIn) return true;
+    c.franchise_id = who.franchiseId;
+    c.expired_at = null;
+    return false;
+  }
+
   headers(cookie) {
     return {
       Cookie: `MFL_USER_ID=${cookie}`,
@@ -251,7 +264,8 @@ export class WriteRelay {
       if (isSignedOut(message)) this.markCookie(c.fingerprint, false);
       return { ...base, signedIn: false, reason: 'mfl-error', error: message, cookie: cookieInfo(await this.cookie()) };
     }
-    const leagues = body.myleagues?.league;
+    // The JSON reply's root is "leagues" (the export is myleagues, the element isn't).
+    const leagues = (body.leagues ?? body.myleagues)?.league;
     // Each league names itself by its home page URL (…/2026/home/63396); league_id only sometimes.
     const all = Array.isArray(leagues) ? leagues : leagues ? [leagues] : [];
     const league = all.find((l) => l.league_id === MFL_LEAGUE_ID || new RegExp(`/home/${MFL_LEAGUE_ID}(\\D|$)`).test(l.url ?? ''));
@@ -296,7 +310,7 @@ export class WriteRelay {
     if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
     const c = await this.cookie();
     if (!c) return { error: 'No MFL login is set up on the relay', status: 503 };
-    if (c.expired_at) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
+    if (await this.expired(c)) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
     let franchiseId = c.franchise_id;
     if (!franchiseId) {
       const who = await this.me();
@@ -345,7 +359,7 @@ export class WriteRelay {
   async waivers() {
     const c = await this.cookie();
     if (!c) return { error: 'No MFL login is set up on the relay', status: 503 };
-    if (c.expired_at) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
+    if (await this.expired(c)) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
     const { MFL_HOST, MFL_SEASON, MFL_LEAGUE_ID } = this.env;
     const league = `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1`;
     try {
@@ -376,7 +390,7 @@ export class WriteRelay {
     if (checked.error) return { ok: false, error: checked.error, status: 400 };
     const c = await this.cookie();
     if (!c) return { ok: false, error: 'No MFL login is set up on the relay', status: 503 };
-    if (c.expired_at) {
+    if (await this.expired(c)) {
       return { ok: false, signedOut: true, error: 'The MFL login has expired; sign in again', status: 401 };
     }
 
