@@ -7,7 +7,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import { posColor } from '@/components/pos';
 import { DISPLAY, money } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
-import { isError, useCanMove, write } from '@/lib/relay';
+import { isError, useCanMove, write, SIGNED_OUT } from '@/lib/relay';
 import TradeSides from '@/components/trade/TradeSides';
 import { tradeAssets, type TradeAsset } from '@/lib/trade';
 import type { TeamsData, TeamView } from '@/lib/types';
@@ -81,7 +81,7 @@ export default function TradeScreen({ data, teamId }: { data: TeamsData; teamId:
     setBusy(false);
     if (!isError(r)) return setView('sent');
     if (r.unknown) return setNotice({ tone: 'warn', text: 'MFL didn’t answer in time, so the offer may or may not have gone out. Check Trade offers before sending it again.' });
-    setNotice({ tone: 'bad', text: r.signedOut ? 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.' : r.error });
+    setNotice({ tone: 'bad', text: r.signedOut ? SIGNED_OUT : r.error });
   };
 
   const teamBack = <Link href={`/league/team/${them.id}/`} aria-label={`Back to ${them.name}`} style={backLink}>{back}<span style={clip}>{them.name.toUpperCase()}</span></Link>;

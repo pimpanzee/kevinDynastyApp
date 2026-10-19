@@ -10,7 +10,8 @@ import TeamAvatar from '@/components/TeamAvatar';
 import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY } from '@/components/team/format';
 import { saveTeam, useMyTeam } from '@/lib/myTeam';
-import { getMe, isError, readToken, saveToken, useCanMove } from '@/lib/relay';
+import { current } from '@/lib/push';
+import { canSignIn, getMe, isError, logout, useAccount, useCanMove } from '@/lib/relay';
 import { useTheme, type Theme } from '@/lib/theme';
 import Alerts from './Alerts';
 
@@ -104,8 +105,8 @@ export default function SettingsScreen({ franchises, defaultTeam }: { franchises
         <div style={{ marginTop: 12 }}><SectionHead label="APPEARANCE" /></div>
         <Appearance />
 
-        <div style={{ marginTop: 12 }}><SectionHead label="MAKE MOVES" /></div>
-        <MakeMoves />
+        <div style={{ marginTop: 12 }}><SectionHead label="MFL ACCOUNT" /></div>
+        <Account franchises={franchises} />
 
         {canMove && (
           <>
@@ -144,57 +145,69 @@ function Row({ href, title, sub, icon }: { href: string; title: string; sub: str
 }
 
 /**
- * The write relay's app token, kept on this device. With it, My Team gets a
- * SET LINEUP button and moves go to MFL as the owner whose login the relay
- * holds (worker/README.md).
+ * The MFL account signed in on this device. Signed out: a way to the login
+ * screen. Signed in: the team, a login check, and signing out (this device,
+ * or every device, which also makes the relay forget the MFL login).
  */
-function MakeMoves() {
-  const [saved, setSaved] = useState(false);
-  const [draft, setDraft] = useState('');
+function Account({ franchises }: { franchises: FranchiseOption[] }) {
+  const account = useAccount();
   const [status, setStatus] = useState('');
-  useEffect(() => setSaved(Boolean(readToken())), []);
+  const [busy, setBusy] = useState(false);
+  const small = { height: 36, padding: '0 12px', borderRadius: 2, border: '1px solid var(--edge)', background: 'transparent', color: 'var(--ink)', font: DISPLAY(12), letterSpacing: '.1em', cursor: 'pointer' } as const;
+  const text = { margin: '8px 0 0', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' } as const;
 
+  if (account === undefined) return null;
+  if (!canSignIn) return <p style={{ ...text, padding: '0 16px' }}>Moves aren’t available on this copy of the app.</p>;
+  if (!account) {
+    return (
+      <div style={{ padding: '12px 16px 0' }}>
+        <Link href="/login/" style={{ ...small, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 44, background: 'var(--volt)', borderColor: 'var(--volt)', color: 'var(--on-volt)' }}>SIGN IN WITH MFL</Link>
+        <p style={text}>{status || 'Sign in with your MyFantasyLeague account to set your lineup, place claims, trade and get alerts for your team.'}</p>
+      </div>
+    );
+  }
+
+  const team = franchises.find((f) => f.id === account.franchiseId);
   const check = async () => {
     setStatus('Checking…');
     const r = await getMe();
     if (isError(r)) return setStatus(r.error);
-    if (r.signedIn) return setStatus(`Signed in to MFL as ${r.franchiseName ?? `franchise ${r.franchiseId}`} (${r.season}).`);
-    if (r.signedIn === null) return setStatus('MFL did not answer; try again shortly.');
-    if (r.reason === 'no-cookie') return setStatus('The relay has no MFL login yet (MFL_COOKIE).');
-    if (r.reason === 'not-in-league') return setStatus(`MFL accepted the login, but its ${r.season} leagues don’t include this one. Check MFL_SEASON and that the cookie is from your own account.`);
-    if (r.reason === 'mfl-error') return setStatus(`MFL refused the login: ${r.error ?? 'no reason given'}. Run scripts/mfl-login.mjs again and paste only the printed value into MFL_COOKIE.`);
-    return setStatus('MFL doesn’t recognise the login on the relay (it has expired or was pasted wrong). Run scripts/mfl-login.mjs again and paste only the printed value into MFL_COOKIE.');
+    if (r.signedIn) return setStatus(`MFL has you signed in as ${r.franchiseName ?? team?.name ?? `team ${r.franchiseId}`} (${r.season}).`);
+    if (r.signedIn === null) return setStatus('MFL didn’t answer; try again shortly.');
+    return setStatus('MFL no longer accepts your login. Sign out, then sign in again.');
   };
-  const save = () => {
-    saveToken(draft.trim());
-    setDraft('');
-    setSaved(true);
-    check();
-  };
-  const remove = () => {
-    saveToken('');
-    setSaved(false);
-    setStatus('');
+  const signOut = async (everywhere: boolean) => {
+    if (everywhere && !window.confirm('Sign out on every device and have the app forget your MFL login?')) return;
+    setBusy(true);
+    const sub = await current().catch(() => null);
+    const r = await logout({ everywhere, endpoint: sub?.endpoint });
+    if (isError(r)) {
+      setBusy(false);
+      return setStatus(r.error);
+    }
+    // Alerts belong to the account, so they stop on this device too.
+    await sub?.unsubscribe().catch(() => undefined);
+    setBusy(false);
+    setStatus(everywhere ? 'Signed out everywhere. The app no longer has your MFL login.' : 'Signed out on this device.');
   };
 
-  const small = { height: 36, padding: '0 12px', borderRadius: 2, border: '1px solid var(--edge)', background: 'transparent', color: 'var(--ink)', font: DISPLAY(12), letterSpacing: '.1em', cursor: 'pointer' } as const;
   return (
     <div style={{ padding: '12px 16px 0' }}>
-      {saved ? (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" onClick={check} style={small}>CHECK LOGIN</button>
-          <button type="button" onClick={remove} style={small}>REMOVE TOKEN</button>
-        </div>
-      ) : (
-        <form onSubmit={(e) => { e.preventDefault(); if (draft.trim()) save(); }} style={{ display: 'flex', gap: 6 }}>
-          <input type="password" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="App token" autoComplete="off" aria-label="App token"
-            style={{ flex: 1, minWidth: 0, height: 36, padding: '0 10px', borderRadius: 2, border: '1px solid var(--edge)', background: 'var(--bg-100)', color: 'var(--ink)', font: '500 14px/1 var(--font-body)' }} />
-          <button type="submit" style={{ ...small, background: 'var(--volt)', borderColor: 'var(--volt)', color: 'var(--on-volt)' }}>SAVE</button>
-        </form>
-      )}
-      <p style={{ margin: '8px 0 0', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
-        {status || (saved ? 'Moves are on for this device: set your lineup from My Team.' : 'Paste the relay’s APP_TOKEN to set your lineup and make IR and taxi moves from this device.')}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 2 }}>
+        <TeamAvatar name={team?.name ?? account.franchiseName ?? '?'} icon={team?.icon ?? null} size={32} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', font: '600 14px/1.25 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team?.name ?? account.franchiseName}</span>
+          <span style={{ display: 'block', marginTop: 2, font: '500 12px/1.3 var(--font-body)', color: 'var(--ink-3)' }}>Signed in with MFL on this device</span>
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        <button type="button" disabled={busy} onClick={check} style={small}>CHECK LOGIN</button>
+        <button type="button" disabled={busy} onClick={() => signOut(false)} style={small}>SIGN OUT</button>
+      </div>
+      <p style={text}>{status || 'Moves you make here go to MFL as this team.'}</p>
+      <button type="button" disabled={busy} onClick={() => signOut(true)} style={{ marginTop: 6, padding: 0, border: 0, background: 'none', color: 'var(--ink-3)', font: '600 12px/1.45 var(--font-body)', textDecoration: 'underline', cursor: 'pointer' }}>
+        Sign out everywhere and forget my MFL login
+      </button>
     </div>
   );
 }

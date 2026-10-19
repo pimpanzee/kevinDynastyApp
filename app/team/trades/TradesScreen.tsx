@@ -8,11 +8,10 @@ import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY } from '@/components/team/format';
 import TradeSides from '@/components/trade/TradeSides';
 import { useMyTeam } from '@/lib/myTeam';
-import { getTrades, isError, useCanMove, write, type PendingTrade } from '@/lib/relay';
+import { getTrades, isError, useCanMove, write, type PendingTrade, SIGNED_OUT } from '@/lib/relay';
 import { assetIndex, pickName, type TradeAsset } from '@/lib/trade';
 import type { TeamsData } from '@/lib/types';
 
-const EXPIRED = 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.';
 const back = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>;
 
 /**
@@ -34,7 +33,7 @@ export default function TradesScreen({ data }: { data: TeamsData }) {
   const load = useCallback(async () => {
     const r = await getTrades();
     if (isError(r)) {
-      setError(r.signedOut ? EXPIRED : r.error);
+      setError(r.signedOut ? SIGNED_OUT : r.error);
       return;
     }
     setError('');
@@ -57,7 +56,7 @@ export default function TradesScreen({ data }: { data: TeamsData }) {
     setBusy(null);
     setConfirm(null);
     if (isError(r)) {
-      setNotice({ tone: 'bad', text: r.signedOut ? EXPIRED : r.unknown ? 'MFL didn’t answer in time, so that may or may not have gone through. The list below is re-read from MFL.' : r.error });
+      setNotice({ tone: 'bad', text: r.signedOut ? SIGNED_OUT : r.unknown ? 'MFL didn’t answer in time, so that may or may not have gone through. The list below is re-read from MFL.' : r.error });
     } else {
       const other = name(t.from === mine ? t.to : t.from);
       setNotice({ tone: 'good', text: action === 'accept' ? `Trade with ${other} accepted.` : action === 'reject' ? `Offer from ${other} rejected.` : `Offer to ${other} withdrawn.` });

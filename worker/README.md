@@ -25,7 +25,7 @@ nothing on `*.workers.dev` addresses. Durable Objects are on the free plan.
    Worker's URL, e.g. `https://gridlock-live.<you>.workers.dev`.
 6. The site defaults to `https://gridlock-live.flynnliam3.workers.dev`
    (`.github/workflows/pages.yml`). If the Worker moves, set the `LIVE_URL`
-   variable to the new URL and re-run **Deploy to GitHub Pages**.
+   variable to the new URL and re-run **Deploy site**.
 
 Live polling only runs against the real clock: set the variables
 `MFL_SEASON=2026` and `MFL_SIM_NOW=live`, then re-run both workflows. On a
@@ -51,77 +51,92 @@ public game summaries for touchdowns and big gains, re-read at most every 2
 minutes while games are on (a finished game is read once). `franchise`
 defaults to the league's default team, and `week` to the current week. Season and
 league come from configuration, never the caller. CORS is granted only to
-`ALLOWED_ORIGINS` in `wrangler.toml`.
+the site (`SITE_URL`) and `ALLOWED_ORIGINS` in `wrangler.toml`.
 
-## Write relay (solo)
+## Write relay (whole league)
 
-`GET /me`, `POST /write` and `GET /audit` let the app make moves on MFL as
-you. They answer only requests carrying `Authorization: Bearer <APP_TOKEN>`.
-MFL's API key can't write, so the relay uses your MFL login cookie, held as a
-Cloudflare secret. Your password is never stored anywhere.
+Any owner in the league can make moves for their own team from the app.
+MFL's API key can't write, so the relay acts with each owner's own MFL login.
+
+**Signing in.** The app's login screen (Settings → MFL account → Sign in)
+sends the owner's MFL username and password to `POST /login`. The relay
+passes them to MFL's HTTPS login once, gets back MFL's login cookie, checks
+with `myleagues` that the account owns a team in `MFL_LEAGUE_ID` (a
+commissioner account with no team is refused), and then:
+
+- **never stores the password** (it isn't logged either);
+- stores the cookie **encrypted** (AES-256-GCM with the `COOKIE_KEY` secret,
+  bound to the team), one per team; signing in again replaces it;
+- returns a **session token** for that device, kept only as a SHA-256 hash.
+  Sessions end after 180 days unused, at most 10 per owner.
+
+Sign-in is rate limited (8 tries per address and 60 in all per 15 minutes),
+so the relay can't be used to guess MFL passwords.
+
+Every other route needs `Authorization: Bearer <session token>` and acts as
+that owner: `GET /me` (is the MFL login still good), `GET /mine`,
+`GET /waivers`, `GET /trades`, `POST /write`, `GET /audit` (that owner's own
+moves) and `/push/*`. `POST /logout` ends this device's session (and its
+alerts); `{"all": true}` also forgets the owner's MFL login and ends every
+session. A session that no longer works answers `401` with `noSession: true`.
 
 What it will send (`src/relay.js`, `WRITES`), always for league
-`MFL_LEAGUE_ID` and never with `FRANCHISE_ID`, so MFL applies each one to your
-own team: `lineup`, `blindBidWaiverRequest`, `fcfsWaiver` (drops only; every
-pickup goes through blind bids), `ir`, `taxi_squad`, `tradeProposal`,
-`tradeResponse`. Anything else, or any other parameter, is refused.
+`MFL_LEAGUE_ID` and never with `FRANCHISE_ID`, so MFL applies each one to the
+signed-in owner's own team: `lineup`, `blindBidWaiverRequest`, `fcfsWaiver`
+(drops only; every pickup goes through blind bids), `ir`, `taxi_squad`,
+`tradeProposal`, `tradeResponse`. Anything else, or any other parameter, is
+refused. Commissioner actions are out of scope.
 
 - **No retries.** A timeout or a 429 comes back as `ok: null`, "may or may
   not have gone through"; re-read the roster before trying again.
 - **Success is read from MFL's reply body**, since MFL answers failures with
   HTTP 200 and an `<error>`.
-- **An expired login stops writes** (`401`, `signedOut: true`) until the
-  cookie is replaced.
-- **Live team read:** `GET /mine[?week=N]` returns your roster (with IR and
-  taxi), that week's starters and each NFL team's kickoff, read fresh from MFL
-  and never cached. The lineup screen (My Team → SET LINEUP) uses it.
-- **Waivers:** `GET /waivers` returns MFL's current free agents and your
-  pending blind bids (`pending`, in priority order, or `null` if MFL's reply
-  couldn't be read, in which case the app won't rewrite them). Never cached.
-- **Trades:** `GET /trades` returns the trade offers waiting on an answer
-  (MFL's `pendingTrades`: ones you sent and ones sent to you, or `null` if
-  the reply couldn't be read). Never cached. Offers go out with
-  `tradeProposal` and are answered or withdrawn with `tradeResponse`.
-- **Push alerts:** Settings → Alerts subscribes a device (`GET /push/key`,
-  `POST /push/subscribe`, `/push/unsubscribe`, `/push/test`). A run every 15
-  minutes (`src/alerts.js`) pushes: a lineup check 90 minutes before each
-  kickoff when a starter in it is out (or the lineup is short or has a bye),
-  a starter newly ruled Out/Doubtful/IR before his game, waiver results (won or
-  lost, once your pending claims are processed), the Tuesday recap, and a
-  notice when the MFL login expires. The VAPID keys are made by the relay on
-  first use and kept in its Durable Object, so there is nothing to set up.
-  On iPhone, push only works from the app added to the Home Screen.
-- **Audit log:** every write, its parameters and MFL's reply, kept in the
-  relay's Durable Object. `GET /audit` returns the last 100.
-- **Login lifetime:** a daily scheduled run calls `/me`, which records when the
-  current cookie was first seen, last worked and first failed
-  (`cookie.firstSeen`, `lastOk`, `expiredAt`). That answers how long an MFL
-  login lasts.
+- **An expired login stops that owner's writes** (`401`, `signedOut: true`)
+  until they sign in again.
+- **Live team read:** `GET /mine[?week=N]` returns the owner's roster (with
+  IR and taxi), that week's starters and each NFL team's kickoff, read fresh
+  from MFL and never cached.
+- **Waivers:** `GET /waivers` returns MFL's current free agents and the
+  owner's pending blind bids (`pending`, or `null` if MFL's reply couldn't be
+  read, in which case the app won't rewrite them). Never cached.
+- **Trades:** `GET /trades` returns the owner's trade offers waiting on an
+  answer. Never cached.
+- **Push alerts, per owner:** Settings → Alerts subscribes a device to the
+  signed-in owner's alerts, with its own choice of which ones
+  (`GET /push/key`, `POST /push/subscribe`, `/push/unsubscribe`,
+  `/push/test`). A run every 15 minutes (`src/alerts.js`) checks each owner
+  with a device subscribed: a lineup check 90 minutes before each kickoff
+  when a starter in it is out (or the lineup is short or has a bye), a
+  starter newly ruled Out/Doubtful/IR, waiver results, the Tuesday recap, and
+  a notice when their MFL login expires. League-wide reads are shared across
+  owners in a run; pending claims are read with each owner's own login. The
+  VAPID keys are made by the relay on first use. On iPhone, push only works
+  from the app added to the Home Screen.
+- **Audit log:** every write, its parameters, MFL's reply and whose it was.
+- **Login lifetime:** a daily run checks every stored login and records when
+  each was first seen, last worked and first failed.
 
 ```bash
-curl -H "Authorization: Bearer $APP_TOKEN" https://gridlock-live.flynnliam3.workers.dev/me
-curl -X POST -H "Authorization: Bearer $APP_TOKEN" https://gridlock-live.flynnliam3.workers.dev/write \
-  -d '{"type":"ir","params":{"DEACTIVATE":"15337"}}'
+curl -X POST -H 'Content-Type: application/json' https://gridlock-live.flynnliam3.workers.dev/login \
+  -d '{"username":"you","password":"…"}'          # → { "session": "…", "franchiseId": "0012" }
+curl -H "Authorization: Bearer $SESSION" https://gridlock-live.flynnliam3.workers.dev/me
 ```
 
 ### Setup (once)
 
-1. **Register the app with MFL** (optional, raises MFL's rate limit about
+1. **`COOKIE_KEY`**: nothing to do. The **Deploy live relay** workflow
+   creates it on its first run (32 random bytes, stored only as a Cloudflare
+   secret). Changing or deleting it signs everyone out.
+2. **Register the app with MFL** (optional, raises MFL's rate limit about
    2.5×): sign in on MFL, open the API Client Registration page from
    [MFL's developer docs](https://api.myfantasyleague.com/2026/api_info), and
    verify by text. Put the User-Agent it gives you in the GitHub variable
    `MFL_USER_AGENT` (no spaces), then re-run **Deploy live relay**.
-2. **Get your MFL cookie** on your own computer:
-   `node scripts/mfl-login.mjs 2026`. Add what it prints as the secret
-   `MFL_COOKIE` (Cloudflare → Workers & Pages → gridlock-live → Settings →
-   Variables and Secrets → Add, type Secret).
-3. **Add `APP_TOKEN`** the same way: a long random string, e.g. from
-   `openssl rand -hex 32`. The app will send it; keep a copy for your phone.
-4. Check: the `/me` call above should say `"signedIn": true` with your
-   franchise. Writes go to `MFL_SEASON`, so that variable must be the real
-   season (2026), not a replayed one.
+3. Writes go to `MFL_SEASON`, so that variable must be the real season
+   (2026), not a replayed one.
 
-When a login expires, run step 2 again and replace `MFL_COOKIE`.
+The single-owner secrets from before, `MFL_COOKIE` and `APP_TOKEN`, are no
+longer used and can be deleted.
 
 ## Local
 
@@ -129,6 +144,6 @@ When a login expires, run step 2 again and replace `MFL_COOKIE`.
 cd worker && npx wrangler dev        # http://localhost:8787/live?week=11
 ```
 
-For the write relay, put `MFL_COOKIE`, `APP_TOKEN` and `MFL_SEASON=2026` in
-`worker/.dev.vars` (git-ignored). Build the site with `NEXT_PUBLIC_LIVE_URL=http://localhost:8787` to point it
+For the write relay, put `COOKIE_KEY` (`openssl rand -base64 32`) and
+`MFL_SEASON=2026` in `worker/.dev.vars` (git-ignored). Build the site with `NEXT_PUBLIC_LIVE_URL=http://localhost:8787` to point it
 at the local relay.

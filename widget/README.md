@@ -21,7 +21,7 @@ one is your opponent's. Tapping the widget opens the matchup in the app.
 ## Setup
 
 1. Install **Scriptable** from the App Store.
-2. On your phone, open <https://pimpanzee.github.io/kevinDynastyApp/widget/>
+2. On your phone, open <https://kevin-dynasty-app.pages.dev/widget/>
    and tap **Copy script**. In Scriptable, tap **+**, paste, and name it
    `The Liam`. Tap ▶ to preview it. (The page carries
    [`gridlock-widget.js`](gridlock-widget.js), read at build time.)

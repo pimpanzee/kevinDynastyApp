@@ -7,7 +7,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import SubTabs from '@/components/SubTabs';
 import Link from 'next/link';
 import { useMyTeam } from '@/lib/myTeam';
-import { useCanMove } from '@/lib/relay';
+import { canSignIn, useAccount } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 import CapTab from './CapTab';
 import PicksTab from './PicksTab';
@@ -24,7 +24,7 @@ export type TeamTab = 'roster' | 'cap' | 'picks';
  */
 export default function TeamScreen({ data, tab: routeTab, teamId, header }: { data: TeamsData; tab?: TeamTab; teamId?: string; header?: ReactNode }) {
   const mine = useMyTeam(data.myFranchiseId);
-  const canMove = useCanMove();
+  const account = useAccount();
   const [localTab, setLocalTab] = useState<TeamTab>('roster');
   const id = teamId ?? mine;
   const team = data.teams.find((t) => t.id === id) ?? data.teams[0];
@@ -56,12 +56,15 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
         active={tab}
         onSelect={teamId ? (k) => setLocalTab(k as TeamTab) : undefined}
       />
-      {tab === 'roster' && !teamId && canMove && (
+      {tab === 'roster' && !teamId && account && account.franchiseId === id && (
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, margin: '10px 16px 0' }}>
           <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>
           <Link href="/team/moves/" style={moveLink}>MANAGE ROSTER</Link>
           <Link href="/team/trades/" style={{ ...moveLink, gridColumn: '1 / -1', height: 36, background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)' }}>TRADE OFFERS</Link>
         </div>
+      )}
+      {tab === 'roster' && !teamId && account === null && canSignIn && (
+        <Link href="/login/?next=/team/" style={{ ...moveLink, flex: 'none', margin: '10px 16px 0', height: 36, background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)' }}>SIGN IN TO MAKE MOVES</Link>
       )}
       {tab === 'roster' && <RosterTab data={data} team={team} />}
       {tab === 'cap' && <CapTab data={data} team={team} />}

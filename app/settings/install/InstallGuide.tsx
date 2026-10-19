@@ -27,19 +27,21 @@ export default function InstallGuide() {
   // Unknown on the server; filled in once the page is in the browser.
   const [installed, setInstalled] = useState(false);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
+  const [site, setSite] = useState('kevin-dynasty-app.pages.dev');
 
   useEffect(() => {
     const nav = navigator as Navigator & { standalone?: boolean };
     setInstalled(window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true);
     const ua = navigator.userAgent;
     setPlatform(/iPhone|iPad|iPod/.test(ua) ? 'ios' : /Android/.test(ua) ? 'android' : 'other');
+    setSite(`${window.location.host}${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}`);
   }, []);
 
   const iphone = (
     <>
       <SectionLabel>IPHONE (SAFARI)</SectionLabel>
       <Steps>
-        <Step>Open <strong>pimpanzee.github.io/kevinDynastyApp</strong> in <strong>Safari</strong>. Other browsers and in-app browsers (texts, Instagram) can&apos;t install it.</Step>
+        <Step>Open <strong>{site}</strong> in <strong>Safari</strong>. Other browsers and in-app browsers (texts, Instagram) can&apos;t install it.</Step>
         <Step>Tap the Share button {ShareIcon} (bottom of the screen, or top right on iPad).</Step>
         <Step>Scroll down and tap <strong>Add to Home Screen</strong>.</Step>
         <Step>Keep the name The Liam and tap <strong>Add</strong>.</Step>
@@ -51,7 +53,7 @@ export default function InstallGuide() {
     <>
       <SectionLabel>ANDROID (CHROME)</SectionLabel>
       <Steps>
-        <Step>Open <strong>pimpanzee.github.io/kevinDynastyApp</strong> in <strong>Chrome</strong>.</Step>
+        <Step>Open <strong>{site}</strong> in <strong>Chrome</strong>.</Step>
         <Step>Tap the <strong>⋮</strong> menu (top right).</Step>
         <Step>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>), then <strong>Install</strong>.</Step>
         <Step>Open it from the new icon.</Step>
