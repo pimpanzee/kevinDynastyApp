@@ -85,6 +85,7 @@ export interface Me {
   franchiseName?: string | null;
   season: string;
   reason?: string;
+  error?: string;
 }
 
 export interface Mine {

@@ -160,7 +160,10 @@ function MakeMoves() {
     if (isError(r)) return setStatus(r.error);
     if (r.signedIn) return setStatus(`Signed in to MFL as ${r.franchiseName ?? `franchise ${r.franchiseId}`} (${r.season}).`);
     if (r.signedIn === null) return setStatus('MFL did not answer; try again shortly.');
-    return setStatus(r.reason === 'no-cookie' ? 'The relay has no MFL login yet (MFL_COOKIE).' : 'The MFL login on the relay has expired. Run scripts/mfl-login.mjs again.');
+    if (r.reason === 'no-cookie') return setStatus('The relay has no MFL login yet (MFL_COOKIE).');
+    if (r.reason === 'not-in-league') return setStatus(`MFL accepted the login, but its ${r.season} leagues don’t include this one. Check MFL_SEASON and that the cookie is from your own account.`);
+    if (r.reason === 'mfl-error') return setStatus(`MFL refused the login: ${r.error ?? 'no reason given'}. Run scripts/mfl-login.mjs again and paste only the printed value into MFL_COOKIE.`);
+    return setStatus('MFL doesn’t recognise the login on the relay (it has expired or was pasted wrong). Run scripts/mfl-login.mjs again and paste only the printed value into MFL_COOKIE.');
   };
   const save = () => {
     saveToken(draft.trim());
