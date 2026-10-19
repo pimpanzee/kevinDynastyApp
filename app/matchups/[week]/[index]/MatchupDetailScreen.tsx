@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar, { HeaderButton } from '@/components/HeaderBar';
 import InjuryTag from '@/components/InjuryTag';
@@ -32,6 +32,17 @@ const clip = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis
 const notStarted = (p: BoxPlayerView) =>
   p.pts === '—' || p.line.includes('yet to play') || /\b\d{1,2}:\d{2}\b/.test(p.line.split(' · ').slice(1).join(' '));
 const num = (s: string) => Number(s.replace(/[^\d.-]/g, '')) || 0;
+
+/**
+ * Every player box is one fixed height, sized for the full stack (name, status,
+ * game line, stat byline), so rows line up across both sides and don't grow
+ * when a game kicks off. Empty lines hold their space with a blank.
+ */
+const STARTER_H = 88;
+const BENCH_H = 85;
+const BLANK = '\u00a0';
+/** Live projection once his game is under way, else the pre-game one. */
+const projText = (p: BoxPlayerView) => p.projNow ?? p.proj.replace(/^proj\s*/i, '');
 
 /**
  * One roster's players stacked on their own: QB → RB → WR → TE, highest
@@ -117,7 +128,9 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
         <Link href={pageHref(view.index + 1)} aria-label="Next matchup" style={pager}><Chev d="m9 18 6-6-6-6" /></Link>
       </div>
 
-      <ScoreBlock view={view} mine={mySide === 'home'} pre={pre} final={final} />
+      <Swipe key={view.index} onPrev={() => router.push(pageHref(view.index - 1))} onNext={() => router.push(pageHref(view.index + 1))}>
+        <ScoreBlock view={view} mine={mySide === 'home'} pre={pre} final={final} />
+      </Swipe>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {alerts.length > 0 && (
@@ -170,6 +183,52 @@ function Columns({ left, right, muted }: { left: React.ReactNode[]; right: React
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'start', color: muted ? 'var(--ink-2)' : undefined }}>
       <div style={{ minWidth: 0 }}>{left}</div>
       <div style={{ minWidth: 0, borderLeft: '1px solid var(--line)' }}>{right}</div>
+    </div>
+  );
+}
+
+/** How far a finger has to travel sideways before a swipe changes the matchup. */
+const SWIPE_PX = 50;
+
+/**
+ * Swipe the score block left for the next matchup, right for the previous one.
+ * The block follows the finger while dragging; a mostly vertical drag is left
+ * alone so the page still scrolls.
+ */
+function Swipe({ onPrev, onNext, children }: { onPrev: () => void; onNext: () => void; children: React.ReactNode }) {
+  const start = useRef<{ x: number; y: number; axis: 'x' | 'y' | null } | null>(null);
+  const [dx, setDx] = useState(0);
+  const [settling, setSettling] = useState(false);
+  const end = () => {
+    const d = dx;
+    start.current = null;
+    setSettling(true);
+    if (d <= -SWIPE_PX) { setDx(-window.innerWidth); onNext(); return; }
+    if (d >= SWIPE_PX) { setDx(window.innerWidth); onPrev(); return; }
+    setDx(0);
+  };
+  return (
+    <div
+      style={{ flex: 'none', overflow: 'hidden', touchAction: 'pan-y' }}
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        start.current = { x: t.clientX, y: t.clientY, axis: null };
+        setSettling(false);
+      }}
+      onTouchMove={(e) => {
+        const s = start.current;
+        if (!s) return;
+        const t = e.touches[0];
+        const x = t.clientX - s.x, y = t.clientY - s.y;
+        if (!s.axis && Math.hypot(x, y) > 8) s.axis = Math.abs(x) > Math.abs(y) ? 'x' : 'y';
+        if (s.axis === 'x') setDx(x);
+      }}
+      onTouchEnd={end}
+      onTouchCancel={() => { start.current = null; setSettling(true); setDx(0); }}
+    >
+      <div style={{ transform: dx ? `translateX(${dx}px)` : undefined, opacity: 1 - Math.min(0.5, Math.abs(dx) / 600), transition: settling ? 'transform .2s ease-out, opacity .2s ease-out' : undefined }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -256,14 +315,14 @@ function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Sid
         {!right && <><InjuryTag tag={p.injury} /><InjuryTag tag={flag} /></>}
       </div>
       <StatusLine p={p} right={right} />
-      {game && <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', ...clip }}>{game}</div>}
+      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', ...clip }}>{game || BLANK}</div>
     </div>
   );
   const yet = notStarted(p);
   const scoreInner = (
     <>
       <div style={{ font: DISPLAY(19), fontVariantNumeric: 'tabular-nums', color: yet ? 'var(--ink-3)' : 'var(--ink)', paddingBottom: 2, borderBottom: p.breakdown && !yet ? '1px dotted var(--edge)' : undefined }}>{yet ? '—' : p.pts}</div>
-      <div style={{ font: '500 10.5px/1 var(--font-body)', color: 'var(--ink-3)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{p.proj.replace(/^proj\s*/i, '')}</div>
+      <div style={{ font: '500 10.5px/1 var(--font-body)', color: 'var(--ink-3)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{projText(p)}</div>
     </>
   );
   const score = p.breakdown ? (
@@ -273,15 +332,11 @@ function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Sid
     </button>
   ) : <div style={{ flex: 'none', textAlign: right ? 'left' : 'right' }}>{scoreInner}</div>;
   return (
-    <div style={{ padding: right ? '9px 16px 9px 10px' : '9px 10px 9px 16px', minWidth: 0, borderBottom: '1px solid var(--line)' }}>
+    <div style={{ height: STARTER_H, boxSizing: 'border-box', overflow: 'hidden', padding: right ? '9px 16px 9px 10px' : '9px 10px 9px 16px', minWidth: 0, borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         {right ? <>{score}{name}</> : <>{name}{score}</>}
       </div>
-      {!pre && !yet && p.byline && (
-        <div style={{ marginTop: 5, font: '500 10.5px/1.35 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', textAlign: right ? 'right' : undefined, ...clip }}>
-          {p.byline.replace(/ /g, ' ')}
-        </div>
-      )}
+      <Byline text={!pre && !yet ? p.byline : undefined} right={right} />
     </div>
   );
 }
@@ -301,12 +356,24 @@ function BenchCell({ slot, side, game, onScore }: { slot: Slot; side: Side; game
         {!right && <InjuryTag tag={p.injury} />}
       </div>
       <StatusLine p={p} right={right} />
-      {game && <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', ...clip }}>{game}</div>}
+      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', ...clip }}>{game || BLANK}</div>
     </div>
   );
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: right ? '8px 16px 8px 10px' : '8px 10px 8px 16px', minWidth: 0, borderBottom: '1px solid var(--line)' }}>
-      {right ? <>{pts}{name}</> : <>{name}{pts}</>}
+    <div style={{ height: BENCH_H, boxSizing: 'border-box', overflow: 'hidden', padding: right ? '8px 16px 8px 10px' : '8px 10px 8px 16px', minWidth: 0, borderBottom: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        {right ? <>{pts}{name}</> : <>{name}{pts}</>}
+      </div>
+      <Byline text={notStarted(p) ? undefined : p.byline} right={right} />
+    </div>
+  );
+}
+
+/** The stat byline under a player, or a blank line holding its place. */
+function Byline({ text, right }: { text?: string; right: boolean }) {
+  return (
+    <div style={{ marginTop: 5, font: '500 10.5px/1.35 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', textAlign: right ? 'right' : undefined, ...clip }}>
+      {text ? text.replace(/\u00a0/g, ' ') : BLANK}
     </div>
   );
 }

@@ -29,6 +29,9 @@ interface LiveFranchise {
 /** A full NFL game, as MFL counts gameSecondsRemaining. */
 const GAME_SECONDS = 3600;
 
+/** "proj 12.4" → 12.4 */
+const projValue = (proj: string) => Number(proj.replace(/[^\d.-]/g, '')) || 0;
+
 interface LiveSide {
   view: SideView;
   live: number;
@@ -64,7 +67,9 @@ function liveSide(side: SideView, f: LiveFranchise | undefined): LiveSide | null
     view: {
       ...side,
       num: fmtScore(f.score),
-      sub: fmtScore(projected || f.score),
+      // Live projection: banked points plus what's still to come, so a
+      // starter having a bad day drags it down as his game runs out.
+      sub: fmtScore(f.score + remaining),
       meta: `${record} · ${f.ytp} YTP`,
       scoreValue: f.score,
       projectedFinal: f.score + remaining,
@@ -127,7 +132,10 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
           ? `${p.live.team} · ${p.live.kickoff} · yet to play`
           : `${p.live.team} · in play`;
     const pts = secs >= GAME_SECONDS ? 0 : score;
-    return { ...p, pts: fmtScore(pts), ptsExact: pts, line };
+    // Once his game starts, his projection is what he has plus the pre-game
+    // projection's share of the game still to play.
+    const projNow = secs >= GAME_SECONDS ? undefined : fmtScore(pts + projValue(p.proj) * Math.min(1, secs / GAME_SECONDS));
+    return { ...p, pts: fmtScore(pts), ptsExact: pts, line, projNow };
   };
   const patchRows = (rows: BoxRowView[]) => rows.map((r) => ({ ...r, home: patch(r.home), away: patch(r.away) }));
 

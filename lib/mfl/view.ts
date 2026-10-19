@@ -185,7 +185,7 @@ function buildSide(
       name,
       icon: franchise?.icon,
       num: phase === 'pre' ? fmtScore(projected) : fmtScore(live),
-      sub: phase === 'pre' ? 'projected total' : fmtScore(projected),
+      sub: phase === 'pre' ? 'projected total' : fmtScore(projectedFinal),
       meta: sideMeta(record, phase === 'pre' ? yetToPlay : yetToPlay),
       win: '',
       scoreValue: phase === 'pre' ? projected : live,
@@ -450,6 +450,7 @@ interface BoxEntry {
   pts: string;
   ptsExact?: number;
   proj: string;
+  projNow?: string;
   sort: number;
   sleeperId?: string;
   byline?: string;
@@ -462,7 +463,7 @@ const EMPTY_ENTRY = { name: '', line: '', pts: '', proj: '' };
 function boxPlayer(e: BoxEntry): BoxPlayerView {
   return {
     name: e.name, line: e.line, pts: e.pts, ptsExact: e.ptsExact, proj: e.proj,
-    byline: e.byline, breakdown: e.breakdown, injury: e.injury,
+    projNow: e.projNow, byline: e.byline, breakdown: e.breakdown, injury: e.injury,
     live: { id: e.id, team: e.team, kickoff: e.kickoff, position: e.position, sleeperId: e.sleeperId, opp: e.opp, home: e.home },
   };
 }
@@ -537,6 +538,9 @@ export async function getMatchupDetailView(
   const sideEntries = (franchiseId: string) => {
     const result = byFranchise.get(franchiseId);
     const projOf = (id: string) => `proj ${fmtScore(projections.get(id) ?? 0)}`;
+    /** Share of a game already played, from its kickoff. */
+    const played = (kickoff?: number) =>
+      kickoff === undefined ? 1 : Math.min(1, Math.max(0, (ctx.now - kickoff) / GAME_DURATION_MS));
 
     if (phase !== 'pre' && result) {
       const toEntry = (playerId: string, score: number): BoxEntry => {
@@ -560,6 +564,7 @@ export async function getMatchupDetailView(
           pts: fmtScore(points),
           ptsExact: points,
           proj: projOf(playerId),
+          projNow: state === 'pending' ? undefined : fmtScore(points + (projections.get(playerId) ?? 0) * (1 - played(kickoff))),
           injury: injuries.get(playerId),
           sort: positionRank(player.position) * 1000 - points,
           ...scoringDetail(scoring, playerId, player.position, points, state, ctx),
@@ -617,9 +622,10 @@ export async function getMatchupDetailView(
     const projOf = (e: BoxEntry) => Number(e.proj.replace('proj ', '')) || 0;
     const projected = starters.reduce((t, e) => t + projOf(e), 0);
     const yetToPlay = starters.filter((e) => e.line.includes('yet to play') || e.pts === '—').length;
-    // Still to come: all of a starter yet to play, about half of one in play.
+    // Still to come: all of a starter yet to play, what's left of one in play.
     const remaining = starters.reduce(
-      (t, e) => t + (e.pts === '—' || e.line.includes('yet to play') ? projOf(e) : e.line.includes('in play') ? projOf(e) / 2 : 0),
+      (t, e) =>
+        t + (e.pts === '—' || e.line.includes('yet to play') ? projOf(e) : e.projNow ? Math.max(0, Number(e.projNow) - Number(e.pts)) : 0),
       0,
     );
     return {
@@ -634,8 +640,8 @@ export async function getMatchupDetailView(
   const a = totals(awayId, awayEntries);
   const decided = phase === 'final' || (phase === 'live' && h.yetToPlay === 0 && a.yetToPlay === 0);
 
-  const home = buildSide(homeId, ctx, standings, phase, h.live, h.projected, h.yetToPlay);
-  const away = buildSide(awayId, ctx, standings, phase, a.live, a.projected, a.yetToPlay);
+  const home = buildSide(homeId, ctx, standings, phase, h.live, h.projected, h.yetToPlay, Number((h.live + h.remaining).toFixed(2)));
+  const away = buildSide(awayId, ctx, standings, phase, a.live, a.projected, a.yetToPlay, Number((a.live + a.remaining).toFixed(2)));
 
   if (decided) {
     home.view.win = h.live >= a.live ? 'W' : 'L';

@@ -99,7 +99,10 @@ export interface BoxPlayerView {
   pts: string;
   /** `pts` unrounded, for the breakdown total. */
   ptsExact?: number;
+  /** Pre-game projection, "proj 12.4". */
   proj: string;
+  /** Live projection once his game is under way: points so far plus what's left of `proj`. */
+  projNow?: string;
   /** Box-score line: "32/52 CMP, 412 YD, 1 TD". Absent before kickoff. */
   byline?: string;
   /** How the stats became points, for the tap-to-open sheet. */
