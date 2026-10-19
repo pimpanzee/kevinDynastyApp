@@ -8,6 +8,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import { usePlayerCard } from '@/components/PlayerCard';
 import SubTabs from '@/components/SubTabs';
 import TeamAvatar from '@/components/TeamAvatar';
+import TeamLink from '@/components/league/TeamLink';
 import { posColor } from '@/components/pos';
 import { DISPLAY, pts1 } from '@/components/team/format';
 import { BidSheet, ClaimsPanel, useWaivers, WaiverNotice, type PlayerInfo, type WaiverRules } from '@/components/players/Waivers';
@@ -245,9 +246,9 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
                       {list === 'all' && (
                         // Who rosters him: the team's logo (initials without one, yours in volt), or FA outlined in blue.
                         owner ? (
-                          <span title={owner.name} style={{ flex: 'none', marginLeft: 'auto', display: 'inline-flex' }}>
-                            <TeamAvatar name={owner.name} icon={owner.icon} size={20} mine={isMine} />
-                          </span>
+                          <TeamLink id={r.owner} mine={mine} label={`${owner.name} roster`} style={{ flex: 'none', display: 'inline-flex', padding: 4, margin: '-4px -4px -4px auto' }}>
+                            <span title={owner.name} style={{ display: 'inline-flex' }}><TeamAvatar name={owner.name} icon={owner.icon} size={20} mine={isMine} /></span>
+                          </TeamLink>
                         ) : (
                           <span title="Free agent" style={{ flex: 'none', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 18, padding: '0 4px', boxSizing: 'border-box', borderRadius: 3, color: 'var(--rise)', border: '1px solid var(--rise)', font: DISPLAY(10, 800), letterSpacing: '.04em' }}>
                             FA

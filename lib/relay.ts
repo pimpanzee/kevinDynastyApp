@@ -119,3 +119,25 @@ export const getMine = (week?: number) => call<Mine>(`/mine${week ? `?week=${wee
 /** One allowlisted MFL write (worker/src/relay.js `WRITES`). Never retried. */
 export const write = (type: string, params: Record<string, string>) =>
   call<{ ok: true }>('/write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, params }) });
+
+export interface PendingTrade {
+  id: string;
+  /** Franchise that made the offer, and the one it was made to. */
+  from: string;
+  to: string;
+  /** What `from` gives up and gets: player ids and FP_/DP_ pick ids. */
+  give: string[];
+  get: string[];
+  comments: string;
+  /** ms, or null when MFL gives none. */
+  expires: number | null;
+  sent: number | null;
+}
+
+export interface Trades {
+  /** Null when MFL's reply couldn't be read. */
+  trades: PendingTrade[] | null;
+  fetchedAt: number;
+}
+
+export const getTrades = () => call<Trades>('/trades');

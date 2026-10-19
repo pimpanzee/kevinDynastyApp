@@ -78,6 +78,10 @@ pickup goes through blind bids), `ir`, `taxi_squad`, `tradeProposal`,
 - **Waivers:** `GET /waivers` returns MFL's current free agents and your
   pending blind bids (`pending`, in priority order, or `null` if MFL's reply
   couldn't be read, in which case the app won't rewrite them). Never cached.
+- **Trades:** `GET /trades` returns the trade offers waiting on an answer
+  (MFL's `pendingTrades`: ones you sent and ones sent to you, or `null` if
+  the reply couldn't be read). Never cached. Offers go out with
+  `tradeProposal` and are answered or withdrawn with `tradeResponse`.
 - **Push alerts:** Settings → Alerts subscribes a device (`GET /push/key`,
   `POST /push/subscribe`, `/push/unsubscribe`, `/push/test`). A run every 15
   minutes (`src/alerts.js`) pushes: a lineup check 90 minutes before each

@@ -11,6 +11,7 @@ import SectionHead from '@/components/team/SectionHead';
 import { DISPLAY, money, pts1 } from '@/components/team/format';
 import { deadCap } from '@/lib/cap';
 import { useMyTeam } from '@/lib/myTeam';
+import TeamLink from '@/components/league/TeamLink';
 import type { PlayerCardData, PlayerCardWeek } from '@/lib/types';
 
 /**
@@ -19,7 +20,7 @@ import type { PlayerCardData, PlayerCardWeek } from '@/lib/types';
  * phone's back gesture closes the card instead of leaving the page.
  */
 
-const Ctx = createContext<{ open: (id: string) => void } | null>(null);
+const Ctx = createContext<{ open: (id: string) => void; hide: () => void } | null>(null);
 
 const PARAM = 'player';
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
@@ -64,7 +65,14 @@ export function PlayerCardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ open }), [open]);
+  // Leaving the page from inside the card (a team link): just hide it. Its history entry stays,
+  // so Back returns to the card.
+  const hide = useCallback(() => {
+    pushed.current = false;
+    setId(null);
+  }, []);
+
+  const value = useMemo(() => ({ open, hide }), [open, hide]);
   return (
     <Ctx.Provider value={value}>
       {children}
@@ -169,11 +177,12 @@ function Header({ p }: { p: PlayerCardData }) {
   const yrs = c ? `${Math.max(1, c.years)} ${Math.max(1, c.years) === 1 ? 'YR' : 'YRS'}` : '';
   // Second line: yours — salary · years · dead cap if cut; another team's — team · salary · years;
   // a free agent — what the market pays for this production.
-  const parts: Array<{ v: string; l?: string; tone?: string }> = !p.owner
+  const card = useContext(Ctx);
+  const parts: Array<{ v: string; l?: string; tone?: string; team?: string }> = !p.owner
     ? [{ v: 'Free agent', tone: 'var(--volt)' }, ...(p.market ? [{ v: `$${p.market.toLocaleString('en-US')}`, l: 'MARKET' }] : [])]
     : mine && c
       ? [{ v: money(c.salary) }, { v: yrs }, { v: money(deadCap(c.salary, Math.max(1, c.years))), l: 'DEAD CAP', tone: 'var(--fall)' }]
-      : [{ v: p.owner.name }, ...(c ? [{ v: money(c.salary) }, { v: yrs }] : [])];
+      : [{ v: p.owner.name, team: p.owner.id }, ...(c ? [{ v: money(c.salary) }, { v: yrs }] : [])];
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 0 12px 16px' }}>
       <span style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, marginTop: 2, borderRadius: 2, background: 'var(--bg-300)', color: posColor(p.pos), font: DISPLAY(14, 800), letterSpacing: '.06em' }}>{p.pos}</span>
@@ -185,7 +194,9 @@ function Header({ p }: { p: PlayerCardData }) {
         <div style={{ marginTop: 4, font: '500 12px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>{bio}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 2, font: '500 12px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
           {parts.map((x, i) => (
-            <span key={i} style={{ whiteSpace: 'pre' }}>{i > 0 && ' · '}<b style={{ fontWeight: 600, color: x.tone ?? 'var(--ink)' }}>{x.v}</b>{x.l ? ` ${x.l}` : ''}</span>
+            <span key={i} style={{ whiteSpace: 'pre' }}>{i > 0 && ' · '}{x.team
+                ? <TeamLink id={x.team} mine={myTeam} underline onNavigate={card?.hide} style={{ fontWeight: 600, color: 'var(--ink)' }}>{x.v}</TeamLink>
+                : <b style={{ fontWeight: 600, color: x.tone ?? 'var(--ink)' }}>{x.v}</b>}{x.l ? ` ${x.l}` : ''}</span>
           ))}
         </div>
       </div>

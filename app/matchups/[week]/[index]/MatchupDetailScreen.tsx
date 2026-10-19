@@ -10,6 +10,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
 import ScoreSheet from '@/components/ScoreSheet';
 import TeamAvatar from '@/components/TeamAvatar';
+import TeamLink from '@/components/league/TeamLink';
 import WeekMenu from '@/components/WeekMenu';
 import { posColor, posRank } from '@/components/pos';
 import { applyLineupsToDetail, applyLiveToDetail, applyStatsToDetail } from '@/lib/live';
@@ -129,7 +130,7 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
       </div>
 
       <Swipe key={view.index} onPrev={() => router.push(pageHref(view.index - 1))} onNext={() => router.push(pageHref(view.index + 1))}>
-        <ScoreBlock view={view} mine={mySide === 'home'} pre={pre} final={final} />
+        <ScoreBlock view={view} mine={mySide === 'home'} me={team} pre={pre} final={final} />
       </Swipe>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -234,7 +235,7 @@ function Swipe({ onPrev, onNext, children }: { onPrev: () => void; onNext: () =>
 }
 
 /** The score block: chips, names, records, big scores, odds or FINAL, and the bar. */
-function ScoreBlock({ view, mine, pre, final }: { view: MatchupDetailView; mine: boolean; pre: boolean; final: boolean }) {
+function ScoreBlock({ view, mine, me, pre, final }: { view: MatchupDetailView; mine: boolean; me: string; pre: boolean; final: boolean }) {
   const homeLeads = view.home.scoreValue >= view.away.scoreValue;
   const tone = (side: SideView, isHome: boolean) => {
     if (pre) return 'var(--ink-3)';
@@ -249,13 +250,13 @@ function ScoreBlock({ view, mine, pre, final }: { view: MatchupDetailView; mine:
   const scoreFont = `800 ${pre ? 28 : 52}px/47px var(--font-display)`;
   const sub = { font: '500 12px/1 var(--font-body)', color: 'var(--ink-3)', marginTop: 5, fontVariantNumeric: 'tabular-nums' } as const;
   const head = (side: SideView, isHome: boolean) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexDirection: isHome ? 'row' : 'row-reverse', textAlign: isHome ? 'left' : 'right' }}>
+    <TeamLink id={side.franchiseId} mine={me} label={`${side.name} roster`} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexDirection: isHome ? 'row' : 'row-reverse', textAlign: isHome ? 'left' : 'right' }}>
       <TeamAvatar name={side.name} icon={side.icon ?? null} size={30} mine={isHome && mine} />
       <div style={{ minWidth: 0 }}>
         <div style={{ font: DISPLAY(17), letterSpacing: '.04em', color: nameTone(isHome), ...clip }}>{side.name.toUpperCase()}</div>
         <div style={{ font: '500 11px/1.2 var(--font-body)', color: 'var(--ink-3)', marginTop: 3, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{side.meta}</div>
       </div>
-    </div>
+    </TeamLink>
   );
   return (
     <div style={{ flex: 'none', padding: '12px 16px 14px', background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }}>

@@ -159,6 +159,10 @@ export class WriteRelay {
         const result = await this.waivers();
         return json(result, result.status ?? 200);
       }
+      if (url.pathname === '/trades') {
+        const result = await this.trades();
+        return json(result, result.status ?? 200);
+      }
       if (url.pathname === '/mine') {
         const result = await this.mine(url.searchParams.get('week'));
         return json(result, result.status ?? 200);
@@ -378,6 +382,28 @@ export class WriteRelay {
         // Only when the shape wasn't understood, so the claim screen can say so
         // (and never offer to rewrite a list it couldn't read).
         pendingUnread: bids === null ? JSON.stringify(pending.pendingWaivers ?? null).slice(0, 1500) : undefined,
+        fetchedAt: Date.now(),
+      };
+    } catch (e) {
+      return { error: e.message, signedOut: e.signedOut || undefined, status: e.signedOut ? 401 : 502 };
+    }
+  }
+
+  /**
+   * Trade offers waiting on an answer: ones you sent and ones sent to you.
+   * Private until answered: never cached or logged.
+   */
+  async trades() {
+    const c = await this.cookie();
+    if (!c) return { error: 'No MFL login is set up on the relay', status: 503 };
+    if (await this.expired(c)) return { error: 'The MFL login has expired; sign in again', signedOut: true, status: 401 };
+    const { MFL_HOST, MFL_SEASON, MFL_LEAGUE_ID } = this.env;
+    try {
+      const body = await this.read(c, `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1&TYPE=pendingTrades`);
+      const trades = readPendingTrades(body.pendingTrades);
+      return {
+        trades,
+        unread: trades === null ? JSON.stringify(body.pendingTrades ?? null).slice(0, 1500) : undefined,
         fetchedAt: Date.now(),
       };
     } catch (e) {
@@ -664,6 +690,31 @@ export function readPendingBids(root) {
   // A non-empty reply that yielded nothing is a shape we don't know.
   if (!out.length && JSON.stringify(root).replace(/[^0-9]/g, '').length > 0) understood = false;
   return understood ? out : null;
+}
+
+/**
+ * MFL's pendingTrades: [{ id, from, to, give, get, comments, expires }] where
+ * give/get are what `from` gives up and receives (player ids, FP_/DP_ picks).
+ * Null when the reply isn't the shape MFL documents.
+ */
+export function readPendingTrades(root) {
+  if (root === undefined || root === null || root === '') return [];
+  const items = list(root.pendingTrade);
+  if (!items.length) return Object.keys(root).length ? null : [];
+  const assets = (s) => String(s ?? '').split(',').filter(Boolean);
+  const out = [];
+  for (const t of items) {
+    const id = t.trade_id ?? t.id;
+    const from = t.offeringteam ?? t.offeringTeam;
+    const to = t.offeredto ?? t.offeredTo;
+    if (!/^\d+$/.test(String(id ?? '')) || !/^\d{4}$/.test(String(from ?? '')) || !/^\d{4}$/.test(String(to ?? ''))) return null;
+    out.push({
+      id: String(id), from: String(from), to: String(to),
+      give: assets(t.will_give_up), get: assets(t.will_receive),
+      comments: t.comments ?? '', expires: Number(t.expires) * 1000 || null, sent: Number(t.timestamp) * 1000 || null,
+    });
+  }
+  return out;
 }
 
 /** Alert types a device can turn on or off. */
