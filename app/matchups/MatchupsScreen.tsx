@@ -87,11 +87,11 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
       {weekOpen && <WeekMenu weeks={view.weeks} current={view.week} onPick={pickWeek} onClose={() => setWeekOpen(false)} />}
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {mine && alerts.length > 0 ? (
+        {mine && alerts.length > 0 && (
           <LineupAlert alerts={alerts} href={`/matchups/${view.week}/${mine.index}/`} />
-        ) : <div style={{ height: 12 }} />}
+        )}
 
-        {mine && <MyCard m={mine} state={gameState(view.phase, mine)} href={`/matchups/${view.week}/${mine.index}/`} />}
+        {mine && <MyCard m={mine} state={gameState(view.phase, mine)} href={`/matchups/${view.week}/${mine.index}/`} flush={alerts.length === 0} />}
 
         <MedianRace view={view} />
 
@@ -114,8 +114,12 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
  * Your matchup. You are always on the left and always volt; the opponent
  * brightens when they lead. The bar's bright half is whoever is favoured
  * (once final, the score split).
+ *
+ * `flush`: nothing sits above it, so it butts against the header (whose
+ * bottom border is the only line) and its fill carries up into the
+ * pull-down bounce instead of a strip of page background.
  */
-function MyCard({ m, state, href }: { m: MatchupView; state: GameState; href: string }) {
+function MyCard({ m, state, href, flush }: { m: MatchupView; state: GameState; href: string; flush: boolean }) {
   const me = scoreLines(m.home, state);
   const opp = scoreLines(m.away, state);
   const pre = state === 'future';
@@ -135,7 +139,8 @@ function MyCard({ m, state, href }: { m: MatchupView; state: GameState; href: st
     </div>
   );
   return (
-    <Link href={href} aria-label={`Your matchup: ${m.home.name} ${me.num}, ${m.away.name} ${opp.num}`} style={{ display: 'block', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)', borderBottom: '1px solid var(--edge)' }}>
+    <Link href={href} aria-label={`Your matchup: ${m.home.name} ${me.num}, ${m.away.name} ${opp.num}`} style={{ display: 'block', background: 'var(--bg-100)', borderTop: flush ? 'none' : '1px solid var(--edge)', borderBottom: '1px solid var(--edge)', position: 'relative' }}>
+      {flush && <span aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: '100%', height: '100vh', background: 'var(--bg-100)' }} />}
       <div style={{ padding: '12px 16px 14px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'end', gap: 12 }}>
           {nameRow(m.home, false, true)}
