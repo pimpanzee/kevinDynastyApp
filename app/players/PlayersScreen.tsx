@@ -22,7 +22,7 @@ import type { PlayerRow, PlayersData } from '@/lib/types';
  * The data is a static file built with the site (/players.json).
  * With moves set up, free agents get a BID chip (a blind bid claim) and
  * MY CLAIMS lists your pending bids; who is free is then read live from MFL.
- * YET TO PLAY keeps only players whose game this week hasn't kicked off,
+ * On free agents, YET TO PLAY keeps only players whose game this week hasn't kicked off,
  * checked against the clock so rows drop off as games start.
  */
 
@@ -68,7 +68,8 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
   const [pos, setPos] = useState<Pos>('ALL');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<{ key: ColKey; desc: boolean }>({ key: 'proj', desc: true });
-  const [ytp, setYtp] = useState(false);
+  const [ytpOn, setYtp] = useState(false);
+  const ytp = ytpOn && list === 'fa';
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [list, pos, q, sort, ytp]);
   // The clock behind YET TO PLAY, ticking each minute while it's on.
@@ -153,7 +154,7 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
       ) : (
       <>
       <div style={{ flex: 'none', display: 'grid', gap: 8, padding: '10px 16px', background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: list === 'fa' ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)', gap: 6 }}>
         <label style={{ position: 'relative', display: 'block' }}>
           <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Search players by name</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ position: 'absolute', left: 12, top: 14, color: 'var(--ink-3)' }}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -165,16 +166,18 @@ export default function PlayersScreen({ rules }: { rules: WaiverRules }) {
             style={{ boxSizing: 'border-box', width: '100%', height: 44, padding: '0 12px 0 36px', font: '500 16px/1 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-000)', border: '1px solid var(--line)', borderRadius: 2 }}
           />
         </label>
+        {list === 'fa' && (
         <button
           type="button"
           aria-pressed={ytp}
-          onClick={() => setYtp((v) => !v)}
+          onClick={() => setYtp(!ytp)}
           title="Only players whose game this week hasn't kicked off"
           style={{ display: 'flex', alignItems: 'center', gap: 6, height: 44, padding: '0 10px', borderRadius: 2, border: `1px solid ${ytp ? 'var(--edge)' : 'var(--line)'}`, background: ytp ? 'var(--bg-300)' : 'transparent', color: ytp ? 'var(--ink)' : 'var(--ink-3)', font: DISPLAY(12), letterSpacing: '.1em', whiteSpace: 'nowrap', cursor: 'pointer' }}
         >
           <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', boxSizing: 'border-box', border: `1.5px solid ${ytp ? 'var(--volt)' : 'currentColor'}`, background: ytp ? 'var(--volt)' : 'transparent' }} />
           YET TO PLAY
         </button>
+        )}
         </div>
         <div role="group" aria-label="Position" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6 }}>
           {POSITIONS.map((p) => {
