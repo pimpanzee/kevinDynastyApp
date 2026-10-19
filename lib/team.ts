@@ -109,7 +109,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
           return {
             round: p.round, held: true, title: p.original === f.id ? 'Own pick' : `via ${nameOf(p.original)}`,
             slot: slotLabel(p.round, slot), salary: rookieSalary(p.round, slot),
-            asset: `FP_${p.original}_${p.year}_${p.round}`, slotNum: slot,
+            asset: `FP_${p.original}_${p.year}_${p.round}`,
           };
         }),
         ...gone.map((p) => ({ round: p.round, held: false, title: `Traded to ${nameOf(p.owner)}`, slot: '', salary: 0 })),

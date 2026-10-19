@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getLeague } from '@/lib/mfl/league';
 import { getTeamsData } from '@/lib/team';
-import { assetValues } from '@/lib/tradeValues';
 import TradeScreen from './TradeScreen';
 
 /** Propose a trade to one team. One page per franchise, like the team pages. */
@@ -14,10 +13,7 @@ export async function generateStaticParams() {
 
 export default async function TradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [data, league] = await Promise.all([getTeamsData(), getLeague()]);
+  const data = await getTeamsData();
   if (!data.teams.some((t) => t.id === id)) notFound();
-  // A league that can start two QBs prices them like a superflex league.
-  const superflex = (league.lineup.positions.QB?.max ?? 1) >= 2;
-  const values = await assetValues(data, superflex);
-  return <TradeScreen data={data} teamId={id} values={values} />;
+  return <TradeScreen data={data} teamId={id} />;
 }

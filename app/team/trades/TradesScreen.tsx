@@ -9,7 +9,7 @@ import { DISPLAY } from '@/components/team/format';
 import TradeSides from '@/components/trade/TradeSides';
 import { useMyTeam } from '@/lib/myTeam';
 import { getTrades, isError, useCanMove, write, type PendingTrade } from '@/lib/relay';
-import { assetIndex, pickName, verdict, type TradeAsset } from '@/lib/trade';
+import { assetIndex, pickName, type TradeAsset } from '@/lib/trade';
 import type { TeamsData } from '@/lib/types';
 
 const EXPIRED = 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.';
@@ -20,7 +20,7 @@ const back = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke=
  * sent to you can be accepted, rejected, or countered with a new offer.
  * Accepting asks for a second tap, since MFL processes it straight away.
  */
-export default function TradesScreen({ data, values }: { data: TeamsData; values: Record<string, number> | null }) {
+export default function TradesScreen({ data }: { data: TeamsData }) {
   const mine = useMyTeam(data.myFranchiseId);
   const canMove = useCanMove();
   const [trades, setTrades] = useState<PendingTrade[] | null | undefined>(undefined);
@@ -74,9 +74,6 @@ export default function TradesScreen({ data, values }: { data: TeamsData; values
     // Always from your side: what you give, what you get.
     const out = (isSent ? t.give : t.get).map(asset);
     const inn = (isSent ? t.get : t.give).map(asset);
-    const gv = out.reduce((s, a) => s + (values?.[a.key] ?? 0), 0);
-    const tv = inn.reduce((s, a) => s + (values?.[a.key] ?? 0), 0);
-    const v = verdict(gv, tv);
     const asking = confirm?.id === t.id ? confirm.action : null;
     return (
       <div key={t.id} style={{ margin: '0 16px 12px', border: '1px solid var(--line)', borderRadius: 4, background: 'var(--bg-100)' }}>
@@ -87,7 +84,6 @@ export default function TradesScreen({ data, values }: { data: TeamsData; values
           <span style={{ marginLeft: 'auto', flex: 'none', font: '500 11px/1 var(--font-body)', color: 'var(--ink-3)' }}>{expires(t.expires)}</span>
         </div>
         <TradeSides out={out} inn={inn} />
-        {values && <div style={{ padding: '0 12px 10px 16px', font: '600 12px/1.3 var(--font-body)', color: v.tone }}>{v.text}</div>}
         {t.comments && <div style={{ margin: '0 12px 10px 16px', font: '500 12.5px/1.4 var(--font-body)', color: 'var(--ink-2)' }}>&ldquo;{t.comments}&rdquo;</div>}
         <div style={{ display: 'grid', gridTemplateColumns: asking || isSent ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, padding: '10px 12px 12px', borderTop: '1px solid var(--line)' }}>
           {asking ? (

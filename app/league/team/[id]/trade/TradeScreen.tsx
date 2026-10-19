@@ -9,7 +9,7 @@ import { DISPLAY, money } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
 import { isError, useCanMove, write } from '@/lib/relay';
 import TradeSides from '@/components/trade/TradeSides';
-import { tradeAssets, verdict, type TradeAsset } from '@/lib/trade';
+import { tradeAssets, type TradeAsset } from '@/lib/trade';
 import type { TeamsData, TeamView } from '@/lib/types';
 
 type View = 'build' | 'review' | 'sent';
@@ -18,10 +18,10 @@ const back = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke=
 
 /**
  * Propose a trade: pick what you give from your roster and what you get from
- * theirs, see the value balance (DynastyProcess) and both teams' cap room
- * and roster after, add a note and an expiry, and send it on MFL as you.
+ * theirs, see both teams' salary and roster after, add a note and an
+ * expiry, and send it on MFL as you.
  */
-export default function TradeScreen({ data, teamId, values }: { data: TeamsData; teamId: string; values: Record<string, number> | null }) {
+export default function TradeScreen({ data, teamId }: { data: TeamsData; teamId: string }) {
   const mine = useMyTeam(data.myFranchiseId);
   const canMove = useCanMove();
   const me = data.teams.find((t) => t.id === mine) ?? data.teams[0]!;
@@ -40,15 +40,10 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
   const out = mineAssets.filter((a) => give.includes(a.key));
   const inn = theirAssets.filter((a) => get.includes(a.key));
   const both = out.length > 0 && inn.length > 0;
-  const value = (a: TradeAsset) => values?.[a.key] ?? 0;
-  const gv = out.reduce((t, a) => t + value(a), 0);
-  const tv = inn.reduce((t, a) => t + value(a), 0);
-  const v = verdict(both ? gv : 0, both ? tv : 0);
-  const giveW = gv + tv ? `${(gv / (gv + tv)) * 100}%` : '50%';
   const capOut = out.reduce((t, a) => t + a.capHit, 0);
   const capIn = inn.reduce((t, a) => t + a.capHit, 0);
-  const myRoom = me.room + capOut - capIn;
-  const theirRoom = them.room + capIn - capOut;
+  const mySalary = me.used + capIn - capOut;
+  const theirSalary = them.used + capOut - capIn;
   const actOut = out.filter((a) => a.active).length;
   const actIn = inn.filter((a) => a.active).length;
   const myRoster = me.counts.roster - actOut + actIn;
@@ -114,52 +109,39 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
   /* ── Review ── */
   if (view === 'review') {
     const after = [
-      { name: 'You', room: myRoom, was: me.room, roster: myRoster, wasRoster: me.counts.roster },
-      { name: them.name, room: theirRoom, was: them.room, roster: theirRoster, wasRoster: them.counts.roster },
+      { name: 'You', salary: mySalary, was: me.used, roster: myRoster, wasRoster: me.counts.roster },
+      { name: them.name, salary: theirSalary, was: them.used, roster: theirRoster, wasRoster: them.counts.roster },
     ];
     return (
       <PhoneFrame>
         <Top title="REVIEW TRADE" left={<button type="button" onClick={() => setView('build')} style={{ ...backLink, border: 0, background: 'none', cursor: 'pointer' }}>{back}EDIT</button>} />
         <div style={{ flex: 1, overflow: 'auto' }}>
           <TradeSides out={out} inn={inn} style={{ background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }} />
-          {values ? (
-            <div style={{ padding: '14px 16px 4px' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                <span style={{ font: DISPLAY(12), letterSpacing: '.12em', color: 'var(--ink-2)' }}>TRADE VALUE</span>
-                <span style={{ font: DISPLAY(16, 800), letterSpacing: '.04em', color: v.tone }}>{v.short}</span>
-              </div>
-              <Bar giveW={giveW} hasGet={tv > 0} height={10} gap="var(--bg-000)" />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, font: '600 12px/1 var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
-                <span style={{ color: 'var(--fall)' }}>GIVE {gv.toLocaleString('en-US')}</span><span style={{ color: 'var(--rise)' }}>GET {tv.toLocaleString('en-US')}</span>
-              </div>
-              <div style={{ marginTop: 8, font: '500 12px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>{v.text}. Values from DynastyProcess, updated weekly{[...out, ...inn].some((a) => values[a.key] === undefined) ? '; anything without a value counts as 0' : ''}.</div>
-            </div>
-          ) : (
-            <div style={{ padding: '14px 16px 0', font: '500 12px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Trade values couldn&apos;t be loaded for this build, so there&apos;s no value check.</div>
-          )}
           <div style={{ margin: '12px 16px 0', border: '1px solid var(--line)', borderRadius: 4 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 96px 80px', alignItems: 'center', height: 28, padding: '0 12px', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
-              <span>AFTER THE TRADE</span><span style={{ textAlign: 'right' }}>CAP ROOM</span><span style={{ textAlign: 'right' }}>ROSTER</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 64px', alignItems: 'center', height: 28, padding: '0 12px', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
+              <span>AFTER THE TRADE</span><span style={{ textAlign: 'right' }}>SALARY</span><span style={{ textAlign: 'right' }}>ROSTER</span>
             </div>
             {after.map((t, i) => {
-              const d = t.room - t.was;
+              const d = t.salary - t.was;
+              const dr = t.roster - t.wasRoster;
+              const overCap = t.salary > data.cap;
               const badRoster = t.roster > rosterMax || t.roster < rosterMin;
               return (
-                <div key={t.name} style={{ display: 'grid', gridTemplateColumns: '1fr 96px 80px', alignItems: 'center', height: 46, padding: '0 12px', borderTop: i ? '1px solid var(--line)' : undefined, fontVariantNumeric: 'tabular-nums' }}>
+                <div key={t.name} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 64px', alignItems: 'center', height: 46, padding: '0 12px', borderTop: i ? '1px solid var(--line)' : undefined, fontVariantNumeric: 'tabular-nums' }}>
                   <span style={{ font: '600 13.5px/1.2 var(--font-body)', ...clip }}>{t.name}</span>
                   <span style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <b style={{ font: DISPLAY(15), color: t.room < 0 ? 'var(--live)' : 'var(--ink)' }}>{money(t.room)}</b>
-                    <span style={{ font: '500 10.5px/1 var(--font-body)', color: 'var(--ink-3)' }}>{Math.abs(d) < 0.005 ? 'no change' : `${d > 0 ? '+' : '−'}${money(Math.abs(d))}`}</span>
+                    <b style={{ font: DISPLAY(15), color: overCap ? 'var(--live)' : 'var(--ink)' }}>{money(t.salary)}</b>
+                    <span style={{ font: '500 10.5px/1 var(--font-body)', color: overCap ? 'var(--live)' : 'var(--ink-3)' }}>({signedMoney(d)}){overCap ? ' over cap' : ''}</span>
                   </span>
                   <span style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <b style={{ font: DISPLAY(15), color: badRoster ? 'var(--live)' : 'var(--ink)' }}>{t.roster}</b>
-                    <span style={{ font: '500 10.5px/1 var(--font-body)', color: 'var(--ink-3)' }}>{t.roster > rosterMax ? `over ${rosterMax}` : t.roster < rosterMin ? `under ${rosterMin}` : 'OK'}</span>
+                    <span style={{ font: '500 10.5px/1 var(--font-body)', color: badRoster ? 'var(--live)' : 'var(--ink-3)' }}>({dr > 0 ? '+' : dr < 0 ? '−' : '+'}{Math.abs(dr)}){t.roster > rosterMax ? ` over ${rosterMax}` : t.roster < rosterMin ? ` under ${rosterMin}` : ''}</span>
                   </span>
                 </div>
               );
             })}
           </div>
-          <div style={{ margin: '6px 16px 0', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Salaries and contract years move with the players. Roster limit is {rosterMin}–{rosterMax}, not counting IR and taxi; players on IR or taxi are assumed to keep their spot.</div>
+          <div style={{ margin: '6px 16px 0', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Salary counts against the {money(data.cap)} cap; taxi players don&apos;t count. Contract years move with the players. Roster limit is {rosterMin}–{rosterMax}, not counting IR and taxi; players on IR or taxi are assumed to keep their spot.</div>
           <div style={{ padding: '16px 16px 0' }}>
             <label htmlFor="trade-note" style={{ display: 'block', font: DISPLAY(12), letterSpacing: '.12em', color: 'var(--ink-2)' }}>NOTE TO {them.name.toUpperCase()} <span style={{ fontWeight: 600, color: 'var(--ink-3)' }}>· OPTIONAL</span></label>
             <textarea id="trade-note" rows={2} maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Shows with the offer on MFL" style={{ display: 'block', boxSizing: 'border-box', width: '100%', marginTop: 8, padding: '10px 12px', resize: 'none', font: '500 16px/1.35 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 2 }} />
@@ -182,7 +164,7 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
               <div style={{ marginTop: 8, textAlign: 'center', font: '500 11.5px/1.35 var(--font-body)', color: 'var(--ink-3)' }}>Sent on MFL as you. They can accept, reject or counter.</div>
             </>
           ) : (
-            <div style={{ font: '500 12.5px/1.4 var(--font-body)', color: 'var(--ink-2)' }}>To send offers from the app, set up moves in <Link href="/settings/" style={{ color: 'var(--volt)' }}>Settings</Link>. The value and cap check above works without it.</div>
+            <div style={{ font: '500 12.5px/1.4 var(--font-body)', color: 'var(--ink-2)' }}>To send offers from the app, set up moves in <Link href="/settings/" style={{ color: 'var(--volt)' }}>Settings</Link>. The salary and roster check above works without it.</div>
           )}
         </div>
       </PhoneFrame>
@@ -209,8 +191,8 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
           );
         })}
       </div>
-      <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: values ? '1fr 76px 56px' : '1fr 76px', alignItems: 'center', height: 28, padding: '0 16px', background: 'var(--bg-000)', borderBottom: '1px solid var(--edge)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
-        <span>{side === 'give' ? 'YOUR ROSTER' : `${them.name.toUpperCase()} ROSTER`}</span><span style={{ textAlign: 'right' }}>SALARY</span>{values && <span style={{ textAlign: 'right' }}>VALUE</span>}
+      <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: '1fr 76px', alignItems: 'center', height: 28, padding: '0 16px', background: 'var(--bg-000)', borderBottom: '1px solid var(--edge)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
+        <span>{side === 'give' ? 'YOUR ROSTER' : `${them.name.toUpperCase()} ROSTER`}</span><span style={{ textAlign: 'right' }}>SALARY</span>
       </div>
       <div style={{ flex: 1, overflow: 'auto' }}>
         {list.map((a, i) => {
@@ -218,7 +200,7 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
           return (
             <div key={a.key}>
               {i === firstPick && <div style={{ padding: '12px 16px 6px', font: DISPLAY(10), letterSpacing: '.12em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}>DRAFT PICKS</div>}
-              <button type="button" aria-pressed={on} onClick={() => toggle(a.key)} style={{ display: 'grid', gridTemplateColumns: values ? '28px 1fr 76px 56px' : '28px 1fr 76px', alignItems: 'center', width: '100%', height: 52, padding: '0 16px', boxSizing: 'border-box', border: 0, borderBottom: '1px solid var(--line)', background: on ? 'var(--bg-200)' : 'transparent', boxShadow: on ? `inset 3px 0 0 ${side === 'give' ? 'var(--fall)' : 'var(--rise)'}` : 'none', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
+              <button type="button" aria-pressed={on} onClick={() => toggle(a.key)} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 76px', alignItems: 'center', width: '100%', height: 52, padding: '0 16px', boxSizing: 'border-box', border: 0, borderBottom: '1px solid var(--line)', background: on ? 'var(--bg-200)' : 'transparent', boxShadow: on ? `inset 3px 0 0 ${side === 'give' ? 'var(--fall)' : 'var(--rise)'}` : 'none', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
                 <span aria-hidden style={{ width: 18, height: 18, boxSizing: 'border-box', borderRadius: 2, border: on ? 0 : '1.5px solid var(--edge)', background: on ? 'var(--volt)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-volt)' }}>
                   {on && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
                 </span>
@@ -231,7 +213,6 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
                   <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', ...clip }}><b style={{ fontWeight: 700, color: posColor(a.pos) }}>{a.pos}</b> · {a.meta}</span>
                 </span>
                 <span style={{ textAlign: 'right', font: '500 13px/1 var(--font-body)', color: 'var(--ink-2)' }}>{a.kind === 'pick' ? '—' : money(a.salary)}</span>
-                {values && <span style={{ textAlign: 'right', font: '600 13px/1 var(--font-body)', color: values[a.key] === undefined ? 'var(--ink-3)' : 'var(--ink)' }}>{values[a.key]?.toLocaleString('en-US') ?? '—'}</span>}
               </button>
             </div>
           );
@@ -244,10 +225,9 @@ export default function TradeScreen({ data, teamId, values }: { data: TeamsData;
           <span style={{ font: '700 10px/1.6 var(--font-display)', letterSpacing: '.1em', color: 'var(--rise)' }}>YOU GET</span>
           <span style={{ ...clip, color: inn.length ? 'var(--ink)' : 'var(--ink-3)' }}>{inn.length ? names(inn) : 'Nothing yet'}</span>
         </div>
-        {values && <Bar giveW={giveW} hasGet={tv > 0} height={8} gap="var(--bg-100)" />}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, font: '600 12px/1 var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ color: values ? v.tone : 'var(--ink-3)' }}>{values ? v.text : ''}</span>
-          <span style={{ color: 'var(--ink-3)' }}>ROOM AFTER <b style={{ fontWeight: 700, color: myRoom < 0 ? 'var(--live)' : 'var(--ink)' }}>{money(myRoom)}</b></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, font: '600 12px/1 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
+          <span>SALARY <b style={{ fontWeight: 700, color: mySalary > data.cap ? 'var(--live)' : 'var(--ink)' }}>{money(mySalary)}</b> ({signedMoney(mySalary - me.used)})</span>
+          <span>ROSTER <b style={{ fontWeight: 700, color: myRoster > rosterMax || myRoster < rosterMin ? 'var(--live)' : 'var(--ink)' }}>{myRoster}</b> ({myRoster - me.counts.roster < 0 ? '−' : '+'}{Math.abs(myRoster - me.counts.roster)})</span>
         </div>
         <button type="button" disabled={!both} onClick={() => both && setView('review')} style={{ ...primary, background: both ? 'var(--volt)' : 'var(--bg-300)', color: both ? 'var(--on-volt)' : 'var(--ink-3)', cursor: both ? 'pointer' : 'default' }}>{both ? 'REVIEW TRADE' : 'PICK FROM BOTH SIDES'}</button>
       </div>
@@ -264,14 +244,9 @@ function Top({ title, left }: { title: string; left: ReactNode }) {
   );
 }
 
-function Bar({ giveW, hasGet, height, gap }: { giveW: string; hasGet: boolean; height: number; gap: string }) {
-  return (
-    <div aria-hidden style={{ display: 'flex', height, marginTop: height > 8 ? 10 : 0, borderRadius: 1, overflow: 'hidden', background: 'var(--bg-300)' }}>
-      <div style={{ width: giveW, background: 'var(--fall)' }} />
-      <div style={{ width: 2, background: gap }} />
-      <div style={{ flex: 1, background: hasGet ? 'var(--rise)' : 'var(--bg-300)' }} />
-    </div>
-  );
+/** "+$281.59", "−$12.00" or "+$0.00". */
+function signedMoney(d: number) {
+  return `${d < -0.005 ? '−' : '+'}${money(Math.abs(d))}`;
 }
 
 const clip = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;

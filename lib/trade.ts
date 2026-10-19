@@ -54,14 +54,3 @@ export function pickName(key: string): string | null {
   if (dp) return `Pick ${Number(dp[1]) + 1}.${String(Number(dp[2]) + 1).padStart(2, '0')}`;
   return null;
 }
-
-export interface Verdict { text: string; short: string; tone: string }
-
-/** Within 5% of each other reads as even. */
-export function verdict(give: number, get: number): Verdict {
-  if (!give || !get) return { text: 'Pick from both sides', short: '—', tone: 'var(--ink-3)' };
-  const pct = Math.round(((get - give) / Math.max(give, get)) * 100);
-  if (Math.abs(pct) < 5) return { text: 'Even trade, within 5%', short: 'EVEN', tone: 'var(--ink)' };
-  if (pct > 0) return { text: `You come out ${pct}% ahead`, short: `+${pct}% YOU`, tone: 'var(--rise)' };
-  return { text: `You give ${-pct}% more than you get`, short: `${pct}% YOU`, tone: 'var(--fall)' };
-}
