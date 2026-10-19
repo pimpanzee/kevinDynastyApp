@@ -7,7 +7,7 @@
 //   ("0005") or part of a team name ("Tuna").
 
 const RELAY = 'https://gridlock-live.flynnliam3.workers.dev';
-const SITE = 'https://pimpanzee.github.io/kevinDynastyApp';
+const SITE = 'https://kevin-dynasty-app.pages.dev';
 
 const C = {
   bg: Color.dynamic(new Color('#f3f2f2'), new Color('#1b1a19')),

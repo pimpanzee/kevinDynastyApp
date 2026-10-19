@@ -23,22 +23,24 @@ new_sqlite_classes = ["LiveScores"]
 tag = "v2"
 new_sqlite_classes = ["WriteRelay"]
 
-# Daily check that the MFL login still works, to learn how long one lasts
+# Daily check that each owner's MFL login still works, to learn how long one lasts
 # (keep in step with DAILY_CRON in src/index.js), and the push alert checks
 # every 15 minutes.
 [triggers]
 crons = ["23 14 * * *", "*/15 * * * *"]
 
-# Secrets, set in the Cloudflare dashboard (Worker → Settings → Variables and
-# Secrets), never here: MFL_COOKIE (your MFL login cookie, from
-# scripts/mfl-login.mjs) and APP_TOKEN (a long random string the app sends).
+# One secret, never here: COOKIE_KEY, the key that encrypts each owner's
+# stored MFL login. The Deploy live relay workflow creates it on first deploy
+# (a random 32 bytes nobody needs to see); see README.md.
 
 [vars]
 MFL_HOST = "https://www44.myfantasyleague.com"
 MFL_LEAGUE_ID = "63396"
 MFL_SEASON = "2025"
 CACHE_SECONDS = "90"
+# The site (Cloudflare Pages). Its origin is always allowed; ALLOWED_ORIGINS
+# adds others (the old GitHub Pages address, local development).
+SITE_URL = "https://kevin-dynasty-app.pages.dev"
 ALLOWED_ORIGINS = "https://pimpanzee.github.io,http://localhost:3000"
-SITE_URL = "https://pimpanzee.github.io/kevinDynastyApp"
 # Set to the User-Agent MFL gives the app when it is registered (README).
 MFL_USER_AGENT = "gridlock/1.0"

@@ -18,14 +18,16 @@
  * Season and league are fixed by configuration, not the caller, so this
  * cannot be used as a general MFL proxy.
  *
- * GET /me, GET /mine, GET /waivers, POST /write and GET /audit are the write relay (relay.js): they
- * need the APP_TOKEN secret as a Bearer token and act as the owner whose MFL
- * login cookie is the MFL_COOKIE secret. A scheduled run checks that cookie
- * daily, which records how long an MFL login lasts.
+ * The write relay (relay.js): any owner in the league signs in with POST
+ * /login (their MFL username and password, swapped for MFL's login cookie,
+ * which is stored encrypted) and gets a session token. GET /me, /mine,
+ * /waivers, /trades, /audit and POST /write, /logout then act as that owner,
+ * given the token as a Bearer token. A scheduled run checks every stored
+ * login daily, which records how long an MFL login lasts.
  *
- * /push/* (same token) subscribes a device to push alerts, and a run every
- * 15 minutes sends them: lineup lock, injuries, waiver results, the Tuesday
- * recap (alerts.js, webpush.js).
+ * /push/* (same token) subscribes a device to its owner's push alerts, and a
+ * run every 15 minutes sends them: lineup lock, injuries, waiver results, the
+ * Tuesday recap (alerts.js, webpush.js).
  */
 
 import { fetchGamePlays, fetchScoreboard, indexPlayers } from './plays.js';
@@ -87,13 +89,12 @@ export default {
   },
 
   /**
-   * Daily: is the MFL login still good? Records its lifetime (relay.js
-   * `cookies`). Every 15 minutes: the push alert checks (relay.js `alerts`).
+   * Daily: is each owner's MFL login still good? Records how long they last
+   * (relay.js `cookies`). Every 15 minutes: the push alert checks (relay.js `alerts`).
    */
   async scheduled(event, env, ctx) {
-    if (!env.MFL_COOKIE) return;
     const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
-    ctx.waitUntil(stub.fetch(event.cron === DAILY_CRON ? 'https://relay/me' : 'https://relay/alerts'));
+    ctx.waitUntil(stub.fetch(event.cron === DAILY_CRON ? 'https://relay/daily' : 'https://relay/alerts'));
   },
 };
 
@@ -102,35 +103,27 @@ const DAILY_CRON = '23 14 * * *';
 
 /** Write-relay routes and the method each takes. */
 const RELAY_ROUTES = {
-  '/me': 'GET', '/mine': 'GET', '/waivers': 'GET', '/trades': 'GET', '/write': 'POST', '/audit': 'GET',
+  '/login': 'POST', '/logout': 'POST', '/me': 'GET', '/mine': 'GET', '/waivers': 'GET', '/trades': 'GET', '/write': 'POST', '/audit': 'GET',
   '/push/key': 'GET', '/push/subscribe': 'POST', '/push/unsubscribe': 'POST', '/push/test': 'POST',
 };
 
 async function relay(request, url, env, cors) {
   if (request.method !== RELAY_ROUTES[url.pathname]) return json({ error: 'Not found' }, 404, cors);
-  if (!env.APP_TOKEN) return json({ error: 'The write relay is not set up' }, 503, cors);
-  if (!(await sameSecret(request.headers.get('Authorization') ?? '', `Bearer ${env.APP_TOKEN}`))) {
-    return json({ error: 'Unauthorized' }, 401, cors);
-  }
+  // The relay checks the session itself (its sessions table lives there).
   const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
   const res = await stub.fetch(`https://relay${url.pathname}${url.search}`, {
     method: request.method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: request.headers.get('Authorization') ?? '',
+      // For the sign-in rate limit.
+      'X-Client-IP': request.headers.get('CF-Connecting-IP') ?? 'unknown',
+    },
     body: request.method === 'POST' ? await request.text() : undefined,
   });
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(cors)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });
-}
-
-/** Constant-time comparison, by hashing both sides to the same length first. */
-async function sameSecret(given, expected) {
-  const enc = new TextEncoder();
-  const [a, b] = await Promise.all([
-    crypto.subtle.digest('SHA-256', enc.encode(given)),
-    crypto.subtle.digest('SHA-256', enc.encode(expected)),
-  ]);
-  return crypto.subtle.timingSafeEqual(a, b);
 }
 
 /** A player's latest ESPN news, trimmed to what the card shows and cached at the edge. */
@@ -452,6 +445,12 @@ function payload(entry, stale, maxAgeMs) {
 
 function corsHeaders(origin, env) {
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim());
+  // The site itself, wherever SITE_URL says it lives.
+  try {
+    if (env.SITE_URL) allowed.push(new URL(env.SITE_URL).origin);
+  } catch {
+    // Not a URL: only ALLOWED_ORIGINS.
+  }
   return origin && allowed.includes(origin)
     ? {
         'Access-Control-Allow-Origin': origin,

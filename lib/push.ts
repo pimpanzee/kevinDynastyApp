@@ -3,9 +3,10 @@
 import { call, isError, type RelayError } from '@/lib/relay';
 
 /**
- * Push alerts on this device: a service worker (public/sw.js) subscribed
- * with the relay's VAPID key, and which alerts this device wants. The relay
- * keeps the subscription and sends the pushes (worker/src/alerts.js).
+ * Push alerts on this device, for the team signed in on it: a service
+ * worker (public/sw.js) subscribed with the relay's VAPID key, and which
+ * alerts this device wants. The relay keeps the subscription under that
+ * owner and sends the pushes (worker/src/alerts.js).
  */
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
@@ -16,7 +17,7 @@ export const ALERTS = [
   { key: 'injury', label: 'Injuries', sub: 'A starter is ruled Out, Doubtful or IR before his game' },
   { key: 'waivers', label: 'Waiver results', sub: 'Who you won and lost when claims run' },
   { key: 'recap', label: 'Weekly recap', sub: 'Tuesday: your result, the high score, your bench' },
-  { key: 'login', label: 'MFL login expired', sub: 'When moves stop working until you sign in again' },
+  { key: 'login', label: 'MFL login expired', sub: 'When your MFL login stops working and you need to sign in again' },
 ] as const;
 export type AlertKey = (typeof ALERTS)[number]['key'];
 export type Prefs = Record<AlertKey, boolean>;

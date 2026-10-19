@@ -7,7 +7,7 @@ import InjuryTag from '@/components/InjuryTag';
 import { posColor } from '@/components/pos';
 import { DISPLAY, money } from '@/components/team/format';
 import { deadCap } from '@/lib/cap';
-import { getMine, getWaivers, isError, write, type Mine, type PendingBid, type RelayError, type Waivers } from '@/lib/relay';
+import { getMine, getWaivers, isError, write, type Mine, type PendingBid, type RelayError, type Waivers, SIGNED_OUT } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 
 /**
@@ -38,7 +38,6 @@ export interface PlayerInfo {
 
 type Notice = { tone: 'ok' | 'bad'; text: string };
 
-const EXPIRED = 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.';
 
 export function useWaivers({ cap, limits, adj }: WaiverRules, enabled: boolean, name: (id: string) => string) {
   const [mine, setMine] = useState<Mine | null>(null);
@@ -66,7 +65,7 @@ export function useWaivers({ cap, limits, adj }: WaiverRules, enabled: boolean, 
 
   const report = async (r: { ok: true } | RelayError, success: string) => {
     setNotice(isError(r)
-      ? { tone: 'bad', text: r.signedOut ? EXPIRED : r.unknown ? `${r.error} Your claims and roster were re-read, so check them before trying again.` : r.error }
+      ? { tone: 'bad', text: r.signedOut ? SIGNED_OUT : r.unknown ? `${r.error} Your claims and roster were re-read, so check them before trying again.` : r.error }
       : { tone: 'ok', text: success });
     await load();
     return !isError(r);
@@ -165,8 +164,8 @@ export function WaiverNotice({ w }: { w: WaiversState }) {
 function RelayProblem({ error }: { error: RelayError }) {
   return (
     <div style={{ padding: '24px 16px', font: '500 14px/1.5 var(--font-body)', color: 'var(--ink-2)' }}>
-      <p style={{ margin: 0 }}>{error.signedOut ? EXPIRED : error.error}</p>
-      <p style={{ margin: '12px 0 0' }}><Link href="/settings/" style={{ color: 'var(--volt)', fontWeight: 600 }}>Settings → Make moves</Link></p>
+      <p style={{ margin: 0 }}>{error.signedOut ? SIGNED_OUT : error.error}</p>
+      <p style={{ margin: '12px 0 0' }}><Link href="/login/" style={{ color: 'var(--volt)', fontWeight: 600 }}>Sign in with MFL</Link></p>
     </div>
   );
 }

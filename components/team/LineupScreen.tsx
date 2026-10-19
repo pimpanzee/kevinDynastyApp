@@ -10,7 +10,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import SubTabs from '@/components/SubTabs';
 import { posColor } from '@/components/pos';
 import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
-import { getMine, isError, write, type Mine, type RelayError } from '@/lib/relay';
+import { getMine, isError, write, type Mine, type RelayError, SIGNED_OUT } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 import SectionHead from './SectionHead';
 import { DISPLAY } from './format';
@@ -325,7 +325,7 @@ export default function LineupScreen({
       setNotice({
         tone: 'bad',
         text: r.signedOut
-          ? 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.'
+          ? SIGNED_OUT
           : r.unknown
             ? `${r.error} Your roster was re-read below, so check it before trying again.`
             : r.error,
@@ -396,7 +396,7 @@ export default function LineupScreen({
     const sent = todo.length - failed.length;
     const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
     if (signedOut) {
-      setNotice({ tone: 'bad', text: `${sent ? `${changes(sent)} saved on MFL, then your` : 'Your'} MFL login on the relay expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare; the rest are still queued.` });
+      setNotice({ tone: 'bad', text: `${sent ? `${changes(sent)} saved on MFL, then your` : 'Your'} MFL login expired. Sign in again (Settings); the rest are still queued.` });
     } else if (failed.length) {
       setNotice({ tone: 'bad', text: `${sent} of ${changes(todo.length)} saved on MFL. Still queued: ${failed.map((f) => `${info(f.id).name} (${f.error})`).join('; ')}` });
     } else {
@@ -474,9 +474,9 @@ export default function LineupScreen({
       <div style={{ flex: 1, overflow: 'auto', paddingBottom: 24 }}>
         {loadError && !mine && (
           <div style={{ padding: '24px 16px', font: '500 14px/1.5 var(--font-body)', color: 'var(--ink-2)' }}>
-            <p style={{ margin: 0 }}>{loadError.signedOut ? 'Your MFL login on the relay has expired. Run scripts/mfl-login.mjs again and replace MFL_COOKIE in Cloudflare.' : loadError.error}</p>
+            <p style={{ margin: 0 }}>{loadError.signedOut ? SIGNED_OUT : loadError.error}</p>
             <p style={{ margin: '12px 0 0' }}>
-              <Link href="/settings/" style={{ color: 'var(--volt)', fontWeight: 600 }}>Settings → Make moves</Link>
+              <Link href="/login/" style={{ color: 'var(--volt)', fontWeight: 600 }}>Sign in with MFL</Link>
             </p>
           </div>
         )}

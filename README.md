@@ -24,16 +24,24 @@ touched again.
 `npm run build` writes a fully static site to `out/` (about 90s from a cold
 cache); `npm start` serves it.
 
-## GitHub Pages
+## Hosting (Cloudflare Pages)
 
-The site is published to GitHub Pages by `.github/workflows/pages.yml`. Pages
-cannot run a server, so the app is a static export: every screen is rendered
-from MFL at build time, and the workflow rebuilds it on every push to `main`,
-every hour, and on demand (Actions → Deploy to GitHub Pages → Run
-workflow).
+The site is published to Cloudflare Pages (project `kevin-dynasty-app`, at
+<https://kevin-dynasty-app.pages.dev>) by `.github/workflows/pages.yml`. The
+app is a static export: every screen is rendered from MFL at build time, and
+the workflow rebuilds it on every push to `main`, every hour, and on demand
+(Actions → Deploy site → Run workflow). The first run creates the Pages
+project.
 
-One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
-Actions.**
+It uses the same repository secrets as the live relay, `CLOUDFLARE_API_TOKEN`
+and `CLOUDFLARE_ACCOUNT_ID`; the token needs the **Cloudflare Pages: Edit**
+permission as well as Workers. If the Cloudflare deploy fails, the workflow
+publishes the whole site to GitHub Pages instead (with a warning on the run),
+so it never goes stale. Otherwise the old GitHub Pages address
+(pimpanzee.github.io/kevinDynastyApp) only sends people to the new one
+(`scripts/moved-site.mjs`). If Cloudflare gives the project a different
+address, set the variables `SITE_URL` (and `PAGES_PROJECT` for another name)
+and re-run both workflows.
 
 League settings are read from repository variables (Settings → Secrets and
 variables → Actions → Variables), falling back to the `.env.example` values:

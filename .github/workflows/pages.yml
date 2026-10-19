@@ -1,8 +1,14 @@
-name: Deploy to GitHub Pages
+name: Deploy site
 
 # The site is a static export: MFL is read at build time, so it is rebuilt on
 # a schedule to pick up new scores, standings and roster moves. Hourly;
 # lineups and live scores don't wait for it (they come through worker/).
+#
+# It is served by Cloudflare Pages (project PAGES_PROJECT, at SITE_URL). The
+# old GitHub Pages address then only points people to the new one. If the
+# Cloudflare deploy fails (no CLOUDFLARE_API_TOKEN, or the token can't edit
+# Pages), the whole site goes to GitHub Pages as before, so it never goes
+# stale; the run shows a warning saying why.
 on:
   push:
     branches: [main]
@@ -35,6 +41,9 @@ jobs:
       MFL_APIKEY: ${{ secrets.MFL_APIKEY }}
       # The live relay (worker/); the LIVE_URL variable overrides it.
       NEXT_PUBLIC_LIVE_URL: ${{ vars.LIVE_URL || 'https://gridlock-live.flynnliam3.workers.dev' }}
+      PAGES_PROJECT: ${{ vars.PAGES_PROJECT || 'kevin-dynasty-app' }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://kevin-dynasty-app.pages.dev' }}
+      HAS_CLOUDFLARE: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -56,13 +65,38 @@ jobs:
 
       - run: npm ci
 
+      # Cloudflare Pages serves the site from the root of its own address.
       - run: npm run build
+
+      - id: cloudflare
+        if: env.HAS_CLOUDFLARE == 'true'
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # The first run makes the Pages project; later runs find it there.
+          if ! npx --yes wrangler@4 pages project list | grep -q " $PAGES_PROJECT "; then
+            npx --yes wrangler@4 pages project create "$PAGES_PROJECT" --production-branch=main
+          fi
+          npx --yes wrangler@4 pages deploy out --project-name="$PAGES_PROJECT" --branch=main --commit-dirty=true
+
+      - name: Point the old address at the new one
+        if: steps.cloudflare.outcome == 'success'
+        run: node scripts/moved-site.mjs out "$SITE_URL" github-pages "${{ steps.pages.outputs.base_path }}"
+
+      - name: Fall back to the whole site on GitHub Pages
+        if: steps.cloudflare.outcome != 'success'
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          echo "::warning::Cloudflare Pages deploy didn't run or failed (needs CLOUDFLARE_API_TOKEN with Cloudflare Pages: Edit). Serving the site from GitHub Pages instead."
+          npm run build
+          mv out github-pages
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: out
+          path: github-pages
 
   deploy:
     needs: build

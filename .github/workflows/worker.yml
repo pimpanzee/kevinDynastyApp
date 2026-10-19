@@ -2,7 +2,8 @@ name: Deploy live relay
 
 # Deploys worker/ — the Cloudflare Worker the site polls for live scores.
 # Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
-# (see worker/README.md); skips cleanly until they exist. Re-run it by hand
+# (see worker/README.md); skips cleanly until they exist. Creates the
+# COOKIE_KEY secret on first run. Re-run it by hand
 # after changing MFL_SEASON so the relay reads the same season as the site.
 on:
   push:
@@ -35,3 +36,22 @@ jobs:
             --var MFL_LEAGUE_ID:${{ vars.MFL_LEAGUE_ID || '63396' }}
             --var MFL_HOST:${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}
             --var MFL_USER_AGENT:${{ vars.MFL_USER_AGENT || 'gridlock/1.0' }}
+            --var SITE_URL:${{ vars.SITE_URL || 'https://kevin-dynasty-app.pages.dev' }}
+
+      # COOKIE_KEY encrypts each owner's stored MFL login. Made once, here, as
+      # 32 random bytes that never leave Cloudflare; later deploys keep it.
+      # (Replacing it only means everyone signs in again.)
+      - if: env.HAS_TOKEN == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # Stops here if the list can't be read, so a hiccup never replaces the key.
+          names=$(npx --yes wrangler@4 secret list --format json)
+          if echo "$names" | grep -q '"COOKIE_KEY"'; then
+            echo "COOKIE_KEY is set."
+          else
+            openssl rand -base64 32 | tr -d '\n' | npx --yes wrangler@4 secret put COOKIE_KEY
+            echo "::notice::Created COOKIE_KEY; owners can now sign in."
+          fi
