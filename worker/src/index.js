@@ -25,6 +25,9 @@
  * given the token as a Bearer token. A scheduled run checks every stored
  * login daily, which records how long an MFL login lasts.
  *
+ * GET /history is the league's results since 2021 (history.js), for rivalry
+ * records and the weekly recap. Public league data, no sign-in.
+ *
  * /push/* (same token) subscribes a device to its owner's push alerts, and a
  * run every 15 minutes sends them: lineup lock, injuries, waiver results, the
  * Tuesday recap (alerts.js, webpush.js).
@@ -90,11 +93,17 @@ export default {
 
   /**
    * Daily: is each owner's MFL login still good? Records how long they last
-   * (relay.js `cookies`). Every 15 minutes: the push alert checks (relay.js `alerts`).
+   * (relay.js `cookies`). Every 15 minutes: the push alert checks (relay.js
+   * `alerts`) and a few more reads of the league's history (history.js).
    */
   async scheduled(event, env, ctx) {
     const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
-    ctx.waitUntil(stub.fetch(event.cron === DAILY_CRON ? 'https://relay/daily' : 'https://relay/alerts'));
+    if (event.cron === DAILY_CRON) {
+      ctx.waitUntil(stub.fetch('https://relay/daily'));
+    } else {
+      ctx.waitUntil(stub.fetch('https://relay/alerts'));
+      ctx.waitUntil(stub.fetch('https://relay/history/fill'));
+    }
   },
 };
 
@@ -104,6 +113,7 @@ const DAILY_CRON = '23 14 * * *';
 /** Write-relay routes and the method each takes. */
 const RELAY_ROUTES = {
   '/login': 'POST', '/logout': 'POST', '/me': 'GET', '/mine': 'GET', '/waivers': 'GET', '/trades': 'GET', '/write': 'POST', '/audit': 'GET',
+  '/history': 'GET',
   '/push/key': 'GET', '/push/subscribe': 'POST', '/push/unsubscribe': 'POST', '/push/test': 'POST',
 };
 
