@@ -78,7 +78,8 @@ broken, the top starters and duds, starters listed as out, points left on benche
 moves, trades and waiver adds (with how each new player was used that week and any injury report),
 MFL projections on duds and bench calls, starters on a bye, revenge games against a former team, trade
 scoreboards, salary busts and bargains, the best possible lineup, season luck (record vs all-play) and
-dropped players who scored for someone else, and next week's games. It's built from the
+dropped players who scored for someone else, future firsts and seconds that changed hands (latest
+week only, as owned now), and next week's games. It's built from the
 stored history plus the season's MFL trades, waiver adds and drops (split by
 time: after last week's games ended, up to the end of this week's), next week's schedule,
 the week's injury report, projections and NFL schedule, current salaries, and player names, and kept for 6 hours. It defaults to the last stored week.

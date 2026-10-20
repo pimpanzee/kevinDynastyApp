@@ -204,10 +204,11 @@ const playerLabel = (p) => `${p.name} (${[p.pos, p.team].filter(Boolean).join(',
  * - `salaries`: { id: salary } from the current rosters.
  * - `limits`: starting lineup position limits { QB: [min, max], … }.
  * - `seasonMoves`: [{ week, trades, adds, drops }] for every week so far.
+ * - `futurePicks`: [{ owner, year, round, of }] every future pick as owned now, or null.
  * - `complete`: every earlier season is stored. Until then, nothing claims
  *   "all-time" or "league history", since it would be wrong.
  */
-export function buildFacts({ season, week, history, teams, names, players, moves, next = [], regEnd = 14, injuries = {}, projections = {}, playing = null, salaries = {}, limits = null, seasonMoves = [], complete = true }) {
+export function buildFacts({ season, week, history, teams, names, players, moves, next = [], regEnd = 14, injuries = {}, projections = {}, playing = null, salaries = {}, limits = null, seasonMoves = [], futurePicks = null, complete = true }) {
   const team = (fid) => names[fid] ?? `Team ${fid}`;
   const pos = Object.fromEntries(Object.entries(players).map(([id, p]) => [id, p.pos]));
   const log = seasonLog(history.games, season, week);
@@ -414,6 +415,18 @@ export function buildFacts({ season, week, history, teams, names, players, moves
       return { player: label(p.id), droppedBy: team(d.fid), dropped: d.week === 1 ? 'in the offseason or week 1' : `in week ${d.week}`, nowStartingFor: team(p.fid), points: r1(p.score) };
     });
 
+  // Future firsts and seconds that changed hands: who owns whose.
+  const draftPicks = futurePicks && (() => {
+    const top = futurePicks.filter((p) => p.round <= 2).sort((a, b) => a.year - b.year || a.round - b.round);
+    const name = (p) => `${p.year} round ${p.round}`;
+    return Object.keys(names).map((fid) => {
+      const rec = standings.find((r) => r.team === team(fid))?.record;
+      const got = top.filter((p) => p.owner === fid && p.of !== fid).map((p) => `${possessive(team(p.of))} ${name(p)}`);
+      const gone = top.filter((p) => p.of === fid && p.owner !== fid).map((p) => `${name(p)} (owned by ${team(p.owner)})`);
+      return got.length || gone.length ? { team: team(fid), record: rec, ownsOthers: got, ownPicksTraded: gone } : null;
+    }).filter(Boolean);
+  })();
+
   const nextWeek = next.map(([h, a]) => {
     const s = series(history.games, h, a, season, week + 1);
     const rec = (fid) => standings.find((r) => r.team === team(fid))?.record ?? '';
@@ -433,6 +446,7 @@ export function buildFacts({ season, week, history, teams, names, players, moves
     standings,
     ...(week === 1 && { movesNote: 'Week 1 trades and waiver adds include the whole offseason.' }),
     trades, waivers, tradeScoreboard,
+    ...(draftPicks && { draftPicksNote: 'Future firsts and seconds that have changed hands, as owned now.', draftPicks }),
     seasonLuck: { luckiest, unluckiest },
     nextWeek,
   };

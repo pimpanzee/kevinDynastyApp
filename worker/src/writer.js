@@ -108,7 +108,8 @@ export function instructions(tone) {
       '(a player torching the team that traded him away), "tradeScoreboard" (points each side has got from a trade ' +
       'since it happened), "salaryBusts" and "bargains" (salary vs points), "bestLineups" (points left on the bench, ' +
       'and whether the best lineup would have won), "seasonLuck" (record vs all-play record), and "droppedAndWentOff" ' +
-      '(a player a team cut, now scoring for someone else).',
+      '(a player a team cut, now scoring for someone else), and "draftPicks" (who owns whose future firsts and ' +
+      'seconds: a bad team that traded away its own first gets no reward for losing, and someone else profits).',
     '- Bench calls: benchMisses and duds carry MFL projections. If the started player was projected well above the ' +
       'benched one, the start was the right call and it just didn\'t work out. Don\'t flame that as a dumb decision; ' +
       'call it bad luck or skip it. Save the "what were you thinking" roasts for starting the lower projection, a bye, ' +

@@ -635,7 +635,7 @@ export class WriteRelay {
       Object.assign(players, playerIndex(body));
     }
     const complete = (info.seasons ?? []).filter((y) => y < season).every((y) => this.history.season(y)?.complete);
-    const extras = await this.factExtras(season, week, rostered);
+    const extras = await this.factExtras(season, week, rostered, week === latest);
     const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, seasonMoves, complete, ...extras });
     this.setState(key, { at: Date.now(), facts });
     return facts;
@@ -687,12 +687,19 @@ export class WriteRelay {
 
   /**
    * Detail for the fact sheet that it can do without: the week's injury
-   * report, projections, which NFL teams played, current salaries and the
-   * league's lineup limits. Any read that fails is left out.
+   * report, projections, which NFL teams played, current salaries, the
+   * league's lineup limits and (latest week only) future pick ownership.
+   * Any read that fails is left out.
    */
-  async factExtras(season, week, rostered) {
+  async factExtras(season, week, rostered, isLatest) {
     const out = {};
     const tryRead = async (fn) => { try { await fn(); } catch { /* left out */ } };
+    // Pick ownership is only known as of now, so only the latest week gets it.
+    if (isLatest) await tryRead(async () => {
+      const body = await this.history.mfl(this.history.url(season, 'TYPE=futureDraftPicks'));
+      out.futurePicks = list(body.futureDraftPicks?.franchise).flatMap((f) => list(f.futureDraftPick)
+        .map((p) => ({ owner: f.id, year: Number(p.year), round: Number(p.round), of: p.originalPickFor })));
+    });
     await tryRead(async () => {
       const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=injuries&W=${week}`);
       out.injuries = {};
