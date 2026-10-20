@@ -18,12 +18,16 @@ export const QUIET_WEEKS = 3;
 /** Weeks a trade or waiver story follows the players. */
 const FOLLOW_WEEKS = 4;
 /** A waiver bid this big is a story. */
-const BIG_BID = 20;
+const BIG_BID = 50;
 /** Points that make a followed player's week worth a note: a boom, or a starter's bust. */
-const BOOM = 15;
-const BUST = 3;
+const BOOM = 20;
+const BUST = 1;
 /** Stories the writer sees at most. */
-const WRITER_MAX = 15;
+const WRITER_MAX = 8;
+/** A win or losing streak this long is a story. */
+const STREAK_MIN = 4;
+/** A trade is a story when at least this many starters change teams. */
+const TRADE_STARTERS = 2;
 
 const ordinal = (n) => `${n}${[, 'st', 'nd', 'rd'][(n % 100 >> 3) ^ 1 && n % 10] || 'th'}`;
 /** Teams that make the playoffs. */
@@ -77,13 +81,13 @@ export function stepLedger(prev, { season, week, games, teams, moves, names, pla
     for (const p of parsePlayers(weeks[week])) scored[p.id] = { fid, score: p.score, starter: p.starter };
   }
 
-  // Streaks: 3 or more opens a story; a snapped streak closes it.
+  // Streaks: STREAK_MIN or more opens a story; a snapped streak closes it.
   for (const [fid, es] of Object.entries(log)) {
     const s = streak(es);
     const id = `streak:${fid}`;
     const open = ledger.find((x) => x.id === id && x.status === 'open');
     const word = s.result === 'W' ? 'won' : 'lost';
-    if (s.n >= 3 && s.result !== 'T') {
+    if (s.n >= STREAK_MIN && s.result !== 'T') {
       if (open && open.data.result !== s.result) close(open, week, `${team(fid)}'s run ended.`);
       const story = touch(ledger, week, {
         id, kind: 'streak', teams: [fid], data: { result: s.result },
@@ -100,7 +104,12 @@ export function stepLedger(prev, { season, week, games, teams, moves, names, pla
   for (const t of moves.trades) {
     const id = `trade:${week}:${t.a}:${t.b}`;
     const got = { [t.a]: t.bGave.filter((x) => /^\d+$/.test(x)), [t.b]: t.aGave.filter((x) => /^\d+$/.test(x)) };
-    if (!got[t.a].length && !got[t.b].length) continue; // picks for picks: nothing to follow
+    // Only trades that move starters: one who started for his new team this
+    // week, or for his old team the week before.
+    const startedLast = (fid) => new Set(parsePlayers(teams[fid]?.[week - 1]).filter((p) => p.starter).map((p) => p.id));
+    const before = { [t.a]: startedLast(t.b), [t.b]: startedLast(t.a) }; // what each side got, by its old team
+    const starters = Object.entries(got).flatMap(([fid, ids]) => ids.filter((id) => (scored[id]?.fid === fid && scored[id].starter) || before[fid].has(id)));
+    if (starters.length < TRADE_STARTERS) continue;
     const label = (ids) => ids.map(who).join(', ') || 'picks only';
     touch(ledger, week, {
       id, kind: 'trade', teams: [t.a, t.b], data: { got },
