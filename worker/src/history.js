@@ -4,20 +4,22 @@
  * weekly recap don't need MFL to answer dozens of requests each time.
  *
  * Finished seasons never change, so they're read once. The current season
- * adds each week once it's played, and re-reads the last two played weeks
- * once a day for a week afterwards (MFL stat corrections).
+ * adds each week once it's played, and re-reads it every 6 hours for a week
+ * afterwards (MFL stat corrections, which fill() returns for the push alert).
  *
  * The pure functions here turn MFL exports into rows; HistoryStore reads MFL
  * a few requests at a time (every 15 minutes, from the scheduled run) and
  * stores them. All of it is public league data: no owner login is needed.
  */
 
-import { list } from './alerts.js';
+import { list, statCorrections } from './alerts.js';
 
 /** MFL requests per scheduled run, so a backfill never bursts MFL. */
 export const READS_PER_RUN = 8;
 /** How long after a week is played its results are re-read (stat corrections). */
 const CORRECTION_DAYS = 7;
+/** How often a recently played week is re-read, so a correction is caught within hours. */
+const REREAD_MS = 6 * 3600 * 1000;
 /** How long after its last kickoff a week counts as played. */
 const GAME_TAIL_MS = 4 * 3600 * 1000;
 
@@ -211,6 +213,19 @@ export class HistoryStore {
     this.sql.exec('INSERT OR REPLACE INTO hist_seasons (season, info) VALUES (?, ?)', season, JSON.stringify(info));
   }
 
+  /** A stored week, in readWeek()'s shape. */
+  storedWeek(season, week) {
+    const games = this.sql
+      .exec('SELECT home, away, home_score, away_score, kind FROM hist_games WHERE season = ? AND week = ?', season, week)
+      .toArray()
+      .map((r) => ({ home: r.home, away: r.away, homeScore: r.home_score, awayScore: r.away_score, regular: r.kind === 'regular' }));
+    const teams = {};
+    for (const r of this.sql.exec('SELECT franchise_id, score, players FROM hist_teams WHERE season = ? AND week = ?', season, week).toArray()) {
+      teams[r.franchise_id] = { score: r.score, players: r.players };
+    }
+    return { games, teams };
+  }
+
   saveWeek(season, week, { games, teams }, tags = {}) {
     this.sql.exec('DELETE FROM hist_games WHERE season = ? AND week = ?', season, week);
     for (const g of games) {
@@ -237,6 +252,7 @@ export class HistoryStore {
     const current = Number(this.env.MFL_SEASON);
     let budget = READS_PER_RUN;
     const done = [];
+    const corrections = [];
     const read = async (season, query) => {
       budget -= 1;
       return this.mfl(this.url(season, query));
@@ -257,11 +273,16 @@ export class HistoryStore {
     for (let w = 1; w <= played && budget > 0; w += 1) {
       const seen = weeks[w];
       // New, or played recently and not re-read today: read (again).
-      const recent = seen && now - seen.first < CORRECTION_DAYS * 24 * 3600 * 1000 && now - seen.last > 20 * 3600 * 1000;
+      const recent = seen && now - seen.first < CORRECTION_DAYS * 24 * 3600 * 1000 && now - seen.last > REREAD_MS;
       if (seen && !recent) continue;
       const week = readWeek(await read(current, `TYPE=weeklyResults&W=${w}`));
       // A week whose games haven't scored yet isn't stored.
       if (!week.games.length || !week.games.some((g) => g.homeScore || g.awayScore)) continue;
+      // A re-read that changed a score is a stat correction, for the push alert.
+      if (seen) {
+        const changes = statCorrections(this.storedWeek(current, w), week);
+        if (changes.length) corrections.push({ season: current, week: w, changes });
+      }
       this.saveWeek(current, w, week);
       weeks[w] = { first: seen?.first ?? now, last: now };
       done.push(`${current} week ${w}`);
@@ -274,7 +295,7 @@ export class HistoryStore {
       const r = await this.fillPast(season, read, () => budget);
       if (r) done.push(r);
     }
-    return { done, reads: READS_PER_RUN - budget };
+    return { done, reads: READS_PER_RUN - budget, corrections };
   }
 
   /** Reads what's missing of a finished season, within the budget. Returns a log line or null. */

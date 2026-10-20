@@ -17,6 +17,7 @@ export const ALERTS = [
   { key: 'injury', label: 'Injuries', sub: 'A starter is ruled Out, Doubtful or IR before his game' },
   { key: 'waivers', label: 'Waiver results', sub: 'Who you won and lost when claims run' },
   { key: 'recap', label: 'Weekly recap', sub: 'Tuesday: your result, the high score, your bench' },
+  { key: 'correction', label: 'Stat corrections', sub: 'MFL changes a score in your game after the week, and whether it flips the result' },
   { key: 'login', label: 'MFL login expired', sub: 'When your MFL login stops working and you need to sign in again' },
 ] as const;
 export type AlertKey = (typeof ALERTS)[number]['key'];

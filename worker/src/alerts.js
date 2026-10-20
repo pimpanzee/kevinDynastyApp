@@ -8,6 +8,8 @@
  * - injury: a starter whose game hasn't started becomes Out, Doubtful or IR.
  * - waivers: blind bids you had pending were processed: won or lost.
  * - recap: Tuesday, last week's result, the high score and the biggest bench mistake.
+ * - correction: MFL changed a played week's score (a stat correction) in your
+ *   game, with whether it changed the result.
  */
 
 /** How long before a kickoff the lineup check runs. */
@@ -203,5 +205,78 @@ export function recapAlert({ week, results, franchiseId, franchises, players }) 
   return { key: `recap:${week}`, title: `Week ${week} recap`, body: `${parts.join('. ')}.`, url: '/matchups/' };
 }
 
+/** Score changes smaller than this are float noise, not corrections. */
+const SCORE_EPS = 0.005;
+
+/** "id:score:starter,…" (history.js readWeek) → id → { score, starter }. */
+function playerScores(s) {
+  const out = {};
+  for (const part of String(s ?? '').split(',').filter(Boolean)) {
+    const [id, score, starter] = part.split(':');
+    out[id] = { score: Number(score) || 0, starter: starter === '1' };
+  }
+  return out;
+}
+
+/**
+ * Stat corrections between two reads of one week's results (history.js
+ * readWeek() shapes): each game where either side's score moved, with the
+ * starters whose points changed. [{ home, away, before: [h, a], after: [h, a],
+ * players: { franchiseId: [{ id, delta }] } }].
+ */
+export function statCorrections(before, after) {
+  if (!before?.games?.length || !after?.games?.length) return [];
+  const out = [];
+  for (const g of after.games) {
+    const old = before.games.find((b) => b.home === g.home && b.away === g.away);
+    if (!old) continue;
+    if (Math.abs(old.homeScore - g.homeScore) < SCORE_EPS && Math.abs(old.awayScore - g.awayScore) < SCORE_EPS) continue;
+    const players = {};
+    for (const id of [g.home, g.away]) {
+      const was = playerScores(before.teams?.[id]?.players);
+      const now = playerScores(after.teams?.[id]?.players);
+      players[id] = Object.entries(now)
+        .filter(([pid, p]) => p.starter && Math.abs(p.score - (was[pid]?.score ?? 0)) >= SCORE_EPS)
+        .map(([pid, p]) => ({ id: pid, delta: p.score - (was[pid]?.score ?? 0) }))
+        .sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+    }
+    out.push({ home: g.home, away: g.away, before: [old.homeScore, old.awayScore], after: [g.homeScore, g.awayScore], players });
+  }
+  return out;
+}
+
+/**
+ * The push for one team about a corrected game (from statCorrections()):
+ * both scores before and after, who moved, and whether the result flipped.
+ */
+export function correctionAlert({ season, week, change, franchiseId, franchises, players }) {
+  const home = change.home === franchiseId;
+  if (!home && change.away !== franchiseId) return null;
+  const oppId = home ? change.away : change.home;
+  const [myWas, oppWas] = home ? change.before : [change.before[1], change.before[0]];
+  const [my, opp] = home ? change.after : [change.after[1], change.after[0]];
+  const result = (a, b) => (a > b ? 'win' : a < b ? 'loss' : 'tie');
+  const was = result(myWas, oppWas);
+  const now = result(my, opp);
+  const oppName = franchises[oppId] ?? `Team ${oppId}`;
+  const who = (id) => {
+    const moved = (change.players[id] ?? []).slice(0, 3).map((p) => `${players[p.id]?.name ?? `Player ${p.id}`} ${p.delta > 0 ? '+' : '−'}${fmt2(Math.abs(p.delta))}`);
+    return moved.length ? ` (${moved.join(', ')})` : '';
+  };
+  const parts = [];
+  if (Math.abs(myWas - my) >= SCORE_EPS) parts.push(`You: ${fmt2(myWas)} → ${fmt2(my)}${who(franchiseId)}`);
+  if (Math.abs(oppWas - opp) >= SCORE_EPS) parts.push(`${oppName}: ${fmt2(oppWas)} → ${fmt2(opp)}${who(oppId)}`);
+  const line = `${fmt2(my)}–${fmt2(opp)}`;
+  parts.push(was === now ? `Still a ${now}, ${line}` : `That turns your ${was} into a ${now}, ${line}`);
+  return {
+    key: `correction:${season}:${week}:${fmt2(my)}:${fmt2(opp)}`,
+    title: was === now ? `Stat correction in week ${week}` : `Stat correction: week ${week} is now a ${now}`,
+    body: `${parts.join('. ')}.`,
+    url: `/matchups/${week}/`,
+    urgent: was !== now,
+  };
+}
+
 const fmt = (n) => (Math.round(n * 10) / 10).toFixed(1);
+const fmt2 = (n) => (Math.round(n * 100) / 100).toFixed(2);
 const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
