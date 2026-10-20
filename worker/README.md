@@ -91,24 +91,33 @@ The AI writer's own changes for a week are kept in `ledgerAi:<season>:<week>`
 and replayed too. `forWriter` is the 15 liveliest stories.
 
 `GET /recap[?week=N]` is a stored weekly recap (the latest by default), plus
-`weeks`, the weeks that have one. `POST /recap/write?week=N` (signed in)
-writes that week's recap if it hasn't been written yet (`src/writer.js`):
-one call to Claude (`claude-opus-5-5`) with the fact sheet and the
-storyline ledger, asking for JSON (headline, intro, a paragraph per game,
-storylines, next week, and its own changes to the ledger). Every number in
-the recap must be in the facts; if one isn't, Claude gets one retry, and
-after that the recap is a plain one built from the facts (`source:
-"facts"`). `&force=1` rewrites a written week, for the `RECAP_ADMIN` team
-only. Refusals fall back to another model server-side (`fallbacks:
-"default"`).
+`weeks`, the weeks that have one.
+
+Recaps are written by a weekly Claude task on the league owner's Claude
+plan (no API key or per-call cost), not by the relay. Each Tuesday it:
+
+1. reads `GET /recap/brief[?week=N]`: the instructions (in the
+   `RECAP_TONE` voice), the JSON shape (`schema`), the week's fact sheet,
+   the storylines and last week's headline (`src/writer.js`);
+2. writes the recap as JSON: headline, intro, a paragraph per game,
+   storylines, next week, and its own changes to the storyline ledger;
+3. sends drafts to `POST /recap/check?week=N` until `problems` is empty
+   (every field present, one paragraph per game, and every number found in
+   the facts);
+4. saves it with `POST /recap/save?week=N` and
+   `Authorization: Bearer <RECAP_KEY>`. The relay checks it again, keeps it
+   (replacing an earlier one), and stores its ledger changes as
+   `ledgerAi:<season>:<week>` for later weeks' storylines.
 
 The voice is `RECAP_TONE`: `roast` (the default), `playful`, `straight`, or
 any description of a voice. Change it with the GitHub variable
 `RECAP_TONE` and re-run **Deploy live relay**.
 
-**Setup:** create an API key at console.anthropic.com, add it in GitHub as
-the repository secret `ANTHROPIC_API_KEY`, and re-run **Deploy live relay**,
-which copies it to the Worker. Each recap costs roughly 10 to 20 cents.
+**Setup:** make up a long random `RECAP_KEY` (e.g. from a password manager)
+and add it in two places: the GitHub repository secret `RECAP_KEY` (then
+re-run **Deploy live relay**, which copies it to the Worker), and the Claude
+cloud environment the weekly task runs in, as the environment variable
+`RECAP_KEY`.
 
 ## Write relay (whole league)
 
@@ -198,7 +207,7 @@ longer used and can be deleted.
 ## Local
 
 ```bash
-cd worker && npm ci && npx wrangler dev        # http://localhost:8787/live?week=11
+cd worker && npx wrangler dev        # http://localhost:8787/live?week=11
 ```
 
 For the write relay, put `COOKIE_KEY` (`openssl rand -base64 32`) and

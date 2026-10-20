@@ -22,7 +22,7 @@
 import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
-import { client as claude, writeRecap } from './writer.js';
+import { instructions, problems, RECAP_SCHEMA } from './writer.js';
 import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -298,6 +298,15 @@ export class WriteRelay {
       if (path === '/recap/facts') return reply(await this.facts(url.searchParams.get('week')));
       if (path === '/recap/storylines') return reply(await this.storylines(url.searchParams.get('week')));
       if (path === '/recap' && request.method === 'GET') return reply(this.recap(url.searchParams.get('week')));
+      // The weekly recap task (README) reads its brief, checks drafts and saves the result.
+      if (path === '/recap/brief') return reply(await this.recapBrief(url.searchParams.get('week')));
+      if (path === '/recap/check' && request.method === 'POST') {
+        return reply(await this.checkRecap(url.searchParams.get('week'), await request.json().catch(() => null)));
+      }
+      if (path === '/recap/save' && request.method === 'POST') {
+        if (!this.recapKeyOk(request)) return json({ error: 'Not allowed' }, 403);
+        return reply(await this.saveRecap(url.searchParams.get('week'), await request.json().catch(() => null)));
+      }
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -312,9 +321,6 @@ export class WriteRelay {
 
       if (path === '/logout' && request.method === 'POST') {
         return reply(this.logout(o, session, await request.json().catch(() => null)));
-      }
-      if (path === '/recap/write' && request.method === 'POST') {
-        return reply(await this.writeRecapOnce(url.searchParams.get('week'), url.searchParams.get('force') === '1', o.franchiseId));
       }
       if (path === '/me') return json(await this.me(o));
       if (path === '/audit') return json({ entries: this.audit(o) });
@@ -656,7 +662,7 @@ export class WriteRelay {
    * own changes stored for that week (`ledgerAi:season:week`). Returns what
    * the writer sees, and the whole ledger.
    */
-  async storylines(weekParam) {
+  async storylines(weekParam, { skipAiWeek } = {}) {
     if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
     const season = Number(this.env.MFL_SEASON);
     const info = this.history.season(season);
@@ -675,7 +681,7 @@ export class WriteRelay {
     let ledger = [];
     for (let w = 1; w <= week; w += 1) {
       ledger = stepLedger(ledger, { season, week: w, games, teams, moves: allMoves[w - 1], names: info.names, players, regEnd: info.regEnd });
-      ledger = applyChanges(ledger, w, this.getState(`ledgerAi:${season}:${w}`));
+      if (w !== skipAiWeek) ledger = applyChanges(ledger, w, this.getState(`ledgerAi:${season}:${w}`));
     }
     return { season, week, forWriter: ledgerForWriter(ledger, week, info.names), ledger };
   }
@@ -692,64 +698,65 @@ export class WriteRelay {
     return { ...stored, weeks };
   }
 
-  /** writeRecapFor, once at a time per week (a second caller waits for the first). */
-  writeRecapOnce(weekParam, force, franchiseId) {
-    this.writing ??= new Map();
-    const key = `${weekParam}:${force}`;
-    if (!this.writing.has(key)) {
-      this.writing.set(key, this.writeRecapFor(weekParam, force, franchiseId).finally(() => this.writing.delete(key)));
-    }
-    return this.writing.get(key);
+  /**
+   * Everything the recap task needs to write a week: the instructions (with
+   * the RECAP_TONE voice), the JSON shape, the fact sheet, the storylines
+   * (without that week's own earlier changes, so a rewrite starts clean) and
+   * last week's headline. Week defaults to the last one stored.
+   */
+  async recapBrief(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const facts = await this.facts(weekParam);
+    if (facts.error) return facts;
+    const { season, week } = facts;
+    const story = await this.storylines(String(week), { skipAiWeek: week });
+    if (story.error) return story;
+    return {
+      season, week,
+      written: Boolean(this.getState(`recap:${season}:${week}`)),
+      instructions: instructions(this.env.RECAP_TONE || 'roast'),
+      schema: RECAP_SCHEMA,
+      previousHeadline: this.getState(`recap:${season}:${week - 1}`)?.recap?.headline ?? null,
+      facts,
+      storylines: story.forWriter,
+    };
+  }
+
+  /** A draft recap's problems for a week (writer.js `problems`); none means it can be saved. */
+  async checkRecap(weekParam, recap) {
+    if (!weekParam || !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const brief = await this.recapBrief(weekParam);
+    if (brief.error) return brief;
+    return { week: brief.week, problems: problems(recap, brief) };
+  }
+
+  /** The recap task's key (Authorization: Bearer RECAP_KEY). */
+  recapKeyOk(request) {
+    const key = this.env.RECAP_KEY ?? '';
+    const given = (request.headers.get('Authorization') ?? '').replace(/^Bearer /, '');
+    return key.length >= 16 && given === key;
   }
 
   /**
-   * Writes a week's recap with Claude (writer.js) and keeps it, with the
-   * writer's storyline changes for that week. A week already written is
-   * returned as is; rewriting it (`force`) is for RECAP_ADMIN's team only.
+   * Keeps a week's recap if it passes the checks, replacing any earlier one,
+   * with its storyline changes (`ledgerAi:season:week`).
    */
-  async writeRecapFor(weekParam, force, franchiseId) {
+  async saveRecap(weekParam, recap) {
     if (!weekParam || !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
-    const season = Number(this.env.MFL_SEASON);
-    const week = Number(weekParam);
-    const key = `recap:${season}:${week}`;
-    const existing = this.getState(key);
-    if (existing && !force) return existing;
-    if (force && franchiseId !== this.env.RECAP_ADMIN) return { error: 'Only the league\'s recap admin can rewrite a recap.', status: 403 };
-    if (!this.env.ANTHROPIC_API_KEY) return { error: 'The recap writer has no Anthropic API key yet (README).', status: 503 };
-
-    const facts = await this.facts(weekParam);
-    if (facts.error) return facts;
-    // A rewrite starts from the ledger without this week's earlier changes.
-    const aiKey = `ledgerAi:${season}:${week}`;
-    const priorAi = this.getState(aiKey);
-    this.setState(aiKey, undefined);
-    let story;
-    try {
-      story = await this.storylines(weekParam);
-    } catch (e) {
-      this.setState(aiKey, priorAi);
-      throw e;
-    }
-    if (story.error) {
-      this.setState(aiKey, priorAi);
-      return story;
-    }
-    const previous = this.getState(`recap:${season}:${week - 1}`)?.recap?.headline;
-    let out;
-    try {
-      this.claude ??= claude(this.env);
-      out = await writeRecap({ client: this.claude, tone: this.env.RECAP_TONE || 'roast', facts, storylines: story.forWriter, previous });
-    } catch (e) {
-      this.setState(aiKey, priorAi);
-      return { error: `The recap writer failed: ${e.message}`, status: 502 };
-    }
-    this.setState(aiKey, out.recap.ledger?.length ? out.recap.ledger : undefined);
-    const stored = {
-      season, week, writtenAt: Date.now(), tone: this.env.RECAP_TONE || 'roast',
-      source: out.source, model: out.model, problems: out.problems, usage: out.usage,
-      recap: out.recap,
+    const brief = await this.recapBrief(weekParam);
+    if (brief.error) return brief;
+    const found = problems(recap, brief);
+    if (found.length) return { error: 'The recap has problems', problems: found, status: 422 };
+    const { season, week } = brief;
+    const keep = {
+      headline: recap.headline, intro: recap.intro, nextWeek: recap.nextWeek,
+      matchups: recap.matchups.map(({ winner, loser, text }) => ({ winner, loser, text })),
+      storylines: recap.storylines.map(({ title, text }) => ({ title, text })),
+      ledger: recap.ledger.slice(0, 5).map(({ op, id, title, teams, text }) => ({ op, id, title: title ?? '', teams: Array.isArray(teams) ? teams : [], text: text ?? '' })),
     };
-    this.setState(key, stored);
+    this.setState(`ledgerAi:${season}:${week}`, keep.ledger.length ? keep.ledger : undefined);
+    const stored = { season, week, writtenAt: Date.now(), tone: this.env.RECAP_TONE || 'roast', recap: keep };
+    this.setState(`recap:${season}:${week}`, stored);
     return stored;
   }
 

@@ -31,8 +31,8 @@ crons = ["23 14 * * *", "*/15 * * * *"]
 
 # Secrets, never here: COOKIE_KEY, the key that encrypts each owner's
 # stored MFL login. The Deploy live relay workflow creates it on first deploy
-# (a random 32 bytes nobody needs to see); and ANTHROPIC_API_KEY, for the
-# weekly recap writer, copied from the GitHub secret of that name. See README.md.
+# (a random 32 bytes nobody needs to see); and RECAP_KEY, which lets the weekly
+# recap task save recaps, copied from the GitHub secret of that name. See README.md.
 
 [vars]
 MFL_HOST = "https://www44.myfantasyleague.com"
@@ -47,5 +47,3 @@ ALLOWED_ORIGINS = "https://pimpanzee.github.io,http://localhost:3000"
 MFL_USER_AGENT = "gridlock/1.0"
 # The weekly recap's voice: roast, playful, straight, or any description (src/writer.js).
 RECAP_TONE = "roast"
-# The team whose owner may rewrite a recap that's already been written.
-RECAP_ADMIN = "0012"
