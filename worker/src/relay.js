@@ -19,6 +19,7 @@
  * - Redirects are never followed: fetch drops the Cookie header on the hop.
  */
 
+import { HistoryStore } from './history.js';
 import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -267,6 +268,7 @@ export class WriteRelay {
     }
     // Devices from the single-owner relay belong to nobody now; they subscribe again after signing in.
     this.sql.exec('DELETE FROM push_subs WHERE franchise_id IS NULL');
+    this.history = new HistoryStore(this.sql, env);
   }
 
   getState(k) {
@@ -286,6 +288,9 @@ export class WriteRelay {
       // Only the scheduled runs reach these; they aren't public routes (index.js).
       if (path === '/alerts') return json(await this.alerts());
       if (path === '/daily') return json(await this.daily());
+      if (path === '/history/fill') return json(await this.fillHistory());
+      // League history is public data: no sign-in needed.
+      if (path === '/history') return json(this.history.summary());
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -543,6 +548,24 @@ export class WriteRelay {
     const out = {};
     for (const o of await this.owners()) out[o.franchiseId] = (await this.me(o)).signedIn;
     return out;
+  }
+
+  /**
+   * The scheduled history run (every 15 minutes): reads a few more of MFL's
+   * past results into storage (history.js). Needs the week's kickoffs, which
+   * the alert run keeps; read here too when nobody has alerts on.
+   */
+  async fillHistory() {
+    const now = Date.now();
+    let sched = this.getState('sched');
+    if (!sched || now - sched.at > 6 * 3600 * 1000) {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${this.env.MFL_SEASON}/export?JSON=1&TYPE=nflSchedule`);
+      const kickoffs = {};
+      for (const g of list(body.nflSchedule?.matchup)) for (const t of list(g.team)) kickoffs[t.id] = Number(g.kickoff) * 1000;
+      sched = { week: Number(body.nflSchedule?.week) || 0, kickoffs, at: now };
+      this.setState('sched', sched);
+    }
+    return this.history.fill({ now, sched });
   }
 
   /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */

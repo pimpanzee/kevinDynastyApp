@@ -53,6 +53,23 @@ defaults to the league's default team, and `week` to the current week. Season an
 league come from configuration, never the caller. CORS is granted only to
 the site (`SITE_URL`) and `ALLOWED_ORIGINS` in `wrangler.toml`.
 
+`GET /history` is every game the league has played on MFL (2021 on), for
+rivalry records and the weekly recap (`src/history.js`):
+
+```json
+{ "seasons": { "2025": { "names": { "0001": "Tuna Fish" }, "regEnd": 14, "end": 17,
+                         "champion": "0008", "runnerUp": "0001", "complete": true } },
+  "games": [[2025, 17, "0008", 162.2, "0001", 77.54, "Playoffs"]] }
+```
+
+Each game is `[season, week, home, homeScore, away, awayScore, kind]`, where
+`kind` is `regular`, a playoff bracket's name (`Playoffs`, `3rd Place Game`)
+or `Consolation`. The relay fills it 8 MFL reads at a time from the
+15-minute run, so after the first deploy it takes a few hours to reach 2021.
+Finished seasons are read once. This season adds each week once it's played
+and re-reads it daily for a week (stat corrections). Player scores per team
+and week are stored too, for the recap, but not served here.
+
 ## Write relay (whole league)
 
 Any owner in the league can make moves for their own team from the app.
