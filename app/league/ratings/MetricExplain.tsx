@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet from '@/components/BottomSheet';
 import { DISPLAY } from '@/components/team/format';
 import type { RatingsView } from '@/lib/types';
@@ -15,36 +14,7 @@ export function InfoDot() {
   );
 }
 
-/** Version A: a short tooltip under the column name. Tap anywhere to close. */
-export function MetricTooltip({ metric, anchor, onClose }: { metric: Metric; anchor: DOMRect; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [left, setLeft] = useState(anchor.left);
-  useLayoutEffect(() => {
-    const w = ref.current?.offsetWidth ?? 280;
-    const mid = anchor.left + anchor.width / 2;
-    setLeft(Math.max(12, Math.min(window.innerWidth - w - 12, mid - w / 2)));
-  }, [anchor]);
-  useEffect(() => {
-    const close = () => onClose();
-    // Ignore the scroll that brings a half-hidden column into view as it's tapped.
-    const opened = Date.now();
-    const onScroll = () => { if (Date.now() - opened > 400) onClose(); };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('scroll', onScroll, true);
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('scroll', onScroll, true); };
-  }, [onClose]);
-  const arrow = anchor.left + anchor.width / 2 - left - 6;
-  return (
-    <div ref={ref} role="tooltip" style={{ position: 'fixed', top: anchor.bottom + 8, left, zIndex: 30, width: 'min(300px, calc(100vw - 24px))', padding: '10px 12px 11px', boxSizing: 'border-box', borderRadius: 8, background: 'var(--bg-300)', color: 'var(--ink)', border: '1px solid var(--edge)', boxShadow: '0 8px 24px rgba(0,0,0,.35)', whiteSpace: 'normal', textAlign: 'left' }}>
-      <span aria-hidden style={{ position: 'absolute', top: -6, left: arrow, width: 10, height: 10, background: 'var(--bg-300)', borderLeft: '1px solid var(--edge)', borderTop: '1px solid var(--edge)', transform: 'rotate(45deg)' }} />
-      <div style={{ font: DISPLAY(11), letterSpacing: '.1em', color: 'var(--volt)', marginBottom: 5 }}>{metric.label}{metric.name.toUpperCase() !== metric.label && ` · ${metric.name.toUpperCase()}`}</div>
-      <div style={{ font: '600 13px/1.4 var(--font-body)', marginBottom: 6 }}>{metric.short}</div>
-      <div style={{ font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-2)' }}>{metric.how.slice(0, 2).join(' ')}</div>
-    </div>
-  );
-}
-
-/** Version B: a full card that rises from the bottom, with your number and the league's high and low. */
+/** A full card that rises from the bottom, with your number and the league's high and low. */
 export function MetricCard({ metric, rows, mine, onClose }: { metric: Metric; rows: Row[]; mine: string | null; onClose: () => void }) {
   const me = rows.find((r) => r.franchiseId === mine);
   const sorted = rows.slice().sort((a, b) => metric.value(b) - metric.value(a));

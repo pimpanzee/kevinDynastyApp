@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import LeagueFrame from '@/components/league/LeagueFrame';
 import TeamChip from '@/components/league/TeamChip';
 import { DISPLAY } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
 import type { RatingsView } from '@/lib/types';
-import { InfoDot, MetricCard, MetricTooltip } from './MetricExplain';
+import { InfoDot, MetricCard } from './MetricExplain';
 import { METRICS, type MetricKey } from './metrics';
 
 const COLS = '200px 52px 58px 76px 66px';
@@ -16,25 +16,16 @@ const head = { textAlign: 'right', paddingRight: 8 } as const;
 /** League › Ratings: power rankings with PWR, ELO, all-play record and luck. */
 export default function RatingsScreen({ view }: { view: RatingsView }) {
   const mine = useMyTeam(view.myFranchiseId);
-  // Mockup switch: ?explain=card shows the pop-up card, otherwise the tooltip.
-  const [style, setStyle] = useState<'tip' | 'card'>('tip');
-  useEffect(() => { if (new URLSearchParams(location.search).get('explain') === 'card') setStyle('card'); }, []);
-  const [open, setOpen] = useState<{ key: MetricKey; anchor: DOMRect } | null>(null);
-  const metric = open && METRICS.find((m) => m.key === open.key);
+  const [open, setOpen] = useState<MetricKey | null>(null);
+  const metric = open && METRICS.find((m) => m.key === open);
   const headBtn = (key: MetricKey, extra?: React.CSSProperties) => {
     const m = METRICS.find((x) => x.key === key)!;
-    const on = open?.key === key;
+    const on = open === key;
     return (
       <button
         type="button"
         aria-label={`What ${m.label} means`}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          if (on) return setOpen(null);
-          const el = e.currentTarget;
-          el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-          requestAnimationFrame(() => setOpen({ key, anchor: el.getBoundingClientRect() }));
-        }}
+        onClick={() => setOpen(on ? null : key)}
         style={{ ...head, ...extra, height: '100%', border: 0, background: 'none', font: 'inherit', letterSpacing: 'inherit', color: on ? 'var(--volt)' : extra?.color ?? 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `0 ${extra?.paddingRight ?? 8}px 0 0` }}
       >
         {m.label}<InfoDot />
@@ -79,8 +70,7 @@ export default function RatingsScreen({ view }: { view: RatingsView }) {
           </div>
         </div>
       </div>
-      {metric && open && style === 'tip' && <MetricTooltip metric={metric} anchor={open.anchor} onClose={() => setOpen(null)} />}
-      {metric && style === 'card' && <MetricCard metric={metric} rows={view.rows} mine={mine} onClose={() => setOpen(null)} />}
+      {metric && <MetricCard metric={metric} rows={view.rows} mine={mine} onClose={() => setOpen(null)} />}
     </LeagueFrame>
   );
 }
