@@ -13,6 +13,9 @@ export interface HistorySeason {
   end: number;
   champion: string | null;
   runnerUp: string | null;
+  /** Finished seasons: { divisionId: franchiseId }. */
+  divisionWinners?: Record<string, string>;
+  divisions?: Record<string, string>;
   complete: boolean;
 }
 
@@ -98,6 +101,8 @@ export interface AllTime {
   ties: number;
   titles: number[];
   finals: number[];
+  /** Seasons the team won its division. */
+  divisionTitles: number[];
   /** Seasons with a game in a playoff bracket. */
   playoffSeasons: number[];
   seasons: number;
@@ -105,7 +110,7 @@ export interface AllTime {
 
 /** One team's record across every stored season. */
 export function allTime(history: History, id: string): AllTime {
-  const out: AllTime = { wins: 0, losses: 0, ties: 0, titles: [], finals: [], playoffSeasons: [], seasons: 0 };
+  const out: AllTime = { wins: 0, losses: 0, ties: 0, titles: [], finals: [], divisionTitles: [], playoffSeasons: [], seasons: 0 };
   const playoffs = new Set<number>();
   const seasons = new Set<number>();
   for (const [season, , home, hs, away, as, kind] of history.games) {
@@ -123,6 +128,7 @@ export function allTime(history: History, id: string): AllTime {
   for (const [y, s] of Object.entries(history.seasons)) {
     if (s.champion === id) out.titles.push(Number(y));
     if (s.champion === id || s.runnerUp === id) out.finals.push(Number(y));
+    if (Object.values(s.divisionWinners ?? {}).includes(id)) out.divisionTitles.push(Number(y));
   }
   out.playoffSeasons = [...playoffs].sort();
   out.seasons = seasons.size;

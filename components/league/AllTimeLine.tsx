@@ -9,7 +9,7 @@ const yy = (y: number) => `’${String(y).slice(2)}`;
 
 /**
  * A team's line under its name: all-time regular season record, titles,
- * playoff trips, and, on another team's page, the series against yours
+ * division titles, playoff trips, and, on another team's page, the series against yours
  * (tap it for the rivalry card). Hidden until the relay's history has loaded.
  */
 export default function AllTimeLine({ team, mine }: { team: RivalryTeam; mine: RivalryTeam | null }) {
@@ -20,6 +20,7 @@ export default function AllTimeLine({ team, mine }: { team: RivalryTeam; mine: R
   if (!a.seasons) return null;
   const bits: Array<[string, string]> = [[record(a), 'ALL-TIME']];
   if (a.titles.length) bits.push([`${a.titles.length} 🏆`, a.titles.map(yy).join(' ')]);
+  if (a.divisionTitles.length) bits.push([String(a.divisionTitles.length), `${a.divisionTitles.length === 1 ? 'DIV TITLE' : 'DIV TITLES'} ${a.divisionTitles.map(yy).join(' ')}`]);
   bits.push([String(a.playoffSeasons.length), a.playoffSeasons.length === 1 ? 'PLAYOFF TRIP' : 'PLAYOFF TRIPS']);
   const vs = mine && mine.id !== team.id ? headToHead(history, mine.id, team.id) : null;
   const text = { font: '500 12px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' } as const;
