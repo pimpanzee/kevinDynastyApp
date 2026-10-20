@@ -106,7 +106,7 @@ plan (no API key or per-call cost), not by the relay. Each Tuesday it:
 3. sends drafts to `POST /recap/check?week=N` until `problems` is empty
    (every field present, one paragraph per game, and every number found in
    the facts);
-4. saves it with `POST /recap/save?week=N` and
+4. saves it with `POST /recap/save?week=N`, which needs
    `Authorization: Bearer <RECAP_KEY>`. The relay checks it again, keeps it
    (replacing an earlier one), and stores its ledger changes as
    `ledgerAi:<season>:<week>` for later weeks' storylines.
@@ -117,9 +117,11 @@ any description of a voice. Change it with the GitHub variable
 
 **Setup:** make up a long random `RECAP_KEY` (e.g. from a password manager)
 and add it in two places: the GitHub repository secret `RECAP_KEY` (then
-re-run **Deploy live relay**, which copies it to the Worker), and the Claude
-cloud environment the weekly task runs in, as the environment variable
-`RECAP_KEY`.
+re-run **Deploy live relay**, which copies it to the Worker), and a network
+secret on the Claude cloud environment the weekly task runs in (type
+Bearer, allowed website `gridlock-live.flynnliam3.workers.dev`, path prefix
+`/recap/save`, header `Authorization`, prefix `Bearer`). The task never
+sees the key; Anthropic's proxy adds it to its save request.
 
 ## Write relay (whole league)
 
