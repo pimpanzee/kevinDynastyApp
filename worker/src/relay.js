@@ -609,7 +609,10 @@ export class WriteRelay {
     if (cached && Date.now() - cached.at < 6 * 3600 * 1000) return cached.facts;
 
     const teams = this.history.teams(season);
-    const moves = await this.moves(season, week, Math.max(...stored));
+    const latest = Math.max(...stored);
+    const seasonMoves = [];
+    for (let w = 1; w <= week; w += 1) seasonMoves.push({ week: w, ...(await this.moves(season, w, latest)) });
+    const moves = seasonMoves.at(-1);
     const next = [];
     if (week < info.end) {
       const body = await this.history.mfl(this.history.url(season, `TYPE=schedule&W=${week + 1}`));
@@ -620,8 +623,11 @@ export class WriteRelay {
     }
     const ids = new Set();
     for (const weeks of Object.values(teams)) for (const p of parsePlayers(weeks[week])) ids.add(p.id);
-    for (const t of moves.trades) [...t.aGave, ...t.bGave].forEach((id) => /^\d+$/.test(id) && ids.add(id));
-    for (const a of moves.adds) [a.player, ...a.dropped].forEach((id) => ids.add(id));
+    const rostered = [...ids];
+    for (const m of seasonMoves) {
+      for (const t of m.trades) [...t.aGave, ...t.bGave].forEach((id) => /^\d+$/.test(id) && ids.add(id));
+      for (const a of m.adds) [a.player, ...a.dropped].forEach((id) => ids.add(id));
+    }
     const players = {};
     const all = [...ids].sort();
     for (let i = 0; i < all.length; i += 150) {
@@ -629,14 +635,8 @@ export class WriteRelay {
       Object.assign(players, playerIndex(body));
     }
     const complete = (info.seasons ?? []).filter((y) => y < season).every((y) => this.history.season(y)?.complete);
-    const injuries = {};
-    try {
-      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=injuries&W=${week}`);
-      for (const i of list(body.injuries?.injury)) if (i.id && i.status) injuries[i.id] = i.details ? `${i.status} (${i.details})` : i.status;
-    } catch {
-      // The injury report only adds detail; the facts stand without it.
-    }
-    const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, injuries, complete });
+    const extras = await this.factExtras(season, week, rostered);
+    const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, seasonMoves, complete, ...extras });
     this.setState(key, { at: Date.now(), facts });
     return facts;
   }
@@ -649,7 +649,7 @@ export class WriteRelay {
    * good once the week is behind us, else 6 hours.
    */
   async moves(season, week, latest) {
-    const key = `moves3:${season}:${week}`;
+    const key = `moves4:${season}:${week}`;
     const cached = this.getState(key);
     if (cached && (week < latest || Date.now() - cached.at < 6 * 3600 * 1000)) return cached.moves;
     const end = await this.weekEnd(season);
@@ -658,12 +658,12 @@ export class WriteRelay {
     return moves;
   }
 
-  /** The season's trades and waiver adds from MFL, read at most every 10 minutes. */
+  /** The season's trades, waiver adds and drops from MFL, read at most every 10 minutes. */
   async transactions(season) {
-    const key = `tx:${season}`;
+    const key = `tx2:${season}`;
     const cached = this.getState(key);
     if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.body;
-    const body = await this.history.mfl(this.history.url(season, 'TYPE=transactions&TRANS_TYPE=TRADE,BBID_WAIVER'));
+    const body = await this.history.mfl(this.history.url(season, 'TYPE=transactions&TRANS_TYPE=TRADE,BBID_WAIVER,FREE_AGENT'));
     this.setState(key, { at: Date.now(), body });
     return body;
   }
@@ -683,6 +683,53 @@ export class WriteRelay {
       this.setState(key, end1);
     }
     return (week) => end1 + (week - 1) * 7 * 86400;
+  }
+
+  /**
+   * Detail for the fact sheet that it can do without: the week's injury
+   * report, projections, which NFL teams played, current salaries and the
+   * league's lineup limits. Any read that fails is left out.
+   */
+  async factExtras(season, week, rostered) {
+    const out = {};
+    const tryRead = async (fn) => { try { await fn(); } catch { /* left out */ } };
+    await tryRead(async () => {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=injuries&W=${week}`);
+      out.injuries = {};
+      for (const i of list(body.injuries?.injury)) if (i.id && i.status) out.injuries[i.id] = i.details ? `${i.status} (${i.details})` : i.status;
+    });
+    await tryRead(async () => {
+      const projections = {};
+      for (let i = 0; i < rostered.length; i += 150) {
+        const body = await this.history.mfl(this.history.url(season, `TYPE=projectedScores&W=${week}&PLAYERS=${rostered.slice(i, i + 150).join(',')}`));
+        for (const p of list(body.projectedScores?.playerScore)) if (p.score !== '' && p.score != null) projections[p.id] = Number(p.score);
+      }
+      out.projections = projections;
+    });
+    await tryRead(async () => {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=nflSchedule&W=${week}`);
+      const playing = list(body.nflSchedule?.matchup).flatMap((m) => list(m.team).map((t) => t.id));
+      if (playing.length) out.playing = playing;
+    });
+    await tryRead(async () => {
+      const key = `league:${season}`;
+      let l = this.getState(key);
+      if (!l || Date.now() - l.at > 24 * 3600 * 1000) {
+        const [rosters, league] = [await this.history.mfl(this.history.url(season, 'TYPE=rosters')), await this.history.mfl(this.history.url(season, 'TYPE=league'))];
+        const salaries = {};
+        for (const f of list(rosters.rosters?.franchise)) for (const p of list(f.player)) if (p.salary) salaries[p.id] = Number(p.salary);
+        const limits = {};
+        for (const p of list(league.league?.starters?.position)) {
+          const [min, max = min] = String(p.limit).split('-').map(Number);
+          limits[p.name] = [min, max];
+        }
+        l = { at: Date.now(), salaries, limits };
+        this.setState(key, l);
+      }
+      out.salaries = l.salaries;
+      if (Object.keys(l.limits).length) out.limits = l.limits;
+    });
+    return out;
   }
 
   /** Player names for these ids, read from MFL once and kept. */

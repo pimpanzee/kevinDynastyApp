@@ -75,10 +75,13 @@ when the last fill ran and what it read, or the error that stopped it.
 (`src/facts.js`), which the weekly recap is written from. It covers results with
 the all-time series, high and low scores, lucky and unlucky results, records
 broken, the top starters and duds, starters listed as out, points left on benches, streaks, standings
-moves, trades and waiver adds (with how each new player was used that week and any injury report), and next week's games. It's built from the
-stored history plus that week's MFL trades and waiver adds (split by
-time: after last week's games ended, up to the end of this week's), next week's schedule and
-player names, and kept for 6 hours. It defaults to the last stored week.
+moves, trades and waiver adds (with how each new player was used that week and any injury report),
+MFL projections on duds and bench calls, starters on a bye, revenge games against a former team, trade
+scoreboards, salary busts and bargains, the best possible lineup, season luck (record vs all-play) and
+dropped players who scored for someone else, and next week's games. It's built from the
+stored history plus the season's MFL trades, waiver adds and drops (split by
+time: after last week's games ended, up to the end of this week's), next week's schedule,
+the week's injury report, projections and NFL schedule, current salaries, and player names, and kept for 6 hours. It defaults to the last stored week.
 Until every earlier season is stored, `historyComplete` is false and nothing
 claims "all-time" or "league history".
 
