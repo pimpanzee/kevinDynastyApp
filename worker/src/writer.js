@@ -60,7 +60,7 @@ export const RECAP_SCHEMA = {
       description:
         'Your changes to the storyline ledger. open: a new story you spotted (new id, a title, team names). ' +
         'note: something new on an existing story (its id). close: a story that has played out (its id). ' +
-        'Use empty strings and an empty teams list where a field does not apply. At most 5.',
+        'Use empty strings and an empty teams list where a field does not apply. Don\'t start text with the week number; it is added. At most 5.',
       items: {
         type: 'object',
         additionalProperties: false,

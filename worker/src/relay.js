@@ -636,7 +636,8 @@ export class WriteRelay {
 
   /** A week's moves (facts.js readMoves): kept for good once the week is behind us, else 6 hours. */
   async moves(season, week, latest) {
-    const key = `moves:${season}:${week}`;
+    // moves2: re-read after one-sided commissioner transfers stopped counting as trades.
+    const key = `moves2:${season}:${week}`;
     const cached = this.getState(key);
     if (cached && (week < latest || Date.now() - cached.at < 6 * 3600 * 1000)) return cached.moves;
     const moves = readMoves(await this.history.mfl(this.history.url(season, `TYPE=transactions&W=${week}`)));
