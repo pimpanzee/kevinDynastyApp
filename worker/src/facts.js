@@ -87,6 +87,27 @@ export function benchMiss(players, pos) {
   return worst;
 }
 
+/**
+ * The most points a roster could have scored with the same number of
+ * starters, inside the league's position limits ({ QB: [min, max], … }):
+ * fill each position's minimum with its best players, then the rest with
+ * the best players left whose position still has room.
+ */
+export function bestLineup(players, pos, limits) {
+  const n = players.filter((p) => p.starter).length;
+  const pool = players.filter((p) => limits[pos[p.id]]).sort((a, b) => b.score - a.score);
+  const used = new Set();
+  const count = {};
+  let total = 0;
+  const take = (p) => { used.add(p.id); count[pos[p.id]] = (count[pos[p.id]] ?? 0) + 1; total += p.score; };
+  for (const [ps, [min]] of Object.entries(limits)) pool.filter((p) => pos[p.id] === ps).slice(0, min).forEach(take);
+  for (const p of pool) {
+    if (used.size >= n) break;
+    if (!used.has(p.id) && (count[pos[p.id]] ?? 0) < limits[pos[p.id]][1]) take(p);
+  }
+  return r1(total);
+}
+
 /** One team's all-time head-to-head with another, before (season, week). */
 function series(games, a, b, season, week) {
   let w = 0, l = 0, t = 0;
@@ -121,14 +142,18 @@ function priorRecords(games, season, week) {
 }
 
 /**
- * The week's moves from a `transactions` export for that week:
- * { trades: [{ a, b, aGave, bGave }], adds: [{ fid, player, bid, dropped }] }.
+ * The week's moves from a `transactions` export:
+ * { trades: [{ a, b, aGave, bGave }], adds: [{ fid, player, bid, dropped }], drops: [{ fid, player }] }.
+ * Only moves made after `from` and up to `to` (unix seconds) count, when given.
  * Draft picks stay as MFL writes them (FP_0003_2027_2 = 0003's 2027 2nd).
  */
-export function readMoves(transactions) {
+export function readMoves(transactions, { from = -Infinity, to = Infinity } = {}) {
   const trades = [];
   const adds = [];
+  const drops = [];
   for (const t of list(transactions?.transactions?.transaction)) {
+    const at = Number(t.timestamp);
+    if (at && (at <= from || at > to)) continue;
     const ids = (s) => String(s ?? '').split(',').filter(Boolean);
     if (t.type === 'TRADE') {
       const aGave = ids(t.franchise1_gave_up), bGave = ids(t.franchise2_gave_up);
@@ -137,9 +162,13 @@ export function readMoves(transactions) {
     } else if (t.type === 'BBID_WAIVER') {
       const [add = '', amount = '', drop = ''] = String(t.transaction ?? '').split('|');
       for (const player of ids(add)) adds.push({ fid: t.franchise, player, bid: Number(amount) || 0, dropped: ids(drop) });
+    } else if (t.type === 'FREE_AGENT') {
+      // Plain drops ("|id,"); the league adds players only through waivers.
+      const [, drop = ''] = String(t.transaction ?? '').split('|');
+      for (const player of ids(drop)) drops.push({ fid: t.franchise, player });
     }
   }
-  return { trades, adds };
+  return { trades, adds, drops };
 }
 
 /**
@@ -169,10 +198,17 @@ const playerLabel = (p) => `${p.name} (${[p.pos, p.team].filter(Boolean).join(',
  * - `moves`: readMoves() of this week's transactions.
  * - `next`: [[home, away]] next week's games, or [] after the last week.
  * - `regEnd`: last regular season week.
+ * - `injuries`: { id: "Out (Ankle)" } from MFL's injury report for this week.
+ * - `projections`: { id: points } MFL projected this week.
+ * - `playing`: NFL teams with a game this week (to spot starters on a bye), or null.
+ * - `salaries`: { id: salary } from the current rosters.
+ * - `limits`: starting lineup position limits { QB: [min, max], … }.
+ * - `seasonMoves`: [{ week, trades, adds, drops }] for every week so far.
+ * - `futurePicks`: [{ owner, year, round, of }] every future pick as owned now, or null.
  * - `complete`: every earlier season is stored. Until then, nothing claims
  *   "all-time" or "league history", since it would be wrong.
  */
-export function buildFacts({ season, week, history, teams, names, players, moves, next = [], regEnd = 14, complete = true }) {
+export function buildFacts({ season, week, history, teams, names, players, moves, next = [], regEnd = 14, injuries = {}, projections = {}, playing = null, salaries = {}, limits = null, seasonMoves = [], futurePicks = null, complete = true }) {
   const team = (fid) => names[fid] ?? `Team ${fid}`;
   const pos = Object.fromEntries(Object.entries(players).map(([id, p]) => [id, p.pos]));
   const log = seasonLog(history.games, season, week);
@@ -217,8 +253,9 @@ export function buildFacts({ season, week, history, teams, names, players, moves
   const starters = Object.entries(rosters).flatMap(([fid, ps]) => ps.filter((p) => p.starter).map((p) => ({ fid, ...p })));
   const topPlayers = starters.sort((a, b) => b.score - a.score).slice(0, 5)
     .map((p) => ({ player: players[p.id] ? playerLabel(players[p.id]) : `player ${p.id}`, team: team(p.fid), points: r1(p.score) }));
+  const proj = (id) => (projections[id] != null ? { projected: r1(projections[id]) } : {});
   const duds = starters.filter((p) => players[p.id] && p.score <= 3).sort((a, b) => a.score - b.score).slice(0, 5)
-    .map((p) => ({ player: playerLabel(players[p.id]), team: team(p.fid), points: r1(p.score) }));
+    .map((p) => ({ player: playerLabel(players[p.id]), team: team(p.fid), points: r1(p.score), ...proj(p.id) }));
   const benchMisses = Object.entries(rosters)
     .map(([fid, ps]) => ({ fid, miss: benchMiss(ps, pos) }))
     .filter((x) => x.miss && x.miss.gain >= 5)
@@ -227,8 +264,10 @@ export function buildFacts({ season, week, history, teams, names, players, moves
       team: team(fid),
       benched: players[miss.bench] ? playerLabel(players[miss.bench]) : `player ${miss.bench}`,
       benchedPoints: r1(rosters[fid].find((p) => p.id === miss.bench)?.score ?? 0),
+      ...(projections[miss.bench] != null && { benchedProjected: r1(projections[miss.bench]) }),
       started: players[miss.starter] ? playerLabel(players[miss.starter]) : `player ${miss.starter}`,
       startedPoints: r1(rosters[fid].find((p) => p.id === miss.starter)?.score ?? 0),
+      ...(projections[miss.starter] != null && { startedProjected: r1(projections[miss.starter]) }),
       pointsLeft: miss.gain,
       // Would starting him have flipped the result?
       costTheGame: outcome[fid] === 'L' && (() => {
@@ -251,14 +290,142 @@ export function buildFacts({ season, week, history, teams, names, players, moves
     move: week > 1 && before[r.fid] ? before[r.fid] - r.rank : 0,
   }));
 
+  // How a player a team just got was used this week, with his injury status.
+  const usage = (fid, id) => {
+    const p = rosters[fid]?.find((x) => x.id === id);
+    const hurt = injuries[id] ? ` (injury report: ${injuries[id]})` : '';
+    if (!p) return `not in ${possessive(team(fid))} lineup or on their bench this week${hurt}`;
+    return `${p.starter ? 'started' : 'on the bench'} for ${team(fid)}, ${r1(p.score)} points${hurt}`;
+  };
   const trades = moves.trades.map((t) => ({
     teams: [team(t.a), team(t.b)],
     [`${team(t.a)} gave`]: t.aGave.map((id) => asset(id, players, team, season)),
     [`${team(t.b)} gave`]: t.bGave.map((id) => asset(id, players, team, season)),
+    thisWeek: [
+      ...t.aGave.filter((id) => players[id]).map((id) => `${playerLabel(players[id])}: ${usage(t.b, id)}`),
+      ...t.bGave.filter((id) => players[id]).map((id) => `${playerLabel(players[id])}: ${usage(t.a, id)}`),
+    ],
   }));
+  // Starters who were on the injury report as out, and what they scored.
+  const injuredStarters = starters
+    .filter((p) => players[p.id] && /^(out|ir|doubtful|suspended)/i.test(injuries[p.id] ?? ''))
+    .map((p) => ({ team: team(p.fid), player: playerLabel(players[p.id]), injury: injuries[p.id], points: r1(p.score) }));
   const waivers = moves.adds
     .sort((a, b) => b.bid - a.bid)
-    .map((a) => ({ team: team(a.fid), added: asset(a.player, players, team, season), bid: a.bid, dropped: a.dropped.map((id) => asset(id, players, team, season)) }));
+    .map((a) => ({
+      team: team(a.fid), added: asset(a.player, players, team, season), bid: a.bid, dropped: a.dropped.map((id) => asset(id, players, team, season)),
+      ...(a.bid >= 10 && players[a.player] && { thisWeek: usage(a.fid, a.player) }),
+    }));
+
+  // Starters whose NFL team had no game.
+  const byeStarters = playing
+    ? starters.filter((p) => players[p.id]?.team && players[p.id].team !== 'FA' && !playing.includes(players[p.id].team))
+      .map((p) => ({ team: team(p.fid), player: playerLabel(players[p.id]), points: r1(p.score) }))
+    : [];
+
+  // Who each team plays this week.
+  const opponent = {};
+  for (const [, , h, , a] of thisWeek) { opponent[h] = a; opponent[a] = h; }
+  const label = (id) => (players[id] ? playerLabel(players[id]) : `player ${id}`);
+  const isPlayer = (id) => /^\d+$/.test(id);
+
+  // Revenge: a player scoring 15+ against a team that traded him away this season.
+  const tradedAway = {};
+  for (const m of seasonMoves) for (const t of m.trades) {
+    for (const id of t.aGave) (tradedAway[id] ??= []).push({ fid: t.a, week: m.week });
+    for (const id of t.bGave) (tradedAway[id] ??= []).push({ fid: t.b, week: m.week });
+  }
+  const revenge = starters
+    .filter((p) => p.score >= 15 && (tradedAway[p.id] ?? []).some((x) => x.fid === opponent[p.fid]))
+    .map((p) => ({ player: label(p.id), scoredFor: team(p.fid), against: team(opponent[p.fid]), points: r1(p.score), tradedAwayInWeek: tradedAway[p.id].find((x) => x.fid === opponent[p.fid]).week }));
+
+  // Trade scoreboards: points each side's new players scored as starters for them since the trade.
+  const startedFor = (fid, id, from) => {
+    let n = 0;
+    for (let w = from; w <= week; w += 1) {
+      const p = parsePlayers(teams[fid]?.[w]).find((x) => x.id === id);
+      if (p?.starter) n += p.score;
+    }
+    return n;
+  };
+  const tradeScoreboard = seasonMoves.flatMap((m) => m.trades.map((t) => ({ week: m.week, t })))
+    .filter(({ t }) => [...t.aGave, ...t.bGave].some(isPlayer))
+    .slice(-8)
+    .map(({ week: w, t }) => ({
+      week: w,
+      sides: [[t.b, t.aGave], [t.a, t.bGave]].map(([fid, got]) => ({
+        team: team(fid),
+        got: got.map((id) => asset(id, players, team, season)),
+        startedPointsSince: r1(got.filter(isPlayer).reduce((n, id) => n + startedFor(fid, id, w), 0)),
+      })),
+    }));
+
+  // Salaries: expensive starters who did nothing, cheap ones who went off.
+  const paid = (p) => salaries[p.id] ?? 0;
+  const salaryBusts = starters.filter((p) => players[p.id] && paid(p) >= 100 && p.score <= 5)
+    .sort((a, b) => paid(b) - paid(a)).slice(0, 5)
+    .map((p) => ({ team: team(p.fid), player: label(p.id), salary: `$${r1(paid(p))}`, points: r1(p.score) }));
+  const bargains = starters.filter((p) => players[p.id] && salaries[p.id] && paid(p) <= 10 && p.score >= 20)
+    .sort((a, b) => b.score - a.score).slice(0, 5)
+    .map((p) => ({ team: team(p.fid), player: label(p.id), salary: `$${r1(paid(p))}`, points: r1(p.score) }));
+
+  // Best possible lineups: who left 15+ on the bench, and whether it would have won.
+  const scoreOf = Object.fromEntries(scores);
+  const bestLineups = limits
+    ? Object.entries(rosters).filter(([fid]) => fid in scoreOf).map(([fid, ps]) => {
+      const best = bestLineup(ps, pos, limits);
+      return { fid, best, left: r1(best - scoreOf[fid]) };
+    }).filter((x) => x.left >= 15).sort((a, b) => b.left - a.left).map((x) => ({
+      team: team(x.fid), scored: r1(scoreOf[x.fid]), bestPossible: x.best, pointsLeft: x.left,
+      ...(outcome[x.fid] === 'L' && { bestWouldHaveWon: x.best > (scoreOf[opponent[x.fid]] ?? Infinity) }),
+    }))
+    : [];
+
+  // Season luck: actual record against the record from playing everyone every week.
+  const allPlayRec = {};
+  for (let w = 1; w <= Math.min(week, regEnd); w += 1) {
+    const ws = history.games.filter(([s, gw]) => s === season && gw === w).flatMap(([, , h, hs, a, as]) => [[h, hs], [a, as]]);
+    for (const [fid, pts] of ws) {
+      const r = (allPlayRec[fid] ??= { w: 0, l: 0 });
+      for (const [o, op] of ws) if (o !== fid) { if (pts > op) r.w += 1; else if (pts < op) r.l += 1; }
+    }
+  }
+  const seasonLuck = standingsAfter(log, Math.min(week, regEnd)).map((r) => {
+    const ap = allPlayRec[r.fid] ?? { w: 0, l: 0 };
+    const games = r.w + r.l + r.t;
+    const luck = games && ap.w + ap.l ? r.w / games - ap.w / (ap.w + ap.l) : 0;
+    const pa = r1((log[r.fid] ?? []).filter((e) => !e.playoff && e.week <= week).reduce((n, e) => n + e.pa, 0));
+    return { team: team(r.fid), record: `${r.w}-${r.l}${r.t ? `-${r.t}` : ''}`, allPlayRecord: `${ap.w}-${ap.l}`, pointsAgainst: pa, luck };
+  }).sort((a, b) => b.luck - a.luck);
+  // One or two weeks of luck is noise.
+  if (week < 4) seasonLuck.length = 0;
+  const luckiest = seasonLuck.slice(0, 2).filter((x) => x.luck > 0.1).map(({ luck, ...x }) => x);
+  const unluckiest = seasonLuck.slice(-2).reverse().filter((x) => x.luck < -0.1).map(({ luck, ...x }) => x);
+
+  // Players a team dropped this season who scored 15+ as a starter for someone else this week.
+  const droppedBy = {};
+  for (const m of seasonMoves) {
+    for (const a of m.adds) for (const id of a.dropped) (droppedBy[id] ??= []).push({ fid: a.fid, week: m.week });
+    for (const d of m.drops ?? []) (droppedBy[d.player] ??= []).push({ fid: d.fid, week: m.week });
+  }
+  const droppedAndWentOff = starters
+    .filter((p) => p.score >= 15 && (droppedBy[p.id] ?? []).some((d) => d.fid !== p.fid))
+    .map((p) => {
+      const d = droppedBy[p.id].filter((x) => x.fid !== p.fid).at(-1);
+      return { player: label(p.id), droppedBy: team(d.fid), dropped: d.week === 1 ? 'in the offseason or week 1' : `in week ${d.week}`, nowStartingFor: team(p.fid), points: r1(p.score) };
+    });
+
+  // Future firsts and seconds that changed hands: who owns whose.
+  const draftPicks = futurePicks && (() => {
+    const top = futurePicks.filter((p) => p.round <= 2).sort((a, b) => a.year - b.year || a.round - b.round);
+    const name = (p) => `${p.year} round ${p.round}`;
+    return Object.keys(names).map((fid) => {
+      const rec = standings.find((r) => r.team === team(fid))?.record;
+      const got = top.filter((p) => p.owner === fid && p.of !== fid).map((p) => `${possessive(team(p.of))} ${name(p)}`);
+      const gone = top.filter((p) => p.of === fid && p.owner !== fid).map((p) => `${name(p)} (owned by ${team(p.owner)})`);
+      return got.length || gone.length ? { team: team(fid), record: rec, ownsOthers: got, ownPicksTraded: gone } : null;
+    }).filter(Boolean);
+  })();
 
   const nextWeek = next.map(([h, a]) => {
     const s = series(history.games, h, a, season, week + 1);
@@ -272,12 +439,15 @@ export function buildFacts({ season, week, history, teams, names, players, moves
     highScore: sorted[0] && { team: team(sorted[0][0]), score: r1(sorted[0][1]) },
     lowScore: sorted.at(-1) && { team: team(sorted.at(-1)[0]), score: r1(sorted.at(-1)[1]) },
     unlucky, lucky, records,
-    topPlayers, duds, benchMisses,
+    topPlayers, duds, injuredStarters, byeStarters, benchMisses, bestLineups,
+    salaryBusts, bargains, revenge, droppedAndWentOff,
     streaks,
     standingsNote: 'Ordered by record, then points for; not the official standings (those use victory points).',
     standings,
     ...(week === 1 && { movesNote: 'Week 1 trades and waiver adds include the whole offseason.' }),
-    trades, waivers,
+    trades, waivers, tradeScoreboard,
+    ...(draftPicks && { draftPicksNote: 'Future firsts and seconds that have changed hands, as owned now.', draftPicks }),
+    seasonLuck: { luckiest, unluckiest },
     nextWeek,
   };
 }

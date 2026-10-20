@@ -13,16 +13,17 @@
  */
 
 /** The longest a recap may be, and its parts. */
-export const MAX_WORDS = 350;
-const MAX_GAME_WORDS = 50;
-const MAX_STORYLINES = 2;
+export const MAX_WORDS = 500;
+const MAX_GAME_WORDS = 75;
+const MAX_STORYLINES = 3;
 
 export const TONES = {
   roast:
-    'Full roast. You are the league\'s merciless trash-talking columnist. Mock bad lineups, blowouts, ' +
-    'benched points, losing streaks and panic trades without mercy, and give winners grudging credit. ' +
-    'Funny first: specific, quick jokes beat long insults. Roast the teams and their decisions, never ' +
-    'anyone\'s family, looks, or identity.',
+    'Full roast. You are the league\'s merciless trash-talking columnist. Every game gets roasted: the ' +
+    'loser always, the winner too when they won ugly. Mock bad lineups, blowouts, benched points, losing ' +
+    'streaks, overpays and panic trades without mercy, and give winners only grudging credit. Funny first: ' +
+    'specific, cutting jokes built on the numbers beat generic insults. Roast the teams and their decisions, ' +
+    'never anyone\'s family, looks, or identity.',
   playful: 'Playful and teasing, like a friendly league group chat. Light jokes, no real cruelty.',
   straight: 'A straight sports-page recap: lively, but mostly reporting.',
 };
@@ -34,7 +35,7 @@ export const RECAP_SCHEMA = {
   required: ['headline', 'intro', 'matchups', 'storylines', 'nextWeek', 'ledger'],
   properties: {
     headline: { type: 'string', description: 'One punchy line, under 90 characters.' },
-    intro: { type: 'string', description: '1-2 short sentences on the week as a whole.' },
+    intro: { type: 'string', description: '2-3 sentences on the week as a whole.' },
     matchups: {
       type: 'array',
       description: 'One entry per game in results, in the same order.',
@@ -45,13 +46,13 @@ export const RECAP_SCHEMA = {
         properties: {
           winner: { type: 'string' },
           loser: { type: 'string' },
-          text: { type: 'string', description: '1-2 sentences: the one thing worth saying about this game.' },
+          text: { type: 'string', description: '2-3 sentences: the best detail of this game, and a roast.' },
         },
       },
     },
     storylines: {
       type: 'array',
-      description: 'At most 2 big running stories, from the ledger (can be empty). One or two sentences each.',
+      description: 'At most 3 big running stories, from the ledger (can be empty). Two or three sentences each.',
       items: {
         type: 'object',
         additionalProperties: false,
@@ -99,7 +100,22 @@ export function instructions(tone) {
     '- "seriesBefore" is the all-time series before this week\'s game. Standings are by record, unofficial.',
     '- If historyComplete is false, make no "all-time" or "league history" claims.',
     '- Carry the season\'s stories forward: tie this week to the ledger where it fits ("the skid hits six").',
-    '- Be concise: one sharp joke beats three. Pick the single best detail for each game; leave the rest out.',
+    '- Keep it tight: pick the best one or two details for each game and leave the rest out, but every game gets a roast.',
+    '- Check how new players were used: each trade and big waiver add has "thisWeek" (started, benched, or not ' +
+      'on the roster, and any injury report). Trading for an injured player who could not play, or benching the guy ' +
+      'you just paid for, is prime roast material. So is starting someone listed as out ("injuredStarters").',
+    '- Other roast material in the facts: "byeStarters" (started a player whose NFL team had no game), "revenge" ' +
+      '(a player torching the team that traded him away), "tradeScoreboard" (points each side has got from a trade ' +
+      'since it happened), "salaryBusts" and "bargains" (salary vs points), "bestLineups" (points left on the bench, ' +
+      'and whether the best lineup would have won), "seasonLuck" (record vs all-play record), and "droppedAndWentOff" ' +
+      '(a player a team cut, now scoring for someone else), and "draftPicks" (who owns whose future firsts and ' +
+      'seconds: a bad team that traded away its own first gets no reward for losing, and someone else profits).',
+    '- Bench calls: benchMisses and duds carry MFL projections. If the started player was projected well above the ' +
+      'benched one, the start was the right call and it just didn\'t work out. Don\'t flame that as a dumb decision; ' +
+      'call it bad luck or skip it. Save the "what were you thinking" roasts for starting the lower projection, a bye, ' +
+      'an injured player, or benching the guy you just traded or paid for.',
+    '- Only call a trade or pickup new, fresh or "this week" if it is in this week\'s trades or waivers. ' +
+      'The ledger notes say which week older moves happened.',
     '- Storylines are only the big ones a league member would bring up in the group chat: the title race, ' +
       'long streaks, blockbuster trades and whether they are paying off, records, rivalries. Skip waiver churn and backups.',
     `- Plain text only, no markdown. Keep the whole recap under ${MAX_WORDS} words.`,
