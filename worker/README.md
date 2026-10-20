@@ -71,6 +71,16 @@ and re-reads it daily for a week (stat corrections). Player scores per team
 and week are stored too, for the recap, but not served here. `lastFill` says
 when the last fill ran and what it read, or the error that stopped it.
 
+`GET /recap/facts[?week=N]` is the fact sheet for a week of this season
+(`src/facts.js`), which the weekly recap is written from. It covers results with
+the all-time series, high and low scores, lucky and unlucky results, records
+broken, the top starters and duds, points left on benches, streaks, standings
+moves, trades and waiver adds, and next week's games. It's built from the
+stored history plus that week's MFL transactions, next week's schedule and
+player names, and kept for 6 hours. It defaults to the last stored week.
+Until every earlier season is stored, `historyComplete` is false and nothing
+claims "all-time" or "league history".
+
 ## Write relay (whole league)
 
 Any owner in the league can make moves for their own team from the app.

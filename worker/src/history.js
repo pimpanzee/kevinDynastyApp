@@ -332,6 +332,15 @@ export class HistoryStore {
     return did.length ? `${season} ${did.join(', ')}` : null;
   }
 
+  /** One season's player scores: { fid: { week: "id:score:starter,…" } }. */
+  teams(season) {
+    const out = {};
+    for (const r of this.sql.exec('SELECT week, franchise_id, players FROM hist_teams WHERE season = ?', season).toArray()) {
+      (out[r.franchise_id] ??= {})[r.week] = r.players;
+    }
+    return out;
+  }
+
   /**
    * Everything the app needs for rivalries and records, small:
    * { seasons: { year: { names, regEnd, end, champion, runnerUp, divisionWinners, divisions, complete } },
