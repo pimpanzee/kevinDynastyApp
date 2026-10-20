@@ -19,6 +19,7 @@
  * - Redirects are never followed: fetch drops the Cookie header on the hop.
  */
 
+import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { newVapidKeys, sendPush } from './webpush.js';
@@ -291,6 +292,8 @@ export class WriteRelay {
       if (path === '/history/fill') return json(await this.fillHistory());
       // League history is public data: no sign-in needed.
       if (path === '/history') return json({ ...this.history.summary(), lastFill: this.getState('historyFill') ?? null });
+      // The weekly fact sheet the recap is written from: public league data too.
+      if (path === '/recap/facts') return reply(await this.facts(url.searchParams.get('week')));
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -574,6 +577,48 @@ export class WriteRelay {
       this.setState('historyFill', { at: now, error: e.message });
       throw e;
     }
+  }
+
+  /**
+   * The fact sheet for a week of this season (facts.js), from the stored
+   * history plus that week's transactions, next week's schedule and player
+   * names from MFL. Kept for 6 hours. Week defaults to the last one stored.
+   */
+  async facts(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const season = Number(this.env.MFL_SEASON);
+    const info = this.history.season(season);
+    const stored = Object.keys(info?.weeks ?? {}).map(Number);
+    const week = weekParam ? Number(weekParam) : Math.max(0, ...stored);
+    if (!stored.includes(week)) return { error: `Week ${week} isn't stored yet`, status: 404 };
+    const key = `facts:${season}:${week}`;
+    const cached = this.getState(key);
+    if (cached && Date.now() - cached.at < 6 * 3600 * 1000) return cached.facts;
+
+    const teams = this.history.teams(season);
+    const moves = readMoves(await this.history.mfl(this.history.url(season, `TYPE=transactions&W=${week}`)));
+    const next = [];
+    if (week < info.end) {
+      const body = await this.history.mfl(this.history.url(season, `TYPE=schedule&W=${week + 1}`));
+      for (const m of list(body.schedule?.weeklySchedule?.matchup)) {
+        const fs = list(m.franchise);
+        if (fs.length === 2) next.push(fs[1]?.isHome === '1' ? [fs[1].id, fs[0].id] : [fs[0].id, fs[1].id]);
+      }
+    }
+    const ids = new Set();
+    for (const weeks of Object.values(teams)) for (const p of parsePlayers(weeks[week])) ids.add(p.id);
+    for (const t of moves.trades) [...t.aGave, ...t.bGave].forEach((id) => /^\d+$/.test(id) && ids.add(id));
+    for (const a of moves.adds) [a.player, ...a.dropped].forEach((id) => ids.add(id));
+    const players = {};
+    const all = [...ids].sort();
+    for (let i = 0; i < all.length; i += 150) {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=players&PLAYERS=${all.slice(i, i + 150).join(',')}`);
+      Object.assign(players, playerIndex(body));
+    }
+    const complete = (info.seasons ?? []).filter((y) => y < season).every((y) => this.history.season(y)?.complete);
+    const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, complete });
+    this.setState(key, { at: Date.now(), facts });
+    return facts;
   }
 
   /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */
