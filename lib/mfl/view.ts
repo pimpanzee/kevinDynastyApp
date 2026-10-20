@@ -663,6 +663,7 @@ export async function getMatchupDetailView(
   }
 
   return {
+    season: Number(SEASON),
     week,
     phase,
     clock: formatClock(new Date(ctx.now)),

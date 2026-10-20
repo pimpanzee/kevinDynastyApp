@@ -10,6 +10,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
 import ScoreSheet from '@/components/ScoreSheet';
 import TeamAvatar from '@/components/TeamAvatar';
+import Rivalry from '@/components/league/Rivalry';
 import TeamLink from '@/components/league/TeamLink';
 import WeekMenu from '@/components/WeekMenu';
 import { posColor, posRank } from '@/components/pos';
@@ -153,6 +154,7 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
           left={BL.map((s) => <BenchCell key={s.row} slot={s} side="home" game={game(s.p)} onScore={() => setOpen({ bench: true, side: 'home', row: s.row })} />)}
           right={BR.map((s) => <BenchCell key={s.row} slot={s} side="away" game={game(s.p)} onScore={() => setOpen({ bench: true, side: 'away', row: s.row })} />)}
         />
+        <Rivalry season={view.season} week={view.week} home={{ id: view.home.franchiseId, name: view.home.name }} away={{ id: view.away.franchiseId, name: view.away.name }} />
         <div style={{ height: 20 }} />
       </div>
 

@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav';
 import HeaderBar from '@/components/HeaderBar';
 import PhoneFrame from '@/components/PhoneFrame';
 import SubTabs from '@/components/SubTabs';
+import AllTimeLine from '@/components/league/AllTimeLine';
 import Link from 'next/link';
 import { useMyTeam } from '@/lib/myTeam';
 import { canSignIn, useAccount } from '@/lib/relay';
@@ -49,6 +50,7 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
             <span key={l || 'rec'}><b style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</b>{l && ` ${l}`}</span>
           ))}
         </div>
+        <AllTimeLine id={team.id} mine={mine} />
       </div>
       <SubTabs
         label={`${team.name} sections`}
