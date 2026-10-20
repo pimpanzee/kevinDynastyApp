@@ -29,8 +29,9 @@
  * records and the weekly recap. Public league data, no sign-in.
  *
  * /push/* (same token) subscribes a device to its owner's push alerts, and a
- * run every 15 minutes sends them: lineup lock, injuries, waiver results, the
- * Tuesday recap (alerts.js, webpush.js).
+ * run every 15 minutes sends them: lineup lock, injuries, game-day inactives
+ * (from ESPN), waiver results, the Tuesday recap, and stat corrections found
+ * by the history re-reads (alerts.js, webpush.js).
  */
 
 import { fetchGamePlays, fetchScoreboard, indexPlayers } from './plays.js';

@@ -6,6 +6,8 @@
  * - lock: a kickoff is coming up and one of your starters in it is out, or
  *   your lineup is empty or has a player on bye.
  * - injury: a starter whose game hasn't started becomes Out, Doubtful or IR.
+ * - inactive: a starter is on his team's game-day inactives list, which
+ *   comes out about 90 minutes before kickoff.
  * - waivers: blind bids you had pending were processed: won or lost.
  * - recap: Tuesday, last week's result, the high score and the biggest bench mistake.
  * - correction: MFL changed a played week's score (a stat correction) in your
@@ -29,10 +31,10 @@ export function displayName(mflName) {
   return first ? `${first} ${last}` : last;
 }
 
-/** id → { name, pos, team } from a players export. */
+/** id → { name, pos, team, espn } from a players export (espn: ESPN's id, with DETAILS=1). */
 export function playerIndex(players) {
   const out = {};
-  for (const p of list(players?.players?.player)) out[p.id] = { name: displayName(p.name), pos: p.position ?? '', team: p.team ?? '' };
+  for (const p of list(players?.players?.player)) out[p.id] = { name: displayName(p.name), pos: p.position ?? '', team: p.team ?? '', espn: p.espn_id ? String(p.espn_id) : '' };
   return out;
 }
 
@@ -106,6 +108,38 @@ export function injuryAlerts({ now, week, prev, injuries, starters, kickoffs, pl
       title: `${p.name} is ${fmtStatus(inj.status)}`,
       body: `He's in your lineup for week ${week}${inj.details ? ` (${inj.details})` : ''}. Swap him before his kickoff.`,
       url: '/team/lineup/',
+    });
+  }
+  return alerts;
+}
+
+/** How long before a kickoff inactives are looked for: NFL teams name them 90 minutes out. */
+export const INACTIVES_WINDOW_MS = 85 * 60 * 1000;
+/** Already pushed as out (injury or lineup check), so being inactive is no news. */
+const KNOWN_OUT = /^(out|ir|suspended|pup|nfi)/i;
+
+/**
+ * Starters on their team's game-day inactives whose games haven't kicked
+ * off. `inactive` is NFL team → Set of ESPN ids (plays.js fetchInactives),
+ * for the teams whose lists are posted.
+ */
+export function inactiveAlerts({ now, week, starters, kickoffs, players, injuries, inactive, done }) {
+  const alerts = [];
+  for (const id of starters) {
+    const p = players[id];
+    const kick = p && kickoffs[p.team];
+    if (!p?.espn || !kick || kick <= now || kick - now > INACTIVES_WINDOW_MS) continue;
+    if (!inactive[p.team]?.has(p.espn)) continue;
+    if (KNOWN_OUT.test(injuries?.[id]?.status ?? '')) continue;
+    const key = `inactive:${week}:${id}`;
+    if (done.has(key)) continue;
+    const mins = Math.round((kick - now) / 60000);
+    alerts.push({
+      key,
+      title: `${p.name} is inactive`,
+      body: `He's in your week ${week} lineup and won't play. Kickoff is in ${mins} min: swap him now.`,
+      url: '/team/lineup/',
+      urgent: true,
     });
   }
   return alerts;

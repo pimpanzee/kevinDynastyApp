@@ -23,7 +23,8 @@ import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
 import { instructions, problems, RECAP_SCHEMA } from './writer.js';
-import { bbidAdds, correctionAlert, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
+import { bbidAdds, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
+import { fetchInactives, fetchScoreboard, MFL_TO_ESPN } from './plays.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
 const WRITE_TIMEOUT_MS = 15 * 1000;
@@ -1177,7 +1178,25 @@ export class WriteRelay {
       this.setState('league', info);
     }
     const { week, kickoffs } = sched;
-    const names = async (ids) => (ids.length ? playerIndex(await shared(`${api}&TYPE=players&PLAYERS=${[...new Set(ids)].sort().join(',')}`)) : {});
+    // DETAILS=1 for each player's ESPN id (the inactives check).
+    const names = async (ids) => (ids.length ? playerIndex(await shared(`${api}&TYPE=players&DETAILS=1&PLAYERS=${[...new Set(ids)].sort().join(',')}`)) : {});
+
+    // Game-day inactives from ESPN, per NFL team, read once per run and only
+    // for teams kicking off within INACTIVES_WINDOW_MS. Null: not posted yet.
+    const inactiveDue = Object.values(kickoffs).some((t) => t > now && t - now <= INACTIVES_WINDOW_MS);
+    let board = null;
+    const inactiveMemo = new Map();
+    const inactivesOf = (team) => {
+      if (!inactiveMemo.has(team)) {
+        inactiveMemo.set(team, (async () => {
+          board ??= fetchScoreboard(MFL_SEASON, week);
+          const abbr = MFL_TO_ESPN[team] ?? team;
+          const game = (await board).find((g) => g.competitors?.[abbr]);
+          return game && game.state === 'pre' ? fetchInactives(game.id, game.competitors[abbr]) : null;
+        })());
+      }
+      return inactiveMemo.get(team);
+    };
 
     // Injuries are compared with the last run's once, for everyone.
     let injuries = null;
@@ -1209,6 +1228,15 @@ export class WriteRelay {
         // A first run has no earlier statuses to compare with.
         if (Object.keys(prev).length) {
           for (const a of injuryAlerts({ now, week, prev, injuries, starters, kickoffs, players, done })) if (await this.notify(fid, 'injury', a)) sent.push(prefix + a.key);
+        }
+        if (inactiveDue) {
+          const teams = [...new Set(starters.map((id) => players[id]?.team).filter((t) => t && kickoffs[t] > now && kickoffs[t] - now <= INACTIVES_WINDOW_MS))];
+          const inactive = {};
+          for (const t of teams) {
+            const got = await inactivesOf(t).catch((e) => { errors.push(`inactives ${t}: ${e.message}`); return null; });
+            if (got) inactive[t] = got;
+          }
+          for (const a of inactiveAlerts({ now, week, starters, kickoffs, players, injuries, inactive, done })) if (await this.notify(fid, 'inactive', a)) sent.push(prefix + a.key);
         }
       });
 
@@ -1344,7 +1372,7 @@ export function readPendingTrades(root) {
 }
 
 /** Alert types a device can turn on or off. */
-export const ALERT_TYPES = ['lock', 'injury', 'waivers', 'recap', 'correction', 'login'];
+export const ALERT_TYPES = ['lock', 'injury', 'inactive', 'waivers', 'recap', 'correction', 'login'];
 /** Devices kept per owner at most (oldest dropped). */
 const MAX_SUBS = 5;
 

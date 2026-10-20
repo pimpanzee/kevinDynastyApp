@@ -11,7 +11,7 @@
 const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 
 /** MFL's NFL team codes where they differ from ESPN's abbreviations. */
-const MFL_TO_ESPN = { GBP: 'GB', JAC: 'JAX', KCC: 'KC', LVR: 'LV', NEP: 'NE', NOS: 'NO', SFO: 'SF', TBB: 'TB', WAS: 'WSH' };
+export const MFL_TO_ESPN = { GBP: 'GB', JAC: 'JAX', KCC: 'KC', LVR: 'LV', NEP: 'NE', NOS: 'NO', SFO: 'SF', TBB: 'TB', WAS: 'WSH' };
 
 /** Gains shorter than this aren't "big" unless they score. */
 export const BIG_PLAY_YARDS = 20;
@@ -56,6 +56,8 @@ export async function fetchScoreboard(season, week) {
       id: e.id,
       state: c.status?.type?.state ?? 'pre',
       teams: (c.competitors ?? []).map((t) => t.team?.abbreviation).filter(Boolean),
+      // ESPN abbreviation → competitor id, for the game-day roster.
+      competitors: Object.fromEntries((c.competitors ?? []).filter((t) => t.team?.abbreviation && t.id).map((t) => [t.team.abbreviation, String(t.id)])),
     };
   });
 }
@@ -124,4 +126,35 @@ function receiverIn(text, toAt) {
   if (toAt < 0) return null;
   const m = /^ to ([A-Z][A-Za-z'-]*\.\s?[A-Z][A-Za-z.'-]*(?: (?:Jr|Sr|II|III|IV)\.?)?)/.exec(text.slice(toAt));
   return m ? m[1].replace(/\.\s/, '.') : null;
+}
+
+const ESPN_CORE = 'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl';
+
+/**
+ * A team's game-day inactives as a Set of ESPN athlete ids, from the game
+ * roster ESPN posts when NFL inactives come out (about 90 minutes before
+ * kickoff). Null when the roster isn't posted yet or doesn't look like a
+ * game-day roster.
+ */
+export async function fetchInactives(gameId, competitorId) {
+  const res = await fetch(`${ESPN_CORE}/events/${gameId}/competitions/${gameId}/competitors/${competitorId}/roster`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`ESPN roster ${gameId}/${competitorId} failed (${res.status})`);
+  return readInactives(await res.json());
+}
+
+/** Rosters with more players marked as not playing than this aren't trusted: an NFL team has about 7 inactives. */
+const MAX_INACTIVES = 15;
+/** A game-day roster has 53 or so; fewer than this isn't one yet. */
+const MIN_ROSTER = 40;
+
+/**
+ * The inactives (didNotPlay) in an ESPN game roster, or null when it isn't a
+ * believable game-day list: too short, or too many players marked out.
+ */
+export function readInactives(body) {
+  const entries = body?.entries ?? [];
+  if (entries.length < MIN_ROSTER) return null;
+  const out = new Set(entries.filter((e) => e.didNotPlay === true).map((e) => String(e.playerId)));
+  return out.size <= MAX_INACTIVES ? out : null;
 }
