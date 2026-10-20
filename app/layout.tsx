@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { PlayerCardProvider } from '@/components/PlayerCard';
+import PushSync from '@/components/PushSync';
 import UpdateCheck from '@/components/UpdateCheck';
 import { THEME_SCRIPT } from '@/lib/theme';
 import './globals.css';
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PlayerCardProvider>{children}</PlayerCardProvider>
         <UpdateCheck />
+        <PushSync />
       </body>
     </html>
   );

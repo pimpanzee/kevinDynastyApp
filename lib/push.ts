@@ -1,6 +1,6 @@
 'use client';
 
-import { call, isError, type RelayError } from '@/lib/relay';
+import { call, isError, readAccount, type RelayError } from '@/lib/relay';
 
 /**
  * Push alerts on this device, for the team signed in on it: a service
@@ -102,6 +102,19 @@ export async function update(sub: PushSubscription, prefs: Prefs): Promise<true 
     body: JSON.stringify({ subscription: sub.toJSON(), prefs }),
   });
   return isError(r) ? r : true;
+}
+
+/**
+ * Makes sure the relay still has this device. The phone keeps its push
+ * subscription even when the relay forgets it (a relay reset, or the move to
+ * per-owner sign-in, which dropped every device), and Settings would still
+ * show alerts as on. Run on launch and after sign-in; does nothing when
+ * alerts are off here or nobody is signed in.
+ */
+export async function resync(): Promise<void> {
+  if (!readAccount()) return;
+  const sub = await current();
+  if (sub) await update(sub, readPrefs());
 }
 
 export async function disable(sub: PushSubscription): Promise<void> {
