@@ -1,18 +1,37 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import LeagueFrame from '@/components/league/LeagueFrame';
 import TeamChip from '@/components/league/TeamChip';
 import { DISPLAY } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
 import type { RatingsView } from '@/lib/types';
+import { InfoDot, MetricCard } from './MetricExplain';
+import { METRICS, type MetricKey } from './metrics';
 
-const COLS = '200px 44px 50px 62px 54px';
+const COLS = '200px 52px 58px 76px 66px';
 const head = { textAlign: 'right', paddingRight: 8 } as const;
 
 /** League › Ratings: power rankings with PWR, ELO, all-play record and luck. */
 export default function RatingsScreen({ view }: { view: RatingsView }) {
   const mine = useMyTeam(view.myFranchiseId);
+  const [open, setOpen] = useState<MetricKey | null>(null);
+  const metric = open && METRICS.find((m) => m.key === open);
+  const headBtn = (key: MetricKey, extra?: React.CSSProperties) => {
+    const m = METRICS.find((x) => x.key === key)!;
+    const on = open === key;
+    return (
+      <button
+        type="button"
+        aria-label={`What ${m.label} means`}
+        onClick={() => setOpen(on ? null : key)}
+        style={{ ...head, ...extra, height: '100%', border: 0, background: 'none', font: 'inherit', letterSpacing: 'inherit', color: on ? 'var(--volt)' : extra?.color ?? 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `0 ${extra?.paddingRight ?? 8}px 0 0` }}
+      >
+        {m.label}<InfoDot />
+      </button>
+    );
+  };
   return (
     <LeagueFrame>
       <div style={{ flex: 1, overflow: 'auto', background: 'var(--bg-100)' }}>
@@ -25,7 +44,7 @@ export default function RatingsScreen({ view }: { view: RatingsView }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 26, background: 'var(--bg-200)', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
             <span style={{ position: 'sticky', left: 0, zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 16, background: 'var(--bg-200)', boxShadow: '1px 0 0 var(--line)' }}>TEAM</span>
-            <span style={{ ...head, color: 'var(--ink)' }}>PWR</span><span style={head}>ELO</span><span style={head}>ALL-PLAY</span><span style={{ ...head, paddingRight: 16 }}>LUCK</span>
+            {headBtn('pwr', { color: 'var(--ink)' })}{headBtn('elo')}{headBtn('allPlay')}{headBtn('luck', { paddingRight: 16 })}
           </div>
           {view.rows.map((t) => {
             const me = t.franchiseId === mine;
@@ -47,13 +66,11 @@ export default function RatingsScreen({ view }: { view: RatingsView }) {
             );
           })}
           <div style={{ width: 358, maxWidth: '100vw', position: 'sticky', left: 0, padding: '10px 16px 14px', boxSizing: 'border-box', font: '500 11.5px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
-            <b style={{ fontWeight: 600, color: 'var(--ink-2)' }}>PWR</b> blends all-play record 40%, last 3 weeks 25%, points for 20% and lineup efficiency 15%; 50 is an average team.{' '}
-            <b style={{ fontWeight: 600, color: 'var(--ink-2)' }}>ELO</b> starts at 1500 each season; wins over stronger teams count more.{' '}
-            <b style={{ fontWeight: 600, color: 'var(--ink-2)' }}>ALL-PLAY</b> is your record against every team, every week.{' '}
-            <b style={{ fontWeight: 600, color: 'var(--ink-2)' }}>LUCK</b> is wins minus the wins your all-play record would give you.
+            Tap a column name to see what it means.
           </div>
         </div>
       </div>
+      {metric && <MetricCard metric={metric} rows={view.rows} mine={mine} onClose={() => setOpen(null)} />}
     </LeagueFrame>
   );
 }
