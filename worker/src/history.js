@@ -152,10 +152,12 @@ export function lastPlayedWeek({ week, kickoffs, now }) {
  * MFL_LEAGUE_ID and MFL_USER_AGENT.
  */
 export class HistoryStore {
-  constructor(sql, env, fetcher = fetch) {
+  constructor(sql, env, fetcher) {
     this.sql = sql;
     this.env = env;
-    this.fetch = fetcher;
+    // Workers' fetch can't be called as a method of another object ("Illegal
+    // invocation"), so the default wraps it.
+    this.fetch = fetcher ?? ((url, init) => fetch(url, init));
     // One row per game. kind: "regular", or the playoff bracket's name
     // ("Playoffs", "3rd Place Game"…), or "Consolation" for other playoff-week games.
     sql.exec(`CREATE TABLE IF NOT EXISTS hist_games (

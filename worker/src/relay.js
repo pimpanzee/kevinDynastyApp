@@ -290,7 +290,7 @@ export class WriteRelay {
       if (path === '/daily') return json(await this.daily());
       if (path === '/history/fill') return json(await this.fillHistory());
       // League history is public data: no sign-in needed.
-      if (path === '/history') return json(this.history.summary());
+      if (path === '/history') return json({ ...this.history.summary(), lastFill: this.getState('historyFill') ?? null });
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -557,15 +557,23 @@ export class WriteRelay {
    */
   async fillHistory() {
     const now = Date.now();
-    let sched = this.getState('sched');
-    if (!sched || now - sched.at > 6 * 3600 * 1000) {
-      const body = await this.history.mfl(`https://api.myfantasyleague.com/${this.env.MFL_SEASON}/export?JSON=1&TYPE=nflSchedule`);
-      const kickoffs = {};
-      for (const g of list(body.nflSchedule?.matchup)) for (const t of list(g.team)) kickoffs[t.id] = Number(g.kickoff) * 1000;
-      sched = { week: Number(body.nflSchedule?.week) || 0, kickoffs, at: now };
-      this.setState('sched', sched);
+    // The last run's outcome is served with /history, so a stalled backfill can be seen.
+    try {
+      let sched = this.getState('sched');
+      if (!sched || now - sched.at > 6 * 3600 * 1000) {
+        const body = await this.history.mfl(`https://api.myfantasyleague.com/${this.env.MFL_SEASON}/export?JSON=1&TYPE=nflSchedule`);
+        const kickoffs = {};
+        for (const g of list(body.nflSchedule?.matchup)) for (const t of list(g.team)) kickoffs[t.id] = Number(g.kickoff) * 1000;
+        sched = { week: Number(body.nflSchedule?.week) || 0, kickoffs, at: now };
+        this.setState('sched', sched);
+      }
+      const r = await this.history.fill({ now, sched });
+      this.setState('historyFill', { at: now, reads: r.reads, done: r.done });
+      return r;
+    } catch (e) {
+      this.setState('historyFill', { at: now, error: e.message });
+      throw e;
     }
-    return this.history.fill({ now, sched });
   }
 
   /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */
