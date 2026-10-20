@@ -29,6 +29,7 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
   const [localTab, setLocalTab] = useState<TeamTab>('roster');
   const id = teamId ?? mine;
   const team = data.teams.find((t) => t.id === id) ?? data.teams[0];
+  const myTeam = data.teams.find((t) => t.id === mine) ?? null;
   const tab = teamId ? localTab : routeTab ?? 'roster';
   const bits: Array<[string, string]> = [[team.record, '']];
   if (team.vp !== null) bits.push([String(team.vp), 'VP']);
@@ -50,7 +51,7 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
             <span key={l || 'rec'}><b style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</b>{l && ` ${l}`}</span>
           ))}
         </div>
-        <AllTimeLine id={team.id} mine={mine} />
+        <AllTimeLine team={team} mine={myTeam ? { id: myTeam.id, name: myTeam.name, icon: myTeam.icon } : null} />
       </div>
       <SubTabs
         label={`${team.name} sections`}
