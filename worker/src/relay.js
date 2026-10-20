@@ -21,6 +21,7 @@
 
 import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
+import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
 import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -294,6 +295,7 @@ export class WriteRelay {
       if (path === '/history') return json({ ...this.history.summary(), lastFill: this.getState('historyFill') ?? null });
       // The weekly fact sheet the recap is written from: public league data too.
       if (path === '/recap/facts') return reply(await this.facts(url.searchParams.get('week')));
+      if (path === '/recap/storylines') return reply(await this.storylines(url.searchParams.get('week')));
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -596,7 +598,7 @@ export class WriteRelay {
     if (cached && Date.now() - cached.at < 6 * 3600 * 1000) return cached.facts;
 
     const teams = this.history.teams(season);
-    const moves = readMoves(await this.history.mfl(this.history.url(season, `TYPE=transactions&W=${week}`)));
+    const moves = await this.moves(season, week, Math.max(...stored));
     const next = [];
     if (week < info.end) {
       const body = await this.history.mfl(this.history.url(season, `TYPE=schedule&W=${week + 1}`));
@@ -619,6 +621,58 @@ export class WriteRelay {
     const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, complete });
     this.setState(key, { at: Date.now(), facts });
     return facts;
+  }
+
+  /** A week's moves (facts.js readMoves): kept for good once the week is behind us, else 6 hours. */
+  async moves(season, week, latest) {
+    const key = `moves:${season}:${week}`;
+    const cached = this.getState(key);
+    if (cached && (week < latest || Date.now() - cached.at < 6 * 3600 * 1000)) return cached.moves;
+    const moves = readMoves(await this.history.mfl(this.history.url(season, `TYPE=transactions&W=${week}`)));
+    this.setState(key, { at: Date.now(), moves });
+    return moves;
+  }
+
+  /** Player names for these ids, read from MFL once and kept. */
+  async playerNames(season, ids) {
+    const known = this.getState(`players:${season}`) ?? {};
+    const missing = [...new Set(ids)].filter((id) => /^\d+$/.test(id) && !known[id]).sort();
+    for (let i = 0; i < missing.length; i += 150) {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=players&PLAYERS=${missing.slice(i, i + 150).join(',')}`);
+      Object.assign(known, playerIndex(body));
+    }
+    if (missing.length) this.setState(`players:${season}`, known);
+    return known;
+  }
+
+  /**
+   * The storyline ledger after a week (storylines.js), replayed from week 1:
+   * the detectors over each week's results and moves, plus the AI writer's
+   * own changes stored for that week (`ledgerAi:season:week`). Returns what
+   * the writer sees, and the whole ledger.
+   */
+  async storylines(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const season = Number(this.env.MFL_SEASON);
+    const info = this.history.season(season);
+    const stored = Object.keys(info?.weeks ?? {}).map(Number);
+    const latest = Math.max(0, ...stored);
+    const week = weekParam ? Number(weekParam) : latest;
+    if (!stored.includes(week)) return { error: `Week ${week} isn't stored yet`, status: 404 };
+    const { games } = this.history.summary();
+    const teams = this.history.teams(season);
+    const allMoves = [];
+    for (let w = 1; w <= week; w += 1) allMoves.push(await this.moves(season, w, latest));
+    const players = await this.playerNames(season, allMoves.flatMap((m) => [
+      ...m.trades.flatMap((t) => [...t.aGave, ...t.bGave]),
+      ...m.adds.map((a) => a.player),
+    ]));
+    let ledger = [];
+    for (let w = 1; w <= week; w += 1) {
+      ledger = stepLedger(ledger, { season, week: w, games, teams, moves: allMoves[w - 1], names: info.names, players, regEnd: info.regEnd });
+      ledger = applyChanges(ledger, w, this.getState(`ledgerAi:${season}:${w}`));
+    }
+    return { season, week, forWriter: ledgerForWriter(ledger, week, info.names), ledger };
   }
 
   /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */
