@@ -28,13 +28,35 @@ const GAME_TAIL_MS = 4 * 3600 * 1000;
 export function readLeague(body) {
   const l = body?.league ?? {};
   const names = {};
-  for (const f of list(l.franchises?.franchise)) names[f.id] = String(f.name ?? '').trim();
+  const divisionOf = {};
+  for (const f of list(l.franchises?.franchise)) {
+    names[f.id] = String(f.name ?? '').trim();
+    if (f.division !== undefined) divisionOf[f.id] = String(f.division);
+  }
+  const divisions = {};
+  for (const d of list(l.divisions?.division)) divisions[d.id] = String(d.name ?? '').trim();
   return {
     names,
+    divisions,
+    divisionOf,
     regEnd: Number(l.lastRegularSeasonWeek) || 0,
     end: Number(l.endWeek) || 0,
     seasons: list(l.history?.league).map((h) => Number(h.year)).filter(Boolean).sort((a, b) => a - b),
   };
+}
+
+/**
+ * Each division's winner from a finished season's `leagueStandings` export:
+ * the first team of each division in MFL's order, which applies the league's
+ * own tiebreakers. { divisionId: franchiseId }.
+ */
+export function divisionWinners(body, divisionOf) {
+  const out = {};
+  for (const f of list(body?.leagueStandings?.franchise)) {
+    const d = divisionOf?.[f.id];
+    if (d !== undefined && !(d in out)) out[d] = f.id;
+  }
+  return out;
 }
 
 /**
@@ -130,10 +152,12 @@ export function lastPlayedWeek({ week, kickoffs, now }) {
  * MFL_LEAGUE_ID and MFL_USER_AGENT.
  */
 export class HistoryStore {
-  constructor(sql, env, fetcher = fetch) {
+  constructor(sql, env, fetcher) {
     this.sql = sql;
     this.env = env;
-    this.fetch = fetcher;
+    // Workers' fetch can't be called as a method of another object ("Illegal
+    // invocation"), so the default wraps it.
+    this.fetch = fetcher ?? ((url, init) => fetch(url, init));
     // One row per game. kind: "regular", or the playoff bracket's name
     // ("Playoffs", "3rd Place Game"…), or "Consolation" for other playoff-week games.
     sql.exec(`CREATE TABLE IF NOT EXISTS hist_games (
@@ -256,7 +280,7 @@ export class HistoryStore {
   /** Reads what's missing of a finished season, within the budget. Returns a log line or null. */
   async fillPast(season, read, budget) {
     let info = this.season(season);
-    if (info?.complete) return null;
+    if (info?.complete && info.divisionWinners) return null;
     const did = [];
     // A season first stored while it was the current one is read again in
     // full, so its playoff games get their bracket names.
@@ -264,6 +288,13 @@ export class HistoryStore {
       info = { ...readLeague(await read(season, 'TYPE=league')), weeks: {}, past: true };
       this.saveSeason(season, info);
       did.push('league');
+    }
+    // Seasons stored before division titles were tracked: their divisions.
+    if (!info.divisionOf && budget() > 0) {
+      const { divisions, divisionOf } = readLeague(await read(season, 'TYPE=league'));
+      info = { ...info, divisions, divisionOf };
+      this.saveSeason(season, info);
+      did.push('divisions');
     }
     if (!info.brackets && budget() > 0) {
       const found = readBrackets(await read(season, 'TYPE=playoffBrackets'));
@@ -287,7 +318,13 @@ export class HistoryStore {
       this.saveSeason(season, info);
       did.push(`week ${w}`);
     }
-    if (Object.keys(info.weeks).length >= info.end) {
+    const allWeeks = Object.keys(info.weeks).length >= info.end;
+    if (allWeeks && !info.divisionWinners && info.divisionOf && budget() > 0) {
+      info = { ...info, divisionWinners: divisionWinners(await read(season, 'TYPE=leagueStandings'), info.divisionOf) };
+      this.saveSeason(season, info);
+      did.push('division winners');
+    }
+    if (allWeeks && info.divisionWinners) {
       info = { ...info, complete: true, champion: tagged.champion, runnerUp: tagged.runnerUp };
       this.saveSeason(season, info);
       did.push('complete');
@@ -297,7 +334,7 @@ export class HistoryStore {
 
   /**
    * Everything the app needs for rivalries and records, small:
-   * { seasons: { year: { names, regEnd, end, champion, runnerUp, complete } },
+   * { seasons: { year: { names, regEnd, end, champion, runnerUp, divisionWinners, divisions, complete } },
    *   games: [[season, week, home, homeScore, away, awayScore, kind]] }.
    * Player scores stay here; the recap reads them directly.
    */
@@ -308,6 +345,9 @@ export class HistoryStore {
       seasons[r.season] = {
         names: i.names, regEnd: i.regEnd, end: i.end,
         champion: i.champion ?? null, runnerUp: i.runnerUp ?? null,
+        // { divisionId: franchiseId } for finished seasons, with the division names.
+        divisionWinners: i.complete ? i.divisionWinners ?? {} : {},
+        divisions: i.divisions ?? {},
         complete: Boolean(i.complete),
       };
     }

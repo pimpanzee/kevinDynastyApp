@@ -124,6 +124,8 @@ export interface BoxRowView {
 }
 
 export interface MatchupDetailView {
+  /** The MFL season, for the rivalry history (only games before this one count). */
+  season: number;
   week: number;
   phase: Phase;
   clock: string;
