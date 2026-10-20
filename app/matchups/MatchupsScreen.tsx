@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar, { HeaderButton } from '@/components/HeaderBar';
 import LineupAlert from '@/components/LineupAlert';
+import LiveStamp from '@/components/LiveStamp';
 import MedianRace from '@/components/MedianRace';
 import PhoneFrame from '@/components/PhoneFrame';
 import TeamAvatar from '@/components/TeamAvatar';
@@ -92,6 +93,7 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
         )}
 
         {mine && <MyCard m={mine} state={gameState(view.phase, mine)} href={`/matchups/${view.week}/${mine.index}/`} flush={alerts.length === 0} />}
+        {live?.started && view.phase === 'live' && view.matchups.some((m) => !m.final) && <LiveStamp fetchedAt={live.fetchedAt} stale={live.stale} />}
 
         <MedianRace view={view} />
 
