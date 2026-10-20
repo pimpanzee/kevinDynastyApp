@@ -68,7 +68,8 @@ or `Consolation`. The relay fills it 8 MFL reads at a time from the
 15-minute run, so after the first deploy it takes a few hours to reach 2021.
 Finished seasons are read once. This season adds each week once it's played
 and re-reads it daily for a week (stat corrections). Player scores per team
-and week are stored too, for the recap, but not served here.
+and week are stored too, for the recap, but not served here. `lastFill` says
+when the last fill ran and what it read, or the error that stopped it.
 
 ## Write relay (whole league)
 
