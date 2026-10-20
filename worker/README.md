@@ -76,7 +76,8 @@ when the last fill ran and what it read, or the error that stopped it.
 the all-time series, high and low scores, lucky and unlucky results, records
 broken, the top starters and duds, points left on benches, streaks, standings
 moves, trades and waiver adds, and next week's games. It's built from the
-stored history plus that week's MFL transactions, next week's schedule and
+stored history plus that week's MFL trades and waiver adds (split by
+time: after last week's games ended, up to the end of this week's), next week's schedule and
 player names, and kept for 6 hours. It defaults to the last stored week.
 Until every earlier season is stored, `historyComplete` is false and nothing
 claims "all-time" or "league history".
@@ -100,8 +101,8 @@ plan (no API key or per-call cost), not by the relay. Each Tuesday it:
 1. reads `GET /recap/brief[?week=N]`: the instructions (in the
    `RECAP_TONE` voice), the JSON shape (`schema`), the week's fact sheet,
    the storylines and last week's headline (`src/writer.js`);
-2. writes the recap as JSON, under 350 words: headline, a short intro, a
-   line or two per game, at most 2 storylines, next week, and its own
+2. writes the recap as JSON, under 500 words: headline, a short intro, two
+   or three lines per game, at most 3 storylines, next week, and its own
    changes to the storyline ledger;
 3. sends drafts to `POST /recap/check?week=N` until `problems` is empty
    (every field present, one paragraph per game, and every number found in

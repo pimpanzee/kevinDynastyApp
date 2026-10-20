@@ -121,14 +121,17 @@ function priorRecords(games, season, week) {
 }
 
 /**
- * The week's moves from a `transactions` export for that week:
+ * The week's moves from a `transactions` export:
  * { trades: [{ a, b, aGave, bGave }], adds: [{ fid, player, bid, dropped }] }.
+ * Only moves made after `from` and up to `to` (unix seconds) count, when given.
  * Draft picks stay as MFL writes them (FP_0003_2027_2 = 0003's 2027 2nd).
  */
-export function readMoves(transactions) {
+export function readMoves(transactions, { from = -Infinity, to = Infinity } = {}) {
   const trades = [];
   const adds = [];
   for (const t of list(transactions?.transactions?.transaction)) {
+    const at = Number(t.timestamp);
+    if (at && (at <= from || at > to)) continue;
     const ids = (s) => String(s ?? '').split(',').filter(Boolean);
     if (t.type === 'TRADE') {
       const aGave = ids(t.franchise1_gave_up), bGave = ids(t.franchise2_gave_up);

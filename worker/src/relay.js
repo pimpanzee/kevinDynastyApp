@@ -634,15 +634,48 @@ export class WriteRelay {
     return facts;
   }
 
-  /** A week's moves (facts.js readMoves): kept for good once the week is behind us, else 6 hours. */
+  /**
+   * A week's moves (facts.js readMoves): everything after the previous
+   * week's games ended, up to the end of this week's games. MFL's own
+   * transaction weeks roll over before the games finish (a Sunday trade can
+   * land in the next week), so moves are split by time instead. Kept for
+   * good once the week is behind us, else 6 hours.
+   */
   async moves(season, week, latest) {
-    // moves2: re-read after one-sided commissioner transfers stopped counting as trades.
-    const key = `moves2:${season}:${week}`;
+    const key = `moves3:${season}:${week}`;
     const cached = this.getState(key);
     if (cached && (week < latest || Date.now() - cached.at < 6 * 3600 * 1000)) return cached.moves;
-    const moves = readMoves(await this.history.mfl(this.history.url(season, `TYPE=transactions&W=${week}`)));
+    const end = await this.weekEnd(season);
+    const moves = readMoves(await this.transactions(season), { from: week > 1 ? end(week - 1) : -Infinity, to: end(week) });
     this.setState(key, { at: Date.now(), moves });
     return moves;
+  }
+
+  /** The season's trades and waiver adds from MFL, read at most every 10 minutes. */
+  async transactions(season) {
+    const key = `tx:${season}`;
+    const cached = this.getState(key);
+    if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.body;
+    const body = await this.history.mfl(this.history.url(season, 'TYPE=transactions&TRANS_TYPE=TRADE,BBID_WAIVER'));
+    this.setState(key, { at: Date.now(), body });
+    return body;
+  }
+
+  /**
+   * When a week's games are over (unix seconds): 10 hours after week 1's
+   * last kickoff (Tuesday morning after Monday night), then a week apart.
+   */
+  async weekEnd(season) {
+    const key = `weekEnd1:${season}`;
+    let end1 = this.getState(key);
+    if (!end1) {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?TYPE=nflSchedule&W=1&JSON=1`);
+      const kicks = list(body.nflSchedule?.matchup).map((m) => Number(m.kickoff)).filter(Boolean);
+      if (!kicks.length) throw new Error('No week 1 NFL schedule');
+      end1 = Math.max(...kicks) + 10 * 3600;
+      this.setState(key, end1);
+    }
+    return (week) => end1 + (week - 1) * 7 * 86400;
   }
 
   /** Player names for these ids, read from MFL once and kept. */
