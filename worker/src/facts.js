@@ -131,7 +131,9 @@ export function readMoves(transactions) {
   for (const t of list(transactions?.transactions?.transaction)) {
     const ids = (s) => String(s ?? '').split(',').filter(Boolean);
     if (t.type === 'TRADE') {
-      trades.push({ a: t.franchise, b: t.franchise2, aGave: ids(t.franchise1_gave_up), bGave: ids(t.franchise2_gave_up) });
+      const aGave = ids(t.franchise1_gave_up), bGave = ids(t.franchise2_gave_up);
+      // One side giving nothing isn't a trade (commissioner roster moves show up this way).
+      if (aGave.length && bGave.length) trades.push({ a: t.franchise, b: t.franchise2, aGave, bGave });
     } else if (t.type === 'BBID_WAIVER') {
       const [add = '', amount = '', drop = ''] = String(t.transaction ?? '').split('|');
       for (const player of ids(add)) adds.push({ fid: t.franchise, player, bid: Number(amount) || 0, dropped: ids(drop) });
@@ -140,12 +142,20 @@ export function readMoves(transactions) {
   return { trades, adds };
 }
 
-/** "FP_0003_2027_2" → "0003's 2027 round 2 pick"; player ids stay ids. */
-function asset(id, players, team) {
+/**
+ * "FP_0003_2027_2" → "0003's 2027 round 2 pick"; "DP_2_10" (this season's
+ * rookie draft, zero-based round and pick) → "a 2026 rookie pick (3.11)";
+ * player ids stay ids.
+ */
+function asset(id, players, team, season) {
   const pick = /^FP_(\d{4})_(\d{4})_(\d+)$/.exec(id);
-  if (pick) return `${team(pick[1])}'s ${pick[2]} round ${pick[3]} pick`;
+  if (pick) return `${possessive(team(pick[1]))} ${pick[2]} round ${pick[3]} pick`;
+  const draft = /^DP_(\d+)_(\d+)$/.exec(id);
+  if (draft) return `a ${season} rookie pick (${Number(draft[1]) + 1}.${String(Number(draft[2]) + 1).padStart(2, '0')})`;
   return players[id] ? playerLabel(players[id]) : `player ${id}`;
 }
+
+const possessive = (name) => (name.endsWith('s') ? `${name}'` : `${name}'s`);
 
 const playerLabel = (p) => `${p.name} (${[p.pos, p.team].filter(Boolean).join(', ')})`;
 
@@ -243,12 +253,12 @@ export function buildFacts({ season, week, history, teams, names, players, moves
 
   const trades = moves.trades.map((t) => ({
     teams: [team(t.a), team(t.b)],
-    [`${team(t.a)} gave`]: t.aGave.map((id) => asset(id, players, team)),
-    [`${team(t.b)} gave`]: t.bGave.map((id) => asset(id, players, team)),
+    [`${team(t.a)} gave`]: t.aGave.map((id) => asset(id, players, team, season)),
+    [`${team(t.b)} gave`]: t.bGave.map((id) => asset(id, players, team, season)),
   }));
   const waivers = moves.adds
     .sort((a, b) => b.bid - a.bid)
-    .map((a) => ({ team: team(a.fid), added: asset(a.player, players, team), bid: a.bid, dropped: a.dropped.map((id) => asset(id, players, team)) }));
+    .map((a) => ({ team: team(a.fid), added: asset(a.player, players, team, season), bid: a.bid, dropped: a.dropped.map((id) => asset(id, players, team, season)) }));
 
   const nextWeek = next.map(([h, a]) => {
     const s = series(history.games, h, a, season, week + 1);
@@ -266,6 +276,7 @@ export function buildFacts({ season, week, history, teams, names, players, moves
     streaks,
     standingsNote: 'Ordered by record, then points for; not the official standings (those use victory points).',
     standings,
+    ...(week === 1 && { movesNote: 'Week 1 trades and waiver adds include the whole offseason.' }),
     trades, waivers,
     nextWeek,
   };

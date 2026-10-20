@@ -83,12 +83,45 @@ claims "all-time" or "league history".
 
 `GET /recap/storylines[?week=N]` is the storyline ledger after a week
 (`src/storylines.js`): the season's running stories, carried from week to
-week. They're opened by streaks of 3 or more, trades that moved players,
-waiver bids of $20 or more, and teams crossing the playoff line. A story
-gets a note when something happens to it, such as a followed player booming
-(15+) or a starter flopping (3 or fewer), and closes after 3 quiet weeks.
+week. The bar is high on purpose. Stories open for win or losing streaks of
+4 or more, trades that move at least 2 starters, waiver bids of $50 or
+more, and teams crossing the playoff line (from week 4). A story gets a
+note when something happens to it, such as a followed player scoring 20+
+or a starter scoring 1 or less, and closes after 3 quiet weeks.
 The AI writer's own changes for a week are kept in `ledgerAi:<season>:<week>`
-and replayed too. `forWriter` is the 15 liveliest stories.
+and replayed too. `forWriter` is the 8 liveliest stories.
+
+`GET /recap[?week=N]` is a stored weekly recap (the latest by default), plus
+`weeks`, the weeks that have one.
+
+Recaps are written by a weekly Claude task on the league owner's Claude
+plan (no API key or per-call cost), not by the relay. Each Tuesday it:
+
+1. reads `GET /recap/brief[?week=N]`: the instructions (in the
+   `RECAP_TONE` voice), the JSON shape (`schema`), the week's fact sheet,
+   the storylines and last week's headline (`src/writer.js`);
+2. writes the recap as JSON, under 350 words: headline, a short intro, a
+   line or two per game, at most 2 storylines, next week, and its own
+   changes to the storyline ledger;
+3. sends drafts to `POST /recap/check?week=N` until `problems` is empty
+   (every field present, one paragraph per game, and every number found in
+   the facts);
+4. saves it with `POST /recap/save?week=N`, which needs
+   `Authorization: Bearer <RECAP_KEY>`. The relay checks it again, keeps it
+   (replacing an earlier one), and stores its ledger changes as
+   `ledgerAi:<season>:<week>` for later weeks' storylines.
+
+The voice is `RECAP_TONE`: `roast` (the default), `playful`, `straight`, or
+any description of a voice. Change it with the GitHub variable
+`RECAP_TONE` and re-run **Deploy live relay**.
+
+**Setup:** make up a long random `RECAP_KEY` (e.g. from a password manager)
+and add it in two places: the GitHub repository secret `RECAP_KEY` (then
+re-run **Deploy live relay**, which copies it to the Worker), and a network
+secret on the Claude cloud environment the weekly task runs in (type
+Bearer, allowed website `gridlock-live.flynnliam3.workers.dev`, path prefix
+`/recap/save`, header `Authorization`, prefix `Bearer`). The task never
+sees the key; Anthropic's proxy adds it to its save request.
 
 ## Write relay (whole league)
 

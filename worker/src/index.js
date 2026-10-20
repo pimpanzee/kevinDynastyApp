@@ -113,7 +113,7 @@ const DAILY_CRON = '23 14 * * *';
 /** Write-relay routes and the method each takes. */
 const RELAY_ROUTES = {
   '/login': 'POST', '/logout': 'POST', '/me': 'GET', '/mine': 'GET', '/waivers': 'GET', '/trades': 'GET', '/write': 'POST', '/audit': 'GET',
-  '/history': 'GET', '/recap/facts': 'GET', '/recap/storylines': 'GET',
+  '/history': 'GET', '/recap/facts': 'GET', '/recap/storylines': 'GET', '/recap': 'GET', '/recap/brief': 'GET', '/recap/check': 'POST', '/recap/save': 'POST',
   '/push/key': 'GET', '/push/subscribe': 'POST', '/push/unsubscribe': 'POST', '/push/test': 'POST',
 };
 

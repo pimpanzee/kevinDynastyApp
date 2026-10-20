@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+      HAS_RECAP_KEY: ${{ secrets.RECAP_KEY != '' }}
     steps:
       - if: env.HAS_TOKEN != 'true'
         run: echo "::notice::CLOUDFLARE_API_TOKEN is not set; skipping the live relay deploy. See worker/README.md."
@@ -37,6 +38,7 @@ jobs:
             --var MFL_HOST:${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}
             --var MFL_USER_AGENT:${{ vars.MFL_USER_AGENT || 'gridlock/1.0' }}
             --var SITE_URL:${{ vars.SITE_URL || 'https://kevin-dynasty-app.pages.dev' }}
+            --var RECAP_TONE:${{ vars.RECAP_TONE || 'roast' }}
 
       # COOKIE_KEY encrypts each owner's stored MFL login. Made once, here, as
       # 32 random bytes that never leave Cloudflare; later deploys keep it.
@@ -55,3 +57,14 @@ jobs:
             openssl rand -base64 32 | tr -d '\n' | npx --yes wrangler@4 secret put COOKIE_KEY
             echo "::notice::Created COOKIE_KEY; owners can now sign in."
           fi
+
+      # RECAP_KEY lets the weekly recap task save recaps (README). Copied from
+      # the GitHub secret of the same name on every deploy, so changing it
+      # there and re-running this workflow updates it.
+      - if: env.HAS_TOKEN == 'true' && env.HAS_RECAP_KEY == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RECAP_KEY: ${{ secrets.RECAP_KEY }}
+        run: printf '%s' "$RECAP_KEY" | npx --yes wrangler@4 secret put RECAP_KEY

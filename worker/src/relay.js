@@ -22,6 +22,7 @@
 import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
+import { instructions, problems, RECAP_SCHEMA } from './writer.js';
 import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -296,6 +297,16 @@ export class WriteRelay {
       // The weekly fact sheet the recap is written from: public league data too.
       if (path === '/recap/facts') return reply(await this.facts(url.searchParams.get('week')));
       if (path === '/recap/storylines') return reply(await this.storylines(url.searchParams.get('week')));
+      if (path === '/recap' && request.method === 'GET') return reply(this.recap(url.searchParams.get('week')));
+      // The weekly recap task (README) reads its brief, checks drafts and saves the result.
+      if (path === '/recap/brief') return reply(await this.recapBrief(url.searchParams.get('week')));
+      if (path === '/recap/check' && request.method === 'POST') {
+        return reply(await this.checkRecap(url.searchParams.get('week'), await request.json().catch(() => null)));
+      }
+      if (path === '/recap/save' && request.method === 'POST') {
+        if (!this.recapKeyOk(request)) return json({ error: 'Not allowed' }, 403);
+        return reply(await this.saveRecap(url.searchParams.get('week'), await request.json().catch(() => null)));
+      }
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -625,7 +636,8 @@ export class WriteRelay {
 
   /** A week's moves (facts.js readMoves): kept for good once the week is behind us, else 6 hours. */
   async moves(season, week, latest) {
-    const key = `moves:${season}:${week}`;
+    // moves2: re-read after one-sided commissioner transfers stopped counting as trades.
+    const key = `moves2:${season}:${week}`;
     const cached = this.getState(key);
     if (cached && (week < latest || Date.now() - cached.at < 6 * 3600 * 1000)) return cached.moves;
     const moves = readMoves(await this.history.mfl(this.history.url(season, `TYPE=transactions&W=${week}`)));
@@ -651,7 +663,7 @@ export class WriteRelay {
    * own changes stored for that week (`ledgerAi:season:week`). Returns what
    * the writer sees, and the whole ledger.
    */
-  async storylines(weekParam) {
+  async storylines(weekParam, { skipAiWeek } = {}) {
     if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
     const season = Number(this.env.MFL_SEASON);
     const info = this.history.season(season);
@@ -670,9 +682,83 @@ export class WriteRelay {
     let ledger = [];
     for (let w = 1; w <= week; w += 1) {
       ledger = stepLedger(ledger, { season, week: w, games, teams, moves: allMoves[w - 1], names: info.names, players, regEnd: info.regEnd });
-      ledger = applyChanges(ledger, w, this.getState(`ledgerAi:${season}:${w}`));
+      if (w !== skipAiWeek) ledger = applyChanges(ledger, w, this.getState(`ledgerAi:${season}:${w}`));
     }
     return { season, week, forWriter: ledgerForWriter(ledger, week, info.names), ledger };
+  }
+
+  /** A stored recap: the week asked for, else the latest. */
+  recap(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const season = Number(this.env.MFL_SEASON);
+    const weeks = this.sql.exec("SELECT k FROM state WHERE k LIKE ?", `recap:${season}:%`).toArray()
+      .map((r) => Number(r.k.split(':')[2])).sort((a, b) => a - b);
+    const week = weekParam ? Number(weekParam) : weeks.at(-1);
+    const stored = week && this.getState(`recap:${season}:${week}`);
+    if (!stored) return { error: `No recap for week ${week ?? '?'} yet`, weeks, status: 404 };
+    return { ...stored, weeks };
+  }
+
+  /**
+   * Everything the recap task needs to write a week: the instructions (with
+   * the RECAP_TONE voice), the JSON shape, the fact sheet, the storylines
+   * (without that week's own earlier changes, so a rewrite starts clean) and
+   * last week's headline. Week defaults to the last one stored.
+   */
+  async recapBrief(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const facts = await this.facts(weekParam);
+    if (facts.error) return facts;
+    const { season, week } = facts;
+    const story = await this.storylines(String(week), { skipAiWeek: week });
+    if (story.error) return story;
+    return {
+      season, week,
+      written: Boolean(this.getState(`recap:${season}:${week}`)),
+      instructions: instructions(this.env.RECAP_TONE || 'roast'),
+      schema: RECAP_SCHEMA,
+      previousHeadline: this.getState(`recap:${season}:${week - 1}`)?.recap?.headline ?? null,
+      facts,
+      storylines: story.forWriter,
+    };
+  }
+
+  /** A draft recap's problems for a week (writer.js `problems`); none means it can be saved. */
+  async checkRecap(weekParam, recap) {
+    if (!weekParam || !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const brief = await this.recapBrief(weekParam);
+    if (brief.error) return brief;
+    return { week: brief.week, problems: problems(recap, brief) };
+  }
+
+  /** The recap task's key (Authorization: Bearer RECAP_KEY). */
+  recapKeyOk(request) {
+    const key = this.env.RECAP_KEY ?? '';
+    const given = (request.headers.get('Authorization') ?? '').replace(/^Bearer /, '');
+    return key.length >= 16 && given === key;
+  }
+
+  /**
+   * Keeps a week's recap if it passes the checks, replacing any earlier one,
+   * with its storyline changes (`ledgerAi:season:week`).
+   */
+  async saveRecap(weekParam, recap) {
+    if (!weekParam || !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const brief = await this.recapBrief(weekParam);
+    if (brief.error) return brief;
+    const found = problems(recap, brief);
+    if (found.length) return { error: 'The recap has problems', problems: found, status: 422 };
+    const { season, week } = brief;
+    const keep = {
+      headline: recap.headline, intro: recap.intro, nextWeek: recap.nextWeek,
+      matchups: recap.matchups.map(({ winner, loser, text }) => ({ winner, loser, text })),
+      storylines: recap.storylines.map(({ title, text }) => ({ title, text })),
+      ledger: recap.ledger.slice(0, 5).map(({ op, id, title, teams, text }) => ({ op, id, title: title ?? '', teams: Array.isArray(teams) ? teams : [], text: text ?? '' })),
+    };
+    this.setState(`ledgerAi:${season}:${week}`, keep.ledger.length ? keep.ledger : undefined);
+    const stored = { season, week, writtenAt: Date.now(), tone: this.env.RECAP_TONE || 'roast', recap: keep };
+    this.setState(`recap:${season}:${week}`, stored);
+    return stored;
   }
 
   /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */
