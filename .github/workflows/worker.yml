@@ -16,12 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+      HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     steps:
       - if: env.HAS_TOKEN != 'true'
         run: echo "::notice::CLOUDFLARE_API_TOKEN is not set; skipping the live relay deploy. See worker/README.md."
 
       - if: env.HAS_TOKEN == 'true'
         uses: actions/checkout@v4
+
+      # The recap writer's one dependency (@anthropic-ai/sdk), bundled by wrangler.
+      - if: env.HAS_TOKEN == 'true'
+        working-directory: worker
+        run: npm ci --no-audit --no-fund
 
       - if: env.HAS_TOKEN == 'true'
         uses: cloudflare/wrangler-action@v3
@@ -37,6 +43,8 @@ jobs:
             --var MFL_HOST:${{ vars.MFL_HOST || 'https://www44.myfantasyleague.com' }}
             --var MFL_USER_AGENT:${{ vars.MFL_USER_AGENT || 'gridlock/1.0' }}
             --var SITE_URL:${{ vars.SITE_URL || 'https://kevin-dynasty-app.pages.dev' }}
+            --var RECAP_TONE:${{ vars.RECAP_TONE || 'roast' }}
+            --var RECAP_ADMIN:${{ vars.RECAP_ADMIN || '0012' }}
 
       # COOKIE_KEY encrypts each owner's stored MFL login. Made once, here, as
       # 32 random bytes that never leave Cloudflare; later deploys keep it.
@@ -55,3 +63,14 @@ jobs:
             openssl rand -base64 32 | tr -d '\n' | npx --yes wrangler@4 secret put COOKIE_KEY
             echo "::notice::Created COOKIE_KEY; owners can now sign in."
           fi
+
+      # ANTHROPIC_API_KEY lets the relay write the weekly recap with Claude.
+      # Copied from the GitHub secret of the same name on every deploy, so
+      # changing it there and re-running this workflow updates it.
+      - if: env.HAS_TOKEN == 'true' && env.HAS_ANTHROPIC == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: printf '%s' "$ANTHROPIC_API_KEY" | npx --yes wrangler@4 secret put ANTHROPIC_API_KEY

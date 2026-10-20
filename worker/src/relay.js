@@ -22,6 +22,7 @@
 import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
+import { client as claude, writeRecap } from './writer.js';
 import { bbidAdds, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -296,6 +297,7 @@ export class WriteRelay {
       // The weekly fact sheet the recap is written from: public league data too.
       if (path === '/recap/facts') return reply(await this.facts(url.searchParams.get('week')));
       if (path === '/recap/storylines') return reply(await this.storylines(url.searchParams.get('week')));
+      if (path === '/recap' && request.method === 'GET') return reply(this.recap(url.searchParams.get('week')));
 
       if (path === '/login' && request.method === 'POST') {
         const body = await request.json().catch(() => null);
@@ -310,6 +312,9 @@ export class WriteRelay {
 
       if (path === '/logout' && request.method === 'POST') {
         return reply(this.logout(o, session, await request.json().catch(() => null)));
+      }
+      if (path === '/recap/write' && request.method === 'POST') {
+        return reply(await this.writeRecapOnce(url.searchParams.get('week'), url.searchParams.get('force') === '1', o.franchiseId));
       }
       if (path === '/me') return json(await this.me(o));
       if (path === '/audit') return json({ entries: this.audit(o) });
@@ -673,6 +678,79 @@ export class WriteRelay {
       ledger = applyChanges(ledger, w, this.getState(`ledgerAi:${season}:${w}`));
     }
     return { season, week, forWriter: ledgerForWriter(ledger, week, info.names), ledger };
+  }
+
+  /** A stored recap: the week asked for, else the latest. */
+  recap(weekParam) {
+    if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const season = Number(this.env.MFL_SEASON);
+    const weeks = this.sql.exec("SELECT k FROM state WHERE k LIKE ?", `recap:${season}:%`).toArray()
+      .map((r) => Number(r.k.split(':')[2])).sort((a, b) => a - b);
+    const week = weekParam ? Number(weekParam) : weeks.at(-1);
+    const stored = week && this.getState(`recap:${season}:${week}`);
+    if (!stored) return { error: `No recap for week ${week ?? '?'} yet`, weeks, status: 404 };
+    return { ...stored, weeks };
+  }
+
+  /** writeRecapFor, once at a time per week (a second caller waits for the first). */
+  writeRecapOnce(weekParam, force, franchiseId) {
+    this.writing ??= new Map();
+    const key = `${weekParam}:${force}`;
+    if (!this.writing.has(key)) {
+      this.writing.set(key, this.writeRecapFor(weekParam, force, franchiseId).finally(() => this.writing.delete(key)));
+    }
+    return this.writing.get(key);
+  }
+
+  /**
+   * Writes a week's recap with Claude (writer.js) and keeps it, with the
+   * writer's storyline changes for that week. A week already written is
+   * returned as is; rewriting it (`force`) is for RECAP_ADMIN's team only.
+   */
+  async writeRecapFor(weekParam, force, franchiseId) {
+    if (!weekParam || !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
+    const season = Number(this.env.MFL_SEASON);
+    const week = Number(weekParam);
+    const key = `recap:${season}:${week}`;
+    const existing = this.getState(key);
+    if (existing && !force) return existing;
+    if (force && franchiseId !== this.env.RECAP_ADMIN) return { error: 'Only the league\'s recap admin can rewrite a recap.', status: 403 };
+    if (!this.env.ANTHROPIC_API_KEY) return { error: 'The recap writer has no Anthropic API key yet (README).', status: 503 };
+
+    const facts = await this.facts(weekParam);
+    if (facts.error) return facts;
+    // A rewrite starts from the ledger without this week's earlier changes.
+    const aiKey = `ledgerAi:${season}:${week}`;
+    const priorAi = this.getState(aiKey);
+    this.setState(aiKey, undefined);
+    let story;
+    try {
+      story = await this.storylines(weekParam);
+    } catch (e) {
+      this.setState(aiKey, priorAi);
+      throw e;
+    }
+    if (story.error) {
+      this.setState(aiKey, priorAi);
+      return story;
+    }
+    const previous = this.getState(`recap:${season}:${week - 1}`)?.recap?.headline;
+    let out;
+    try {
+      this.claude ??= claude(this.env);
+      out = await writeRecap({ client: this.claude, tone: this.env.RECAP_TONE || 'roast', facts, storylines: story.forWriter, previous });
+    } catch (e) {
+      this.setState(aiKey, priorAi);
+      return { error: `The recap writer failed: ${e.message}`, status: 502 };
+    }
+    this.setState(aiKey, out.recap.ledger?.length ? out.recap.ledger : undefined);
+    const stored = {
+      season, week, writtenAt: Date.now(), tone: this.env.RECAP_TONE || 'roast',
+      source: out.source, model: out.model, problems: out.problems, usage: out.usage,
+      recap: out.recap,
+    };
+    this.setState(key, stored);
+    return stored;
   }
 
   /** An authenticated MFL export, read fresh. Never cached: it may hold the owner's private data. */

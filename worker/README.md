@@ -90,6 +90,26 @@ gets a note when something happens to it, such as a followed player booming
 The AI writer's own changes for a week are kept in `ledgerAi:<season>:<week>`
 and replayed too. `forWriter` is the 15 liveliest stories.
 
+`GET /recap[?week=N]` is a stored weekly recap (the latest by default), plus
+`weeks`, the weeks that have one. `POST /recap/write?week=N` (signed in)
+writes that week's recap if it hasn't been written yet (`src/writer.js`):
+one call to Claude (`claude-opus-5-5`) with the fact sheet and the
+storyline ledger, asking for JSON (headline, intro, a paragraph per game,
+storylines, next week, and its own changes to the ledger). Every number in
+the recap must be in the facts; if one isn't, Claude gets one retry, and
+after that the recap is a plain one built from the facts (`source:
+"facts"`). `&force=1` rewrites a written week, for the `RECAP_ADMIN` team
+only. Refusals fall back to another model server-side (`fallbacks:
+"default"`).
+
+The voice is `RECAP_TONE`: `roast` (the default), `playful`, `straight`, or
+any description of a voice. Change it with the GitHub variable
+`RECAP_TONE` and re-run **Deploy live relay**.
+
+**Setup:** create an API key at console.anthropic.com, add it in GitHub as
+the repository secret `ANTHROPIC_API_KEY`, and re-run **Deploy live relay**,
+which copies it to the Worker. Each recap costs roughly 10 to 20 cents.
+
 ## Write relay (whole league)
 
 Any owner in the league can make moves for their own team from the app.
@@ -178,7 +198,7 @@ longer used and can be deleted.
 ## Local
 
 ```bash
-cd worker && npx wrangler dev        # http://localhost:8787/live?week=11
+cd worker && npm ci && npx wrangler dev        # http://localhost:8787/live?week=11
 ```
 
 For the write relay, put `COOKIE_KEY` (`openssl rand -base64 32`) and
