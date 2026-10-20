@@ -74,8 +74,8 @@ when the last fill ran and what it read, or the error that stopped it.
 `GET /recap/facts[?week=N]` is the fact sheet for a week of this season
 (`src/facts.js`), which the weekly recap is written from. It covers results with
 the all-time series, high and low scores, lucky and unlucky results, records
-broken, the top starters and duds, points left on benches, streaks, standings
-moves, trades and waiver adds, and next week's games. It's built from the
+broken, the top starters and duds, starters listed as out, points left on benches, streaks, standings
+moves, trades and waiver adds (with how each new player was used that week and any injury report), and next week's games. It's built from the
 stored history plus that week's MFL trades and waiver adds (split by
 time: after last week's games ended, up to the end of this week's), next week's schedule and
 player names, and kept for 6 hours. It defaults to the last stored week.

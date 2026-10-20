@@ -629,7 +629,14 @@ export class WriteRelay {
       Object.assign(players, playerIndex(body));
     }
     const complete = (info.seasons ?? []).filter((y) => y < season).every((y) => this.history.season(y)?.complete);
-    const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, complete });
+    const injuries = {};
+    try {
+      const body = await this.history.mfl(`https://api.myfantasyleague.com/${season}/export?JSON=1&TYPE=injuries&W=${week}`);
+      for (const i of list(body.injuries?.injury)) if (i.id && i.status) injuries[i.id] = i.details ? `${i.status} (${i.details})` : i.status;
+    } catch {
+      // The injury report only adds detail; the facts stand without it.
+    }
+    const facts = buildFacts({ season, week, history: this.history.summary(), teams, names: info.names, players, moves, next, regEnd: info.regEnd, injuries, complete });
     this.setState(key, { at: Date.now(), facts });
     return facts;
   }

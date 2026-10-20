@@ -101,6 +101,9 @@ export function instructions(tone) {
     '- If historyComplete is false, make no "all-time" or "league history" claims.',
     '- Carry the season\'s stories forward: tie this week to the ledger where it fits ("the skid hits six").',
     '- Keep it tight: pick the best one or two details for each game and leave the rest out, but every game gets a roast.',
+    '- Check how new players were used: each trade and big waiver add has "thisWeek" (started, benched, or not ' +
+      'on the roster, and any injury report). Trading for an injured player who could not play, or benching the guy ' +
+      'you just paid for, is prime roast material. So is starting someone listed as out ("injuredStarters").',
     '- Only call a trade or pickup new, fresh or "this week" if it is in this week\'s trades or waivers. ' +
       'The ledger notes say which week older moves happened.',
     '- Storylines are only the big ones a league member would bring up in the group chat: the title race, ' +

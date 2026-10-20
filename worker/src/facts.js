@@ -172,10 +172,11 @@ const playerLabel = (p) => `${p.name} (${[p.pos, p.team].filter(Boolean).join(',
  * - `moves`: readMoves() of this week's transactions.
  * - `next`: [[home, away]] next week's games, or [] after the last week.
  * - `regEnd`: last regular season week.
+ * - `injuries`: { id: "Out (Ankle)" } from MFL's injury report for this week.
  * - `complete`: every earlier season is stored. Until then, nothing claims
  *   "all-time" or "league history", since it would be wrong.
  */
-export function buildFacts({ season, week, history, teams, names, players, moves, next = [], regEnd = 14, complete = true }) {
+export function buildFacts({ season, week, history, teams, names, players, moves, next = [], regEnd = 14, injuries = {}, complete = true }) {
   const team = (fid) => names[fid] ?? `Team ${fid}`;
   const pos = Object.fromEntries(Object.entries(players).map(([id, p]) => [id, p.pos]));
   const log = seasonLog(history.games, season, week);
@@ -254,14 +255,32 @@ export function buildFacts({ season, week, history, teams, names, players, moves
     move: week > 1 && before[r.fid] ? before[r.fid] - r.rank : 0,
   }));
 
+  // How a player a team just got was used this week, with his injury status.
+  const usage = (fid, id) => {
+    const p = rosters[fid]?.find((x) => x.id === id);
+    const hurt = injuries[id] ? ` (injury report: ${injuries[id]})` : '';
+    if (!p) return `not in ${possessive(team(fid))} lineup or on their bench this week${hurt}`;
+    return `${p.starter ? 'started' : 'on the bench'} for ${team(fid)}, ${r1(p.score)} points${hurt}`;
+  };
   const trades = moves.trades.map((t) => ({
     teams: [team(t.a), team(t.b)],
     [`${team(t.a)} gave`]: t.aGave.map((id) => asset(id, players, team, season)),
     [`${team(t.b)} gave`]: t.bGave.map((id) => asset(id, players, team, season)),
+    thisWeek: [
+      ...t.aGave.filter((id) => players[id]).map((id) => `${playerLabel(players[id])}: ${usage(t.b, id)}`),
+      ...t.bGave.filter((id) => players[id]).map((id) => `${playerLabel(players[id])}: ${usage(t.a, id)}`),
+    ],
   }));
+  // Starters who were on the injury report as out, and what they scored.
+  const injuredStarters = starters
+    .filter((p) => players[p.id] && /^(out|ir|doubtful|suspended)/i.test(injuries[p.id] ?? ''))
+    .map((p) => ({ team: team(p.fid), player: playerLabel(players[p.id]), injury: injuries[p.id], points: r1(p.score) }));
   const waivers = moves.adds
     .sort((a, b) => b.bid - a.bid)
-    .map((a) => ({ team: team(a.fid), added: asset(a.player, players, team, season), bid: a.bid, dropped: a.dropped.map((id) => asset(id, players, team, season)) }));
+    .map((a) => ({
+      team: team(a.fid), added: asset(a.player, players, team, season), bid: a.bid, dropped: a.dropped.map((id) => asset(id, players, team, season)),
+      ...(a.bid >= 10 && players[a.player] && { thisWeek: usage(a.fid, a.player) }),
+    }));
 
   const nextWeek = next.map(([h, a]) => {
     const s = series(history.games, h, a, season, week + 1);
@@ -275,7 +294,7 @@ export function buildFacts({ season, week, history, teams, names, players, moves
     highScore: sorted[0] && { team: team(sorted[0][0]), score: r1(sorted[0][1]) },
     lowScore: sorted.at(-1) && { team: team(sorted.at(-1)[0]), score: r1(sorted.at(-1)[1]) },
     unlucky, lucky, records,
-    topPlayers, duds, benchMisses,
+    topPlayers, duds, injuredStarters, benchMisses,
     streaks,
     standingsNote: 'Ordered by record, then points for; not the official standings (those use victory points).',
     standings,
