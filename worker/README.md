@@ -81,6 +81,15 @@ player names, and kept for 6 hours. It defaults to the last stored week.
 Until every earlier season is stored, `historyComplete` is false and nothing
 claims "all-time" or "league history".
 
+`GET /recap/storylines[?week=N]` is the storyline ledger after a week
+(`src/storylines.js`): the season's running stories, carried from week to
+week. They're opened by streaks of 3 or more, trades that moved players,
+waiver bids of $20 or more, and teams crossing the playoff line. A story
+gets a note when something happens to it, such as a followed player booming
+(15+) or a starter flopping (3 or fewer), and closes after 3 quiet weeks.
+The AI writer's own changes for a week are kept in `ledgerAi:<season>:<week>`
+and replayed too. `forWriter` is the 15 liveliest stories.
+
 ## Write relay (whole league)
 
 Any owner in the league can make moves for their own team from the app.
