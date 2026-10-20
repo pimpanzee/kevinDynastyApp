@@ -774,16 +774,18 @@ export class WriteRelay {
     return r.ok ? { ok: true } : { error: `The push service refused it (${r.status ?? r.error})`, status: 502 };
   }
 
-  /** Sends an alert of one type to every device of one owner that wants it, once per key. */
+  /**
+   * Sends an alert of one type to every device of one owner that wants it,
+   * once per key. The key is recorded once a device has it, or when no device
+   * wants it; if every push failed it isn't, so the next run tries again.
+   */
   async notify(franchiseId, type, alert) {
     const key = `${franchiseId}|${alert?.key}`;
     if (!alert || this.sql.exec('SELECT 1 FROM sent WHERE key = ?', key).toArray().length) return 0;
-    this.sql.exec('INSERT INTO sent (key, at) VALUES (?, ?)', key, Date.now());
+    const wanted = this.subs(franchiseId).filter((sub) => sub.prefs[type] !== false);
     let n = 0;
-    for (const sub of this.subs(franchiseId)) {
-      if (sub.prefs[type] === false) continue;
-      if ((await this.push(sub, alert)).ok) n += 1;
-    }
+    for (const sub of wanted) if ((await this.push(sub, alert)).ok) n += 1;
+    if (n || !wanted.length) this.sql.exec('INSERT OR IGNORE INTO sent (key, at) VALUES (?, ?)', key, Date.now());
     return n;
   }
 
