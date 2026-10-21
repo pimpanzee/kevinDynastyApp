@@ -151,6 +151,9 @@ export function instructions(tone) {
       'benched one, the start was the right call and it just didn\'t work out. Don\'t flame that as a dumb decision; ' +
       'call it bad luck or skip it. Save the "what were you thinking" roasts for starting the lower projection, a bye, ' +
       'an injured player, or benching the guy you just traded or paid for.',
+    '- Rebuilding teams sell stars for picks and take back salary dumps to make deals work. Judge a rebuilder\'s ' +
+      'trades by what they sold and the picks they got, not by the filler they took back; don\'t roast a salary dump ' +
+      'for not playing.',
     '- Only call a trade or pickup new, fresh or "this week" if it is in this week\'s trades or waivers. ' +
       'The ledger notes say which week older moves happened.',
     '- Each game gets its own headline: a few punchy words on the best joke or detail of that game, like a ' +
