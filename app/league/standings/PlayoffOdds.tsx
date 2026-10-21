@@ -14,7 +14,7 @@ import type { StandingsOdds, StandingsTeamView, StandingsView } from '@/lib/type
  * division winner and wild card from those same simulations.
  */
 
-const COLS = '140px 30px 66px 64px 42px 48px';
+const COLS = '160px 66px 64px 44px 52px';
 const head = { textAlign: 'right', paddingRight: 8 } as const;
 
 /** A share as a whole percentage, without claiming certainty a simulation can't give. */
@@ -70,7 +70,6 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
               <Bracket divs={c.divs} odds={odds} mine={mine} fmt={fmt} />
               <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 26, background: 'var(--bg-200)', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                 <span style={{ position: 'sticky', left: 0, zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 16, background: 'var(--bg-200)', boxShadow: '1px 0 0 var(--line)' }}>TEAM</span>
-                <span style={head}>{usesVp ? 'VP' : 'W'}</span>
                 <span style={{ ...head, color: 'var(--ink)' }}>PLAYOFFS</span>
                 <span style={head}>DIVISION</span>
                 <span style={head}>BYE</span>
@@ -89,7 +88,6 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
                       <TeamChip name={t.name} icon={t.icon} />
                       <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.25 var(--font-body)`, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
                     </span>
-                    <span style={{ ...head, font: '500 13px/1 var(--font-body)', color: 'var(--ink-2)' }}>{usesVp ? t.vp ?? '—' : t.record.split('-')[0]}</span>
                     <span style={{ ...head, font: DISPLAY(16), color: po >= 0.5 ? 'var(--ink)' : 'var(--ink-3)' }}>{fmt(o?.playoffs)}%</span>
                     {cell(o?.division)}
                     {cell(o?.bye)}
