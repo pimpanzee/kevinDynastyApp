@@ -4,12 +4,16 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import TeamChip from '@/components/league/TeamChip';
 import { DISPLAY } from '@/components/team/format';
+import { compareDivision, compareWildcard, wildcardTiebreak, type SortKey } from '@/lib/standingsSort';
 import type { StandingsOdds, StandingsTeamView, StandingsView } from '@/lib/types';
 
 /**
  * Standings › Playoff odds: each conference's teams ordered by their chance of
  * making the playoffs, with division, bye and title odds beside it. The
  * numbers come from simulating the rest of the season (lib/mfl/playoffOdds).
+ * Above each conference's odds, the bracket if the season ended today, seeded
+ * like MFL's projected playoffs: the top division winner on the bye, the other
+ * division winner hosting the wild card, and the first team out.
  */
 
 const COLS = '160px 30px 44px 44px 64px 48px';
@@ -65,6 +69,7 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
                   <span style={{ font: DISPLAY(12), letterSpacing: '.12em' }}>{c.name}</span>
                 </span>
               </div>
+              <Bracket divs={c.divs} odds={odds} mine={mine} usesVp={usesVp} fmt={fmt} />
               <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 26, background: 'var(--bg-200)', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                 <span style={{ position: 'sticky', left: 0, zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 16, background: 'var(--bg-200)', boxShadow: '1px 0 0 var(--line)' }}>TEAM</span>
                 <span style={head}>{usesVp ? 'VP' : 'W'}</span>
@@ -108,6 +113,58 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
             : `From playing the last ${weeksLeft} regular-season ${weeksLeft === 1 ? 'week' : 'weeks'} (Weeks ${odds.weeks![0]}–${odds.weeks![1]}) and the playoffs ${odds.sims.toLocaleString('en-US')} times.`}
           {' '}Each team&apos;s weekly score is drawn from what it has scored this season, blended with its projected best lineup that week, so byes and injuries count. Division winners and one wild card per conference make it; the better division winner in each conference gets the bye. Ties go by the rule book: {usesVp ? 'victory points, then record, then ' : 'record, then '}head-to-head, division record, conference record and points for division winners; conference record, points and head-to-head for the wild card. Percentages are shares of simulations, so ‘&gt;99’ isn&apos;t a clinch.
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** "If the season ended today": this conference's three playoff teams and the first one out. */
+function Bracket({ divs, odds, mine, usesVp, fmt }: {
+  divs: Array<{ teams: StandingsTeamView[] }>;
+  odds: StandingsOdds;
+  mine: string;
+  usesVp: boolean;
+  fmt: (p: number | undefined) => string;
+}) {
+  const num = (x: string) => Number(x.replace(/,/g, '')) || 0;
+  const key = (t: StandingsTeamView): SortKey => ({ id: t.franchiseId, vp: usesVp ? t.vp ?? 0 : null, record: t.record, div: t.div, conf: t.conf, pf: num(t.pf), h2h: t.h2h ?? {} });
+  // Division lists arrive in division order, so each one's first team leads it.
+  const winners = divs.map((d) => d.teams[0]).filter(Boolean).sort((a, b) => compareDivision(key(a), key(b)));
+  const rest = divs.flatMap((d) => d.teams.slice(1)).sort((a, b) => compareWildcard(key(a), key(b)));
+  const [top, host] = winners;
+  const [wc, out] = rest;
+  if (!top || !host || !wc) return null;
+  const score = (t: StandingsTeamView) => (usesVp ? t.vp ?? 0 : Number(t.record.split('-')[0]) || 0);
+  const unit = usesVp ? 'VP' : 'W';
+  const gap = out ? score(wc) - score(out) : 0;
+  const outNote = !out ? '' : gap > 0 ? `${gap} ${unit} behind ${wc.name}` : `level with ${wc.name} on ${unit}, out on ${wildcardTiebreak(key(wc), key(out)) ?? 'points'}`;
+
+  const line = (t: StandingsTeamView, seed: string, tag: string) => {
+    const me = t.franchiseId === mine;
+    return (
+      <Link href={`/league/team/${t.franchiseId}/`} style={{ display: 'grid', gridTemplateColumns: '18px 26px minmax(0, 1fr) auto 40px', alignItems: 'center', gap: 8, height: 38, padding: '0 16px 0 12px', boxShadow: me ? 'inset 3px 0 0 var(--volt)' : undefined, background: me ? 'var(--bg-200)' : undefined }}>
+        <span style={{ font: DISPLAY(14, 800), textAlign: 'right', color: seed === '1' ? 'var(--volt)' : 'var(--ink-2)' }}>{seed}</span>
+        <TeamChip name={t.name} icon={t.icon} size={24} />
+        <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.2 var(--font-body)`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+        <span style={{ font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{tag}</span>
+        <span style={{ textAlign: 'right', font: DISPLAY(14), color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(odds.teams[t.franchiseId]?.playoffs)}%</span>
+      </Link>
+    );
+  };
+
+  return (
+    <div style={{ width: 390, maxWidth: '100vw', position: 'sticky', left: 0, boxSizing: 'border-box', padding: '8px 0 10px', borderBottom: '1px solid var(--edge)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 16px 4px', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
+        <span>IF THE SEASON ENDED TODAY</span><span>PLAYOFF</span>
+      </div>
+      {line(top, '1', 'BYE')}
+      <div style={{ position: 'relative', margin: '4px 0' }}>
+        <span aria-hidden style={{ position: 'absolute', left: 4, top: 12, bottom: 12, width: 4, borderLeft: '1.5px solid var(--ink-3)', borderTop: '1.5px solid var(--ink-3)', borderBottom: '1.5px solid var(--ink-3)' }} />
+        {line(host, '2', 'HOSTS WK 15')}
+        {line(wc, '3', 'WILD CARD')}
+      </div>
+      <div style={{ padding: '2px 16px 0 42px', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
+        Winner plays {top.name} in Week 16.{out ? ` First out: ${out.name}, ${outNote}.` : ''}
       </div>
     </div>
   );
