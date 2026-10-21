@@ -108,12 +108,15 @@ plan (no API key or per-call cost), not by the relay. Each Tuesday it:
    the storylines, last week's headline and `recentJokes`, lines from the
    last three recaps not to reuse (`src/writer.js`);
 2. reads the league lore, a private file in the Claude project
-   (`weekly-recap/lore.md`: nicknames, grudges, running jokes, off-limits
-   topics). It is kept out of this public repo and the relay on purpose;
+   (`weekly-recap/lore.md`) and the shared Google Sheet it points to, where the league adds
+   lore. Both are kept out of this public repo and the relay;
    the brief's instructions tell the task where it is (`LORE_FILE`);
 3. writes the recap as JSON, under 500 words: headline, a short intro, a
    headline and two or three lines per game, at most 3 storylines, next
-   week, and its own changes to the storyline ledger;
+   week, and its own changes to the storyline ledger; after saving, it adds
+   a lore bit only when something is truly juicy (most weeks, nothing).
+   It also reads the league Slack (`SLACK_CHANNELS`, read only) for the
+   week's drama;
 4. sends drafts to `POST /recap/check?week=N` until `problems` is empty
    (every field present, one paragraph and headline per game, every number
    found in the facts, no banned stock lines such as "Brutal" or "Math
