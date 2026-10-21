@@ -38,21 +38,11 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
   const settled = !odds.weeks;
   const fmt = (p: number | undefined) => pctLabel(p, settled);
   const weeksLeft = odds.weeks ? odds.weeks[1] - odds.weeks[0] + 1 : 0;
-  const myOdds = odds.teams[mine];
-  const myName = view.groups.flatMap((g) => g.teams).find((t) => t.franchiseId === mine)?.name;
 
   return (
     <div style={{ flex: 1, overflow: 'auto', background: 'var(--bg-100)' }}>
       <div style={{ width: 'max-content', minWidth: '100%' }}>
         {toggle}
-        {myOdds && myName && (
-          <div style={{ width: 390, maxWidth: '100vw', position: 'sticky', left: 0, padding: '12px 16px', boxSizing: 'border-box', borderBottom: '1px solid var(--edge)', display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <span style={{ font: DISPLAY(30, 800), color: 'var(--volt)', fontVariantNumeric: 'tabular-nums' }}>{fmt(myOdds.playoffs)}%</span>
-            <span style={{ font: '500 13px/1.35 var(--font-body)', color: 'var(--ink-2)' }}>
-              chance {myName} makes the playoffs · {fmt(myOdds.bye)}% bye · {fmt(myOdds.title)}% title
-            </span>
-          </div>
-        )}
         {confs.map((c) => {
           const teams = c.divs.flatMap((d) => d.teams).sort((a, b) => {
             const oa = odds.teams[a.franchiseId];
