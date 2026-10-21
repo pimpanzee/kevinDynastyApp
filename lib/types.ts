@@ -177,6 +177,15 @@ export interface StandingsView {
   /** The build's default franchise; the viewer's own choice replaces it in the browser. */
   myFranchiseId: string;
   simulatedAt: string | null;
+  /** Simulated playoff odds (shares 0–1), or null when they couldn't be worked out. */
+  odds: StandingsOdds | null;
+}
+
+export interface StandingsOdds {
+  sims: number;
+  /** Regular-season weeks simulated; null once the regular season is over. */
+  weeks: [number, number] | null;
+  teams: Record<string, { playoffs: number; bye: number; division: number; title: number; avgFinal: number }>;
 }
 
 /* ── Players ─────────────────────────────────────────────────────────────── */
