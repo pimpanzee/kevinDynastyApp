@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import BottomSheet from '@/components/BottomSheet';
 import TeamAvatar from '@/components/TeamAvatar';
 import { headToHead, record, type HeadToHead, type Meeting } from '@/lib/rivalry';
@@ -27,33 +26,33 @@ function seriesLine(h: HeadToHead, us: RivalryTeam, them: RivalryTeam) {
 }
 
 /**
- * A slim bar under the matchup's score: the series in one line. Tapping it
- * opens the full rivalry card. Hidden until the relay's history has loaded.
+ * The scorebug's last line: the series in one line. Tapping it calls
+ * `onOpen`; the screen shows the rivalry card (outside the swipeable
+ * scorebug, so the sheet isn't clipped or dragged with it). Hidden until the
+ * relay's history has loaded.
  */
-export function RivalryBar({ cut, home, away, mine }: { cut: Cut; home: RivalryTeam; away: RivalryTeam; mine?: boolean }) {
+export function RivalryBar({ cut, home, away, onOpen }: { cut: Cut; home: RivalryTeam; away: RivalryTeam; onOpen: () => void }) {
   const history = useHistory();
-  const [open, setOpen] = useState(false);
   if (!history || !cut.season) return null;
   const h = headToHead(history, home.id, away.id, cut);
   const n = h.meetings.length;
   const name = (who: 'us' | 'them') => (who === 'us' ? home.name : away.name);
-  const extra = n && h.streak.who && h.streak.n > 1 ? ` · ${name(h.streak.who)} won the last ${h.streak.n}` : '';
+  // "Beers leads 3–2 · won the last 3": skip the name again when the leader owns the streak.
+  const leader = h.wins > h.losses ? 'us' : h.losses > h.wins ? 'them' : null;
+  const streaker = h.streak.who === leader ? '' : `${name(h.streak.who as 'us' | 'them')} `;
+  const extra = n && h.streak.who && h.streak.n > 1 ? ` · ${streaker}won the last ${h.streak.n}` : '';
+  const line = n ? `${seriesLine(h, home, away)}${extra}` : 'First ever meeting';
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Open the rivalry"
-        style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 40, padding: '0 12px 0 16px', border: 0, borderBottom: '1px solid var(--line)', background: 'var(--bg-100)', color: 'var(--ink)', cursor: 'pointer', textAlign: 'left' }}
-      >
-        <span style={{ flex: 'none', font: DISPLAY(11), letterSpacing: '.12em', color: 'var(--volt)' }}>RIVALRY</span>
-        <span style={{ flex: 1, minWidth: 0, font: '500 12.5px/1 var(--font-body)', color: 'var(--ink-2)', fontVariantNumeric: 'tabular-nums', ...clip }}>
-          {n ? `${seriesLine(h, home, away)}${extra}` : 'First ever meeting'}
-        </span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', color: 'var(--ink-3)' }}><path d="m9 18 6-6-6-6" /></svg>
-      </button>
-      {open && <RivalryCard us={home} them={away} cut={cut} mine={mine} onClose={() => setOpen(false)} />}
-    </>
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Rivalry: ${line}. Open the rivalry`}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: 'calc(100% + 32px)', height: 44, margin: '10px -16px -14px', padding: '0 12px 0 16px', border: 0, borderTop: '1px solid var(--line)', background: 'none', color: 'var(--ink)', cursor: 'pointer', textAlign: 'left' }}
+    >
+      <span style={{ flex: 'none', font: DISPLAY(11), letterSpacing: '.12em', color: 'var(--volt)' }}>RIVALRY</span>
+      <span style={{ flex: 1, minWidth: 0, font: '500 12.5px/1 var(--font-body)', color: 'var(--ink-2)', fontVariantNumeric: 'tabular-nums', ...clip }}>{line}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', color: 'var(--ink-3)' }}><path d="m9 18 6-6-6-6" /></svg>
+    </button>
   );
 }
 

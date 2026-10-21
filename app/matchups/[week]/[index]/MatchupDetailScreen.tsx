@@ -11,7 +11,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
 import ScoreSheet from '@/components/ScoreSheet';
 import TeamAvatar from '@/components/TeamAvatar';
-import { RivalryBar } from '@/components/league/Rivalry';
+import { RivalryBar, RivalryCard } from '@/components/league/Rivalry';
 import TeamLink from '@/components/league/TeamLink';
 import WeekMenu from '@/components/WeekMenu';
 import { posColor, posRank } from '@/components/pos';
@@ -101,6 +101,7 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
   const router = useRouter();
   const [weekOpen, setWeekOpen] = useState(false);
   const [open, setOpen] = useState<Open>(null);
+  const [rivalryOpen, setRivalryOpen] = useState(false);
   const close = useCallback(() => setOpen(null), []);
   const openPlayer: BoxPlayerView | undefined =
     open ? (open.bench ? view.bench : view.starters)[open.row]?.[open.side] : undefined;
@@ -111,6 +112,11 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
     if (n === view.week) return;
     router.push(isMine ? `/matchups/${n}/?open=mine` : `/matchups/${n}/${view.index}/`);
   };
+
+  // The rivalry opens from the scorebug's last line; the card itself sits outside the swipe.
+  const rivalryCut = { season: view.season, week: view.week };
+  const rivalryHome = { id: view.home.franchiseId, name: view.home.name, icon: view.home.icon };
+  const rivalryAway = { id: view.away.franchiseId, name: view.away.name, icon: view.away.icon };
 
   const L = stack(view.starters, 'home'), R = stack(view.starters, 'away');
   const BL = stack(view.bench, 'home'), BR = stack(view.bench, 'away');
@@ -132,14 +138,12 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
       </div>
 
       <Swipe key={view.index} onPrev={() => router.push(pageHref(view.index - 1))} onNext={() => router.push(pageHref(view.index + 1))}>
-        <ScoreBlock view={view} mine={mySide === 'home'} me={team} pre={pre} final={final} />
+        <ScoreBlock
+          view={view} mine={mySide === 'home'} me={team} pre={pre} final={final}
+          footer={<RivalryBar cut={rivalryCut} home={rivalryHome} away={rivalryAway} onOpen={() => setRivalryOpen(true)} />}
+        />
       </Swipe>
-      <RivalryBar
-        cut={{ season: view.season, week: view.week }}
-        home={{ id: view.home.franchiseId, name: view.home.name, icon: view.home.icon }}
-        away={{ id: view.away.franchiseId, name: view.away.name, icon: view.away.icon }}
-        mine={mySide === 'home'}
-      />
+      {rivalryOpen && <RivalryCard us={rivalryHome} them={rivalryAway} cut={rivalryCut} mine={mySide === 'home'} onClose={() => setRivalryOpen(false)} />}
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {live?.started && view.tag === 'LIVE' && <LiveStamp fetchedAt={live.fetchedAt} stale={live.stale} style={{ paddingBottom: 0 }} />}
@@ -243,8 +247,8 @@ function Swipe({ onPrev, onNext, children }: { onPrev: () => void; onNext: () =>
   );
 }
 
-/** The score block: chips, names, records, big scores, odds or FINAL, and the bar. */
-function ScoreBlock({ view, mine, me, pre, final }: { view: MatchupDetailView; mine: boolean; me: string; pre: boolean; final: boolean }) {
+/** The score block: chips, names, records, big scores, odds or FINAL, the bar, and the rivalry line. */
+function ScoreBlock({ view, mine, me, pre, final, footer }: { view: MatchupDetailView; mine: boolean; me: string; pre: boolean; final: boolean; footer?: React.ReactNode }) {
   const homeLeads = view.home.scoreValue >= view.away.scoreValue;
   const tone = (side: SideView, isHome: boolean) => {
     if (pre) return 'var(--ink-3)';
@@ -292,6 +296,7 @@ function ScoreBlock({ view, mine, me, pre, final }: { view: MatchupDetailView; m
           <span style={{ flex: 1, background: pct >= 50 ? 'var(--bg-300)' : 'var(--ink)' }} />
         </div>
       )}
+      {footer}
     </div>
   );
 }
