@@ -1,6 +1,6 @@
 /*
  * The Liam's service worker: shows push alerts from the relay (lineup lock,
- * injuries, waiver results, the Tuesday recap) and opens the app where each
+ * injuries, inactives, waiver results, the Tuesday recap, stat corrections) and opens the app where each
  * one points. It does no caching; the site stays network-first.
  */
 

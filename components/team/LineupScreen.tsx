@@ -80,6 +80,19 @@ const LOCKED_INK = 'color-mix(in srgb, var(--volt) 55%, var(--ink-3))';
 const DROP_TINT = 'color-mix(in srgb, var(--fall) 7%, transparent)';
 const QUEUE_TINT = 'color-mix(in srgb, var(--volt) 6%, transparent)';
 
+/** How many times a saved lineup is read back from MFL, and the wait between reads. */
+const VERIFY_TRIES = 3;
+const VERIFY_GAP_MS = 4000;
+
+/** The starters sent against the starters MFL shows. */
+export function lineupDiff(sent: string[], onMfl: string[]) {
+  const a = new Set(sent);
+  const b = new Set(onMfl);
+  const missing = sent.filter((id) => !b.has(id));
+  const extra = onMfl.filter((id) => !a.has(id));
+  return { same: missing.length === 0 && extra.length === 0, missing, extra };
+}
+
 interface Notice {
   tone: 'ok' | 'bad';
   text: string;
@@ -150,18 +163,22 @@ export default function LineupScreen({
   const [why, setWhy] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  const load = useCallback(async () => {
-    const r = await getMine();
-    if (isError(r)) {
-      setLoadError(r);
-      return;
-    }
+  const show = useCallback((r: Mine) => {
     setLoadError(null);
     setMine(r);
     setStarters(new Set(r.starters));
     setSel(null);
     setNow(Date.now());
   }, []);
+
+  const load = useCallback(async () => {
+    const r = await getMine();
+    if (isError(r)) {
+      setLoadError(r);
+      return;
+    }
+    show(r);
+  }, [show]);
 
   useEffect(() => {
     load();
@@ -336,13 +353,59 @@ export default function LineupScreen({
     await load();
   };
 
+  /**
+   * Sends the lineup, then reads it back from MFL and only says it saved
+   * once MFL shows exactly these starters. MFL can take a few seconds to
+   * show a change, so a mismatch is re-read twice before it's reported. A
+   * write that timed out is settled the same way.
+   */
   const submit = async () => {
     if (!mine) return;
     setBusy(true);
+    const week = mine.week;
     const ids = [...starters].filter(isActive);
-    const r = await write('lineup', { W: String(mine.week), STARTERS: ids.join(',') });
+    const r = await write('lineup', { W: String(week), STARTERS: ids.join(',') });
+    if (isError(r) && !r.unknown) {
+      setConfirming(false);
+      await afterWrite(r, '');
+      setBusy(false);
+      return;
+    }
+    setProgress('CHECKING MFL…');
+    let back: Mine | RelayError = { error: 'not read' };
+    let diff = lineupDiff(ids, []);
+    for (let i = 0; i < VERIFY_TRIES; i++) {
+      if (i) await new Promise((done) => setTimeout(done, VERIFY_GAP_MS));
+      back = await getMine(week);
+      if (isError(back)) break;
+      diff = lineupDiff(ids, back.starters);
+      if (diff.same) break;
+    }
+    setProgress(null);
     setConfirming(false);
-    await afterWrite(r, `Week ${mine.week} lineup saved on MFL.`);
+    const name = (id: string) => info(id).name;
+    if (isError(back)) {
+      setNotice({
+        tone: 'bad',
+        text: !isError(r)
+          ? `MFL accepted your week ${week} lineup, but reading it back failed (${back.error}). Open this screen again to check it.`
+          : `${r.error} Reading it back failed too (${back.error}), so open this screen again to check your lineup.`,
+      });
+      await load();
+    } else if (diff.same) {
+      setNotice({ tone: 'ok', text: `Week ${week} lineup saved and checked: MFL shows your ${ids.length} starters.` });
+      show(back);
+    } else {
+      const parts = [
+        diff.missing.length ? `not starting on MFL: ${diff.missing.map(name).join(', ')}` : '',
+        diff.extra.length ? `still starting on MFL: ${diff.extra.map(name).join(', ')}` : '',
+      ].filter(Boolean);
+      setNotice({
+        tone: 'bad',
+        text: `${isError(r) ? 'MFL didn’t answer, and your' : 'MFL accepted the save, but your'} week ${week} lineup isn’t showing there yet (${parts.join('; ')}). Below is what MFL has now; set it again and resubmit.`,
+      });
+      show(back);
+    }
     setBusy(false);
   };
 
@@ -539,7 +602,7 @@ export default function LineupScreen({
               </p>
             )}
             <p style={{ margin: '0 0 8px', color: 'var(--ink-3)', fontSize: 12.5 }}>You can change it again until each player&apos;s kickoff.</p>
-            <button type="button" disabled={busy} onClick={submit} style={{ ...btn(true), width: '100%' }}>{busy ? 'SUBMITTING…' : 'SUBMIT TO MFL'}</button>
+            <button type="button" disabled={busy} onClick={submit} style={{ ...btn(true), width: '100%' }}>{progress ?? (busy ? 'SUBMITTING…' : 'SUBMIT TO MFL')}</button>
           </div>
         </BottomSheet>
       )}

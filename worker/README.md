@@ -67,7 +67,8 @@ Each game is `[season, week, home, homeScore, away, awayScore, kind]`, where
 or `Consolation`. The relay fills it 8 MFL reads at a time from the
 15-minute run, so after the first deploy it takes a few hours to reach 2021.
 Finished seasons are read once. This season adds each week once it's played
-and re-reads it daily for a week (stat corrections). Player scores per team
+and re-reads it every 6 hours for a week (stat corrections, which push a
+correction alert). Player scores per team
 and week are stored too, for the recap, but not served here. `lastFill` says
 when the last fill ran and what it read, or the error that stopped it.
 
@@ -182,8 +183,11 @@ refused. Commissioner actions are out of scope.
   `/push/test`). A run every 15 minutes (`src/alerts.js`) checks each owner
   with a device subscribed: a lineup check 90 minutes before each kickoff
   when a starter in it is out (or the lineup is short or has a bye), a
-  starter newly ruled Out/Doubtful/IR, waiver results, the Tuesday recap, and
-  a notice when their MFL login expires. League-wide reads are shared across
+  starter newly ruled Out/Doubtful/IR, a starter on his team's game-day
+  inactives (from ESPN's game roster, looked for in the 85 minutes before his
+  kickoff), waiver results, the Tuesday recap, a stat correction that moved a
+  score in their game (found by the history re-reads), and a notice when
+  their MFL login expires. League-wide reads are shared across
   owners in a run; pending claims are read with each owner's own login. The
   VAPID keys are made by the relay on first use. On iPhone, push only works
   from the app added to the Home Screen.

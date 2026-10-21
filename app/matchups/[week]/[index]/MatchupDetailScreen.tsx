@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar, { HeaderButton } from '@/components/HeaderBar';
 import InjuryTag from '@/components/InjuryTag';
+import LiveStamp from '@/components/LiveStamp';
 import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
 import ScoreSheet from '@/components/ScoreSheet';
@@ -141,6 +142,7 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
       />
 
       <div style={{ flex: 1, overflow: 'auto' }}>
+        {live?.started && view.tag === 'LIVE' && <LiveStamp fetchedAt={live.fetchedAt} stale={live.stale} style={{ paddingBottom: 0 }} />}
         {alerts.length > 0 && (
           <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 16px 4px', padding: '9px 12px', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 6 }}>
             <span style={{ flex: 'none', font: DISPLAY(10), letterSpacing: '.08em', padding: '3px 5px', background: 'var(--live)', color: '#fff', borderRadius: 2 }}>LINEUP</span>
