@@ -11,7 +11,7 @@ import PhoneFrame from '@/components/PhoneFrame';
 import { PlayerLink } from '@/components/PlayerCard';
 import ScoreSheet from '@/components/ScoreSheet';
 import TeamAvatar from '@/components/TeamAvatar';
-import { RivalryBar } from '@/components/league/Rivalry';
+import { RivalryBar, RivalryCard } from '@/components/league/Rivalry';
 import TeamLink from '@/components/league/TeamLink';
 import WeekMenu from '@/components/WeekMenu';
 import { posColor, posRank } from '@/components/pos';
@@ -95,12 +95,14 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
         return issue ? [{ name: p.name, issue }] : [];
       })
     : [];
+  const alertText = alerts.map((a) => `${a.name} ${ISSUE[a.issue]}`).join('. ');
 
   // The picker's per-week results are the viewer's team's.
   const personalWeeks = weeks.map((w) => ({ ...w, note: w.notes ? (w.notes[team] ?? '') : w.note }));
   const router = useRouter();
   const [weekOpen, setWeekOpen] = useState(false);
   const [open, setOpen] = useState<Open>(null);
+  const [rivalryOpen, setRivalryOpen] = useState(false);
   const close = useCallback(() => setOpen(null), []);
   const openPlayer: BoxPlayerView | undefined =
     open ? (open.bench ? view.bench : view.starters)[open.row]?.[open.side] : undefined;
@@ -111,6 +113,11 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
     if (n === view.week) return;
     router.push(isMine ? `/matchups/${n}/?open=mine` : `/matchups/${n}/${view.index}/`);
   };
+
+  // The rivalry opens from the scorebug's last line; the card itself sits outside the swipe.
+  const rivalryCut = { season: view.season, week: view.week };
+  const rivalryHome = { id: view.home.franchiseId, name: view.home.name, icon: view.home.icon };
+  const rivalryAway = { id: view.away.franchiseId, name: view.away.name, icon: view.away.icon };
 
   const L = stack(view.starters, 'home'), R = stack(view.starters, 'away');
   const BL = stack(view.bench, 'home'), BR = stack(view.bench, 'away');
@@ -132,22 +139,22 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
       </div>
 
       <Swipe key={view.index} onPrev={() => router.push(pageHref(view.index - 1))} onNext={() => router.push(pageHref(view.index + 1))}>
-        <ScoreBlock view={view} mine={mySide === 'home'} me={team} pre={pre} final={final} />
+        <ScoreBlock
+          view={view} mine={mySide === 'home'} me={team} pre={pre} final={final}
+          footer={<RivalryBar cut={rivalryCut} home={rivalryHome} away={rivalryAway} onOpen={() => setRivalryOpen(true)} />}
+        />
       </Swipe>
-      <RivalryBar
-        cut={{ season: view.season, week: view.week }}
-        home={{ id: view.home.franchiseId, name: view.home.name, icon: view.home.icon }}
-        away={{ id: view.away.franchiseId, name: view.away.name, icon: view.away.icon }}
-        mine={mySide === 'home'}
-      />
+      {rivalryOpen && <RivalryCard us={rivalryHome} them={rivalryAway} cut={rivalryCut} mine={mySide === 'home'} onClose={() => setRivalryOpen(false)} />}
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {live?.started && view.tag === 'LIVE' && <LiveStamp fetchedAt={live.fetchedAt} stale={live.stale} style={{ paddingBottom: 0 }} />}
+        {/* Only starters whose games haven't kicked off are flagged, so there's always something to fix: tap to set your lineup. */}
         {alerts.length > 0 && (
-          <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 16px 4px', padding: '9px 12px', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 6 }}>
+          <Link href="/team/lineup/" aria-label={`Lineup alert: ${alertText}. Fix lineup`} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44, boxSizing: 'border-box', margin: '12px 16px 4px', padding: '8px 8px 8px 12px', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--ink)' }}>
             <span style={{ flex: 'none', font: DISPLAY(10), letterSpacing: '.08em', padding: '3px 5px', background: 'var(--live)', color: '#fff', borderRadius: 2 }}>LINEUP</span>
-            <span style={{ font: '500 13px/1.3 var(--font-body)' }}>{alerts.map((a) => `${a.name} ${ISSUE[a.issue]}`).join('. ')}</span>
-          </div>
+            <span style={{ flex: 1, minWidth: 0, font: '500 13px/1.3 var(--font-body)' }}>{alertText}</span>
+            <span style={{ flex: 'none', display: 'flex', color: 'var(--volt)' }}><Chev d="m9 18 6-6-6-6" /></span>
+          </Link>
         )}
 
         <SectionHead label="STARTERS" right={`${L.length} · ${R.length}`} mark />
@@ -243,8 +250,8 @@ function Swipe({ onPrev, onNext, children }: { onPrev: () => void; onNext: () =>
   );
 }
 
-/** The score block: chips, names, records, big scores, odds or FINAL, and the bar. */
-function ScoreBlock({ view, mine, me, pre, final }: { view: MatchupDetailView; mine: boolean; me: string; pre: boolean; final: boolean }) {
+/** The score block: chips, names, records, big scores, odds or FINAL, the bar, and the rivalry line. */
+function ScoreBlock({ view, mine, me, pre, final, footer }: { view: MatchupDetailView; mine: boolean; me: string; pre: boolean; final: boolean; footer?: React.ReactNode }) {
   const homeLeads = view.home.scoreValue >= view.away.scoreValue;
   const tone = (side: SideView, isHome: boolean) => {
     if (pre) return 'var(--ink-3)';
@@ -292,6 +299,7 @@ function ScoreBlock({ view, mine, me, pre, final }: { view: MatchupDetailView; m
           <span style={{ flex: 1, background: pct >= 50 ? 'var(--bg-300)' : 'var(--ink)' }} />
         </div>
       )}
+      {footer}
     </div>
   );
 }
