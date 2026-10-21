@@ -153,9 +153,7 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
           <Link href="/team/lineup/" aria-label={`Lineup alert: ${alertText}. Fix lineup`} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44, boxSizing: 'border-box', margin: '12px 16px 4px', padding: '8px 8px 8px 12px', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--ink)' }}>
             <span style={{ flex: 'none', font: DISPLAY(10), letterSpacing: '.08em', padding: '3px 5px', background: 'var(--live)', color: '#fff', borderRadius: 2 }}>LINEUP</span>
             <span style={{ flex: 1, minWidth: 0, font: '500 13px/1.3 var(--font-body)' }}>{alertText}</span>
-            <span style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 2, font: DISPLAY(11), letterSpacing: '.1em', color: 'var(--volt)', whiteSpace: 'nowrap' }}>
-              FIX LINEUP <Chev d="m9 18 6-6-6-6" size={16} />
-            </span>
+            <span style={{ flex: 'none', display: 'flex', color: 'var(--volt)' }}><Chev d="m9 18 6-6-6-6" /></span>
           </Link>
         )}
 
@@ -183,8 +181,8 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
 const ISSUE: Record<LineupIssue, string> = { IR: 'is on IR', OUT: 'is out', BYE: 'is on bye', DOUBTFUL: 'is doubtful', 'NO PROJ': 'is not projected to play' };
 
 const pager = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: 44, color: 'var(--ink-2)' } as const;
-function Chev({ d, size = 18 }: { d: string; size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>;
+function Chev({ d }: { d: string }) {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>;
 }
 
 function SectionHead({ label, right, mark, muted }: { label: string; right?: string; mark?: boolean; muted?: boolean }) {
