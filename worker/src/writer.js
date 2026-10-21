@@ -18,6 +18,9 @@ const MAX_GAME_WORDS = 75;
 const MAX_STORYLINES = 3;
 const MAX_GAME_HEADLINE = 70;
 
+/** The league lore: a private file in the Claude project the weekly task runs in, kept out of this public repo. */
+export const LORE_FILE = '/mnt/project-files/weekly-recap/lore.md';
+
 /**
  * Stock lines a recap may not use. They read as filler, and the writer
  * leaned on them every week. Matched without case, anywhere in the text.
@@ -153,7 +156,9 @@ export function instructions(tone) {
     `- Never use these stock lines, in any form: ${BANNED_LINES.map((b) => `"${b}"`).join(', ')}.`,
     '- "recentJokes" are lines from the last three recaps. The league has read them: don\'t reuse a joke, its ' +
       'setup or its punchline shape ("the universe hates them" twice is once too many). Find a new angle.',
-    '- "lore" (when given) is the league\'s own notes on each team: nicknames, grudges, running jokes, and what is ' +
+    `- Before writing, read the league lore file ${LORE_FILE} if you can (skip lines that are still "..."; ` +
+      'if it is missing, carry on without it). Never quote it or mention that it exists.',
+    '- The lore is the league\'s own notes on each team: nicknames, grudges, running jokes, and what is ' +
       'off limits. Work in one or two lore bits a week where this week\'s facts set them up, never forced. Never touch ' +
       'anything marked off limits. Lore is not a source of facts or numbers.',
     '- Storylines are only the big ones a league member would bring up in the group chat: the title race, ' +
