@@ -120,7 +120,9 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
  * The projected bracket: each conference's most likely outcome from the
  * simulations. The bye goes to the team that got it most often; the other
  * division's most frequent winner hosts; the wild card is whoever got in as
- * one most often; first out is the best playoff chance left over.
+ * one most often; first out is the best playoff chance left over. Confidence
+ * is how often each team landed in its spot (for first out, how often it
+ * missed the playoffs).
  */
 function Bracket({ divs, odds, mine, fmt }: {
   divs: Array<{ teams: StandingsTeamView[] }>;
@@ -145,13 +147,14 @@ function Bracket({ divs, odds, mine, fmt }: {
 
   const line = (t: StandingsTeamView, seed: string, tag: string, share: number) => {
     const me = t.franchiseId === mine;
+    const muted = seed === '';
     return (
-      <Link href={`/league/team/${t.franchiseId}/`} style={{ display: 'grid', gridTemplateColumns: '18px 26px minmax(0, 1fr) auto 40px', alignItems: 'center', gap: 8, height: 38, padding: '0 16px 0 12px', boxShadow: me ? 'inset 3px 0 0 var(--volt)' : undefined, background: me ? 'var(--bg-200)' : undefined }}>
+      <Link href={`/league/team/${t.franchiseId}/`} style={{ display: 'grid', gridTemplateColumns: '18px 26px minmax(0, 1fr) auto 44px', alignItems: 'center', gap: 8, height: 38, padding: '0 16px 0 12px', boxShadow: me ? 'inset 3px 0 0 var(--volt)' : undefined, background: me ? 'var(--bg-200)' : undefined, opacity: muted ? 0.75 : 1 }}>
         <span style={{ font: DISPLAY(14, 800), textAlign: 'right', color: seed === '1' ? 'var(--volt)' : 'var(--ink-2)' }}>{seed}</span>
         <TeamChip name={t.name} icon={t.icon} size={24} />
-        <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.2 var(--font-body)`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-        <span style={{ font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{tag} {fmt(share)}%</span>
-        <span style={{ textAlign: 'right', font: DISPLAY(14), color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(o(t)?.playoffs)}%</span>
+        <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.2 var(--font-body)`, color: muted ? 'var(--ink-2)' : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+        <span style={{ font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{tag}</span>
+        <span style={{ textAlign: 'right', font: DISPLAY(14), color: muted ? 'var(--ink-2)' : 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(share)}%</span>
       </Link>
     );
   };
@@ -159,7 +162,7 @@ function Bracket({ divs, odds, mine, fmt }: {
   return (
     <div style={{ width: 390, maxWidth: '100vw', position: 'sticky', left: 0, boxSizing: 'border-box', padding: '8px 0 10px', borderBottom: '1px solid var(--edge)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 16px 4px', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
-        <span>PROJECTED BRACKET</span><span>PLAYOFF</span>
+        <span>PROJECTED BRACKET</span><span>CONFIDENCE</span>
       </div>
       {line(top, '1', 'BYE', o(top)?.bye ?? 0)}
       <div style={{ position: 'relative', margin: '4px 0' }}>
@@ -167,9 +170,11 @@ function Bracket({ divs, odds, mine, fmt }: {
         {line(host, '2', 'DIV WIN', hostShare(host))}
         {line(wc, '3', 'WILD CARD', o(wc)?.wildcard ?? 0)}
       </div>
-      <div style={{ padding: '2px 16px 0 42px', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
-        2 hosts 3 in Week 15; the winner plays {top.name} in Week 16.{out ? ` First out: ${out.name} (${fmt(o(out)?.playoffs)}%).` : ''} The small numbers are how often each team landed in that spot.
-      </div>
+      {out && (
+        <div style={{ marginTop: 4, borderTop: '1px dashed var(--line)', paddingTop: 4 }}>
+          {line(out, '', 'FIRST OUT', 1 - (o(out)?.playoffs ?? 0))}
+        </div>
+      )}
     </div>
   );
 }
