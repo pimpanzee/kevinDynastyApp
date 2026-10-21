@@ -108,7 +108,7 @@ plan (no API key or per-call cost), not by the relay. Each Tuesday it:
    the storylines, last week's headline and `recentJokes`, lines from the
    last three recaps not to reuse (`src/writer.js`);
 2. reads the league lore, a private file in the Claude project
-   (`weekly-recap/lore.md`) and the shared Google Sheet it points to, where the league adds
+   (`weekly-recap/lore.md`) and the shared Google Doc it points to, where the league adds
    lore. Both are kept out of this public repo and the relay;
    the brief's instructions tell the task where it is (`LORE_FILE`);
 3. writes the recap as JSON, under 500 words: headline, a short intro, a
