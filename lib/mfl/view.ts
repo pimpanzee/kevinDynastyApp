@@ -16,6 +16,7 @@ import { currentWeek, displayWeek, gameState, getNflSchedule, lastCompletedWeek,
 import { getProjections, getSeasonPoints } from './scores';
 import { scoreBreakdown, statLine, type Breakdown, type RuleSet, type Stats } from '@/lib/scoring';
 import { getScoringRules, getSleeperIds, getWeekStats, sleeperScoresUrl, sleeperStatsUrl } from '@/lib/stats/sleeper';
+import { computePlayoffOdds } from './playoffOdds';
 import { computeStandings, gamesBack, sortDivision, vpBack, type StandingsRow } from './standings';
 
 /**
@@ -752,6 +753,7 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
       group.franchiseIds
         .map((id) => standings.get(id))
         .filter((r): r is StandingsRow => Boolean(r)),
+      Boolean(ctx.league.victoryPoints),
     );
     const leader = rows[0];
     return {
@@ -773,12 +775,28 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
         avgPa: fmtScore(row.avgPa),
         vp: ctx.league.victoryPoints ? row.vp : null,
         vpBack: leader ? vpBack(row, leader) : '—',
+        h2h: row.h2h,
         icon: ctx.league.franchises.find((f) => f.id === row.franchiseId)?.icon ?? null,
       })),
     };
   });
 
-  return { groups, myFranchiseId: FRANCHISE_ID, simulatedAt: ctx.simulatedAt };
+  // Odds are extra: a failure leaves the standings as they were.
+  const odds = await computePlayoffOdds(ctx.league, ctx.completed).catch((e) => {
+    console.warn('playoff odds failed', e);
+    return null;
+  });
+
+  return {
+    groups,
+    myFranchiseId: FRANCHISE_ID,
+    simulatedAt: ctx.simulatedAt,
+    odds: odds && {
+      sims: odds.sims,
+      weeks: odds.weeks,
+      teams: Object.fromEntries(odds.teams.map(({ franchiseId, ...t }) => [franchiseId, t])),
+    },
+  };
 }
 
 /* ── Home Screen widget ─────────────────────────────────────────────────── */

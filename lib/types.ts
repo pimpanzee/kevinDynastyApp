@@ -170,6 +170,8 @@ export interface StandingsTeamView {
   /** Victory points behind the division leader. */
   vpBack: string;
   icon: string | null;
+  /** Head-to-head against each opponent met (wins minus losses), for tiebreaks. */
+  h2h: Record<string, number>;
 }
 
 export interface StandingsView {
@@ -177,6 +179,15 @@ export interface StandingsView {
   /** The build's default franchise; the viewer's own choice replaces it in the browser. */
   myFranchiseId: string;
   simulatedAt: string | null;
+  /** Simulated playoff odds (shares 0–1), or null when they couldn't be worked out. */
+  odds: StandingsOdds | null;
+}
+
+export interface StandingsOdds {
+  sims: number;
+  /** Regular-season weeks simulated; null once the regular season is over. */
+  weeks: [number, number] | null;
+  teams: Record<string, { playoffs: number; bye: number; division: number; wildcard: number; title: number; avgFinal: number }>;
 }
 
 /* ── Players ─────────────────────────────────────────────────────────────── */
