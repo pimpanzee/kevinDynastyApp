@@ -103,7 +103,7 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
   );
 }
 
-/** STANDINGS · PLAYOFF ODDS, a small two-way switch above the table. */
+/** CURRENT · PLAYOFFS, a small two-way switch above the standings. */
 export function ViewToggle({ tab, onPick }: { tab: 'table' | 'odds'; onPick: (t: 'table' | 'odds') => void }) {
   const opt = (key: 'table' | 'odds', label: string) => {
     const on = tab === key;
@@ -114,7 +114,7 @@ export function ViewToggle({ tab, onPick }: { tab: 'table' | 'odds'; onPick: (t:
   return (
     <div style={{ width: 390, maxWidth: '100vw', position: 'sticky', left: 0, padding: '10px 16px', boxSizing: 'border-box', background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }}>
       <div role="group" aria-label="Standings view" style={{ display: 'flex', border: '1px solid var(--edge)', borderRadius: 6, overflow: 'hidden' }}>
-        {opt('table', 'TABLE')}{opt('odds', 'PLAYOFF ODDS')}
+        {opt('table', 'CURRENT')}{opt('odds', 'PLAYOFFS')}
       </div>
     </div>
   );
