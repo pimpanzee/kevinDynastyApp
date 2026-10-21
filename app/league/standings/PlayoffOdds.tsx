@@ -4,16 +4,14 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import TeamChip from '@/components/league/TeamChip';
 import { DISPLAY } from '@/components/team/format';
-import { compareDivision, compareWildcard, wildcardTiebreak, type SortKey } from '@/lib/standingsSort';
 import type { StandingsOdds, StandingsTeamView, StandingsView } from '@/lib/types';
 
 /**
  * Standings › Playoff odds: each conference's teams ordered by their chance of
  * making the playoffs, with division, bye and title odds beside it. The
  * numbers come from simulating the rest of the season (lib/mfl/playoffOdds).
- * Above each conference's odds, the bracket if the season ended today, seeded
- * like MFL's projected playoffs: the top division winner on the bye, the other
- * division winner hosting the wild card, and the first team out.
+ * Above each conference's odds, the projected bracket: the most likely bye,
+ * division winner and wild card from those same simulations.
  */
 
 const COLS = '160px 30px 44px 44px 64px 48px';
@@ -69,7 +67,7 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
                   <span style={{ font: DISPLAY(12), letterSpacing: '.12em' }}>{c.name}</span>
                 </span>
               </div>
-              <Bracket divs={c.divs} odds={odds} mine={mine} usesVp={usesVp} fmt={fmt} />
+              <Bracket divs={c.divs} odds={odds} mine={mine} fmt={fmt} />
               <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 26, background: 'var(--bg-200)', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                 <span style={{ position: 'sticky', left: 0, zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 16, background: 'var(--bg-200)', boxShadow: '1px 0 0 var(--line)' }}>TEAM</span>
                 <span style={head}>{usesVp ? 'VP' : 'W'}</span>
@@ -118,36 +116,42 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
   );
 }
 
-/** "If the season ended today": this conference's three playoff teams and the first one out. */
-function Bracket({ divs, odds, mine, usesVp, fmt }: {
+/**
+ * The projected bracket: each conference's most likely outcome from the
+ * simulations. The bye goes to the team that got it most often; the other
+ * division's most frequent winner hosts; the wild card is whoever got in as
+ * one most often; first out is the best playoff chance left over.
+ */
+function Bracket({ divs, odds, mine, fmt }: {
   divs: Array<{ teams: StandingsTeamView[] }>;
   odds: StandingsOdds;
   mine: string;
-  usesVp: boolean;
   fmt: (p: number | undefined) => string;
 }) {
-  const num = (x: string) => Number(x.replace(/,/g, '')) || 0;
-  const key = (t: StandingsTeamView): SortKey => ({ id: t.franchiseId, vp: usesVp ? t.vp ?? 0 : null, record: t.record, div: t.div, conf: t.conf, pf: num(t.pf), h2h: t.h2h ?? {} });
-  // Division lists arrive in division order, so each one's first team leads it.
-  const winners = divs.map((d) => d.teams[0]).filter(Boolean).sort((a, b) => compareDivision(key(a), key(b)));
-  const rest = divs.flatMap((d) => d.teams.slice(1)).sort((a, b) => compareWildcard(key(a), key(b)));
-  const [top, host] = winners;
-  const [wc, out] = rest;
-  if (!top || !host || !wc) return null;
-  const score = (t: StandingsTeamView) => (usesVp ? t.vp ?? 0 : Number(t.record.split('-')[0]) || 0);
-  const unit = usesVp ? 'VP' : 'W';
-  const gap = out ? score(wc) - score(out) : 0;
-  const outNote = !out ? '' : gap > 0 ? `${gap} ${unit} behind ${wc.name}` : `level with ${wc.name} on ${unit}, out on ${wildcardTiebreak(key(wc), key(out)) ?? 'points'}`;
+  const o = (t: StandingsTeamView) => odds.teams[t.franchiseId];
+  const most = (list: StandingsTeamView[], by: (t: StandingsTeamView) => number) =>
+    list.slice().sort((a, b) => by(b) - by(a) || (o(b)?.playoffs ?? 0) - (o(a)?.playoffs ?? 0))[0];
+  const all = divs.flatMap((d) => d.teams);
+  const top = most(all, (t) => o(t)?.bye ?? 0);
+  if (!top) return null;
+  const topDiv = divs.find((d) => d.teams.includes(top));
+  const others = divs.filter((d) => d !== topDiv).flatMap((d) => d.teams);
+  // Winning the division without the bye.
+  const hostShare = (t: StandingsTeamView) => (o(t)?.division ?? 0) - (o(t)?.bye ?? 0);
+  const host = most(others, hostShare);
+  const wc = host && most(all.filter((t) => t !== top && t !== host), (t) => o(t)?.wildcard ?? 0);
+  if (!host || !wc) return null;
+  const out = most(all.filter((t) => t !== top && t !== host && t !== wc), (t) => o(t)?.playoffs ?? 0);
 
-  const line = (t: StandingsTeamView, seed: string, tag: string) => {
+  const line = (t: StandingsTeamView, seed: string, tag: string, share: number) => {
     const me = t.franchiseId === mine;
     return (
       <Link href={`/league/team/${t.franchiseId}/`} style={{ display: 'grid', gridTemplateColumns: '18px 26px minmax(0, 1fr) auto 40px', alignItems: 'center', gap: 8, height: 38, padding: '0 16px 0 12px', boxShadow: me ? 'inset 3px 0 0 var(--volt)' : undefined, background: me ? 'var(--bg-200)' : undefined }}>
         <span style={{ font: DISPLAY(14, 800), textAlign: 'right', color: seed === '1' ? 'var(--volt)' : 'var(--ink-2)' }}>{seed}</span>
         <TeamChip name={t.name} icon={t.icon} size={24} />
         <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.2 var(--font-body)`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-        <span style={{ font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{tag}</span>
-        <span style={{ textAlign: 'right', font: DISPLAY(14), color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(odds.teams[t.franchiseId]?.playoffs)}%</span>
+        <span style={{ font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{tag} {fmt(share)}%</span>
+        <span style={{ textAlign: 'right', font: DISPLAY(14), color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(o(t)?.playoffs)}%</span>
       </Link>
     );
   };
@@ -155,16 +159,16 @@ function Bracket({ divs, odds, mine, usesVp, fmt }: {
   return (
     <div style={{ width: 390, maxWidth: '100vw', position: 'sticky', left: 0, boxSizing: 'border-box', padding: '8px 0 10px', borderBottom: '1px solid var(--edge)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 16px 4px', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
-        <span>IF THE SEASON ENDED TODAY</span><span>PLAYOFF</span>
+        <span>PROJECTED BRACKET</span><span>PLAYOFF</span>
       </div>
-      {line(top, '1', 'BYE')}
+      {line(top, '1', 'BYE', o(top)?.bye ?? 0)}
       <div style={{ position: 'relative', margin: '4px 0' }}>
         <span aria-hidden style={{ position: 'absolute', left: 4, top: 12, bottom: 12, width: 4, borderLeft: '1.5px solid var(--ink-3)', borderTop: '1.5px solid var(--ink-3)', borderBottom: '1.5px solid var(--ink-3)' }} />
-        {line(host, '2', 'HOSTS WK 15')}
-        {line(wc, '3', 'WILD CARD')}
+        {line(host, '2', 'DIV WIN', hostShare(host))}
+        {line(wc, '3', 'WILD CARD', o(wc)?.wildcard ?? 0)}
       </div>
       <div style={{ padding: '2px 16px 0 42px', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
-        Winner plays {top.name} in Week 16.{out ? ` First out: ${out.name}, ${outNote}.` : ''}
+        2 hosts 3 in Week 15; the winner plays {top.name} in Week 16.{out ? ` First out: ${out.name} (${fmt(o(out)?.playoffs)}%).` : ''} The small numbers are how often each team landed in that spot.
       </div>
     </div>
   );

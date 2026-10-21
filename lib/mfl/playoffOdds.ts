@@ -31,6 +31,8 @@ export interface TeamOdds {
   playoffs: number;
   bye: number;
   division: number;
+  /** Got in as a wild card (not a division winner). */
+  wildcard: number;
   title: number;
   /** Average final victory points (or wins, without VP). */
   avgFinal: number;
@@ -223,7 +225,7 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
   const random = rng(completed * 7919 + n);
   const tally = {
     playoffs: new Array(n).fill(0), bye: new Array(n).fill(0),
-    division: new Array(n).fill(0), title: new Array(n).fill(0), final: new Array(n).fill(0),
+    division: new Array(n).fill(0), wildcard: new Array(n).fill(0), title: new Array(n).fill(0), final: new Array(n).fill(0),
   };
 
   const wins = new Array(n).fill(0);
@@ -326,8 +328,10 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
       const winners = [...divWinner.values()].sort(better);
       seeds = [...winners, ...order.filter((i) => !winners.includes(i)).sort(wcBetter)].slice(0, bracket.teams);
     }
+    const winnerSet = new Set(divWinner.values());
     seeds.forEach((i, k) => {
       tally.playoffs[i]++;
+      if (!winnerSet.has(i)) tally.wildcard[i]++;
       if (!openingSeeds.has(k + 1)) tally.bye[i]++;
     });
 
@@ -356,6 +360,7 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
       playoffs: tally.playoffs[i] / SIMS,
       bye: tally.bye[i] / SIMS,
       division: tally.division[i] / SIMS,
+      wildcard: tally.wildcard[i] / SIMS,
       title: tally.title[i] / SIMS,
       avgFinal: tally.final[i] / SIMS,
     })),
