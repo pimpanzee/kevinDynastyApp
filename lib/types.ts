@@ -170,6 +170,8 @@ export interface StandingsTeamView {
   /** Victory points behind the division leader. */
   vpBack: string;
   icon: string | null;
+  /** Head-to-head against each opponent met (wins minus losses), for tiebreaks. */
+  h2h: Record<string, number>;
 }
 
 export interface StandingsView {

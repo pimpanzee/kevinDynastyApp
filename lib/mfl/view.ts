@@ -775,6 +775,7 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
         avgPa: fmtScore(row.avgPa),
         vp: ctx.league.victoryPoints ? row.vp : null,
         vpBack: leader ? vpBack(row, leader) : '—',
+        h2h: row.h2h,
         icon: ctx.league.franchises.find((f) => f.id === row.franchiseId)?.icon ?? null,
       })),
     };

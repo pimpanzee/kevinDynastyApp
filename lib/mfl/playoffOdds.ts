@@ -22,8 +22,8 @@ import { getProjections } from './scores';
  * The format is the league's: division winners and one wild card per
  * conference get in, the better division winner in each conference gets the
  * bye, and each conference plays down to one team before the final (MFL's
- * bracket pairs 3v6 and 4v5, the winners meeting seeds 1 and 2). Inferred from
- * the 2023–2025 brackets, which all seed this way.
+ * bracket pairs 3v6 and 4v5, the winners meeting seeds 1 and 2), as the rule
+ * book says and the 2023–2025 brackets show.
  */
 
 export interface TeamOdds {
@@ -244,26 +244,24 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
   };
 
   const pct = (wl: number[]) => (wl[0] + wl[1] ? wl[0] / (wl[0] + wl[1]) : 0);
-  // The league's order as MFL actually applies it. With victory points that is
-  // VP, then division record, conference record and points: MFL lists H2H in
-  // the settings but its standings don't use it (RatCats over Nick at Nite at
-  // 6 VP each in 2026, though Nick at Nite won their game). Without VP (the
-  // 2021–2025 seasons), record, then head-to-head, then the same.
-  const better = (a: number, b: number) => {
-    const ga = wins[a] + losses[a] + ties[a];
-    const gb = wins[b] + losses[b] + ties[b];
-    const pa = ga ? (wins[a] + ties[a] / 2) / ga : 0;
-    const pb = gb ? (wins[b] + ties[b] / 2) / gb : 0;
-    if (vp) {
-      if (vps[a] !== vps[b]) return vps[b] - vps[a];
-    } else {
-      if (pa !== pb) return pb - pa;
-      if (h2h[a][b] !== h2h[b][a]) return h2h[b][a] - h2h[a][b];
-    }
-    if (pct(divWL[a]) !== pct(divWL[b])) return pct(divWL[b]) - pct(divWL[a]);
-    if (pct(confWL[a]) !== pct(confWL[b])) return pct(confWL[b]) - pct(confWL[a]);
-    return pf[b] - pf[a];
+  // The league's rule book (lib/standingsSort): VP, then overall record, then
+  // for division winners and byes head-to-head, division record, conference
+  // record, points; for the wild card conference record, points, head-to-head.
+  // Strength of victory, the last division step, is left out: it only matters
+  // when two teams also tie on points to the hundredth.
+  const recPct = (i: number) => {
+    const g = wins[i] + losses[i] + ties[i];
+    return g ? (wins[i] + ties[i] / 2) / g : 0;
   };
+  const head = (a: number, b: number) => {
+    if (vp && vps[a] !== vps[b]) return vps[b] - vps[a];
+    return recPct(b) - recPct(a);
+  };
+  const h2hNet = (a: number, b: number) => h2h[b][a] - h2h[a][b];
+  const better = (a: number, b: number) =>
+    head(a, b) || h2hNet(a, b) || pct(divWL[b]) - pct(divWL[a]) || pct(confWL[b]) - pct(confWL[a]) || pf[b] - pf[a];
+  const wcBetter = (a: number, b: number) =>
+    head(a, b) || pct(confWL[b]) - pct(confWL[a]) || pf[b] - pf[a] || h2hNet(a, b);
 
   const conferences = [...new Set(conf)];
   const divisions = [...new Set(div)];
@@ -319,14 +317,14 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
     if (confFormat) {
       const sides = conferences.map((c) => {
         const winners = [...divWinner.values()].filter((i) => conf[i] === c).sort(better);
-        const wc = order.find((i) => conf[i] === c && !winners.includes(i))!;
+        const wc = order.filter((i) => conf[i] === c && !winners.includes(i)).sort(wcBetter)[0];
         return { top: winners[0], other: winners[1], wc };
       }).sort((x, y) => better(x.top, y.top));
       // Seed 1's conference fills 3 and 6; the other conference 2, 4 and 5.
       seeds = [sides[0].top, sides[1].top, sides[0].other, sides[1].other, sides[1].wc, sides[0].wc];
     } else {
       const winners = [...divWinner.values()].sort(better);
-      seeds = [...winners, ...order.filter((i) => !winners.includes(i))].slice(0, bracket.teams);
+      seeds = [...winners, ...order.filter((i) => !winners.includes(i)).sort(wcBetter)].slice(0, bracket.teams);
     }
     seeds.forEach((i, k) => {
       tally.playoffs[i]++;

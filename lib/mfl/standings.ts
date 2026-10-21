@@ -1,7 +1,7 @@
 import { TTL, cached } from './cache';
 import type { League } from './league';
 import { getWeeklyResults } from './matchups';
-import { compareTeams } from '@/lib/standingsSort';
+import { compareDivision } from '@/lib/standingsSort';
 
 /**
  * Standings computed from weekly results rather than read from
@@ -37,6 +37,8 @@ export interface StandingsRow {
   games: number;
   /** Victory points (head-to-head result plus weekly scoring bucket), 0 when unused. */
   vp: number;
+  /** Head-to-head against each opponent met: wins minus losses. */
+  h2h: Record<string, number>;
 }
 
 interface Tally {
@@ -47,11 +49,12 @@ interface Tally {
   /** Outcomes in week order, for the streak. */
   outcomes: Array<'W' | 'L' | 'T'>;
   vp: number;
+  h2h: Record<string, number>;
 }
 
 const blank = (): Tally => ({
   wins: 0, losses: 0, ties: 0, pf: 0, pa: 0, pp: 0, vp: 0,
-  div: [0, 0, 0], conf: [0, 0, 0], outcomes: [],
+  div: [0, 0, 0], conf: [0, 0, 0], outcomes: [], h2h: {},
 });
 
 function record(t: [number, number, number]): string {
@@ -83,8 +86,8 @@ export async function computeStandings(throughWeek: number, league: League): Pro
   // Cached as entries rather than a Map: the cache persists to disk as JSON,
   // and a Map does not survive that round trip.
   const { entries } = await cached<{ entries: Array<[string, StandingsRow]>; provisional: boolean }>(
-    // v3: never built from a week MFL hadn't finalized; v2 rows could be.
-    `standings3:${league.id}:${throughWeek}`,
+    // v4: adds head-to-head. v3: never built from a week MFL hadn't finalized; v2 rows could be.
+    `standings4:${league.id}:${throughWeek}`,
     TTL.FINAL_RESULTS,
     async () => {
       const built = await buildStandings(throughWeek, league);
@@ -125,6 +128,7 @@ async function buildStandings(throughWeek: number, league: League): Promise<{ ro
         self.pp += own.optPts;
         const outcome: 'W' | 'L' | 'T' = own.score > opp.score ? 'W' : own.score < opp.score ? 'L' : 'T';
         self.outcomes.push(outcome);
+        self.h2h[opp.franchiseId] = (self.h2h[opp.franchiseId] ?? 0) + (outcome === 'W' ? 1 : outcome === 'L' ? -1 : 0);
         const slot = outcome === 'W' ? 0 : outcome === 'L' ? 1 : 2;
         if (outcome === 'W') self.wins++;
         else if (outcome === 'L') self.losses++;
@@ -176,6 +180,7 @@ async function buildStandings(throughWeek: number, league: League): Promise<{ ro
       avgPa: games ? Number((t.pa / games).toFixed(2)) : 0,
       games,
       vp: t.vp,
+      h2h: t.h2h,
     });
   }
   return { rows, provisional };
@@ -193,8 +198,8 @@ export function gamesBack(row: StandingsRow, leader: StandingsRow): string {
 
 /** Rows in the league's order (lib/standingsSort). `usesVp` defaults to whether any team has VP. */
 export function sortDivision(rows: StandingsRow[], usesVp = rows.some((r) => r.vp > 0)): StandingsRow[] {
-  const key = (r: StandingsRow) => ({ vp: usesVp ? r.vp : null, record: r.record, div: r.divRecord, conf: r.confRecord, pf: r.pf });
-  return rows.slice().sort((a, b) => compareTeams(key(a), key(b)));
+  const key = (r: StandingsRow) => ({ id: r.franchiseId, vp: usesVp ? r.vp : null, record: r.record, div: r.divRecord, conf: r.confRecord, pf: r.pf, h2h: r.h2h });
+  return rows.slice().sort((a, b) => compareDivision(key(a), key(b)));
 }
 
 /** Victory points behind the division leader. */

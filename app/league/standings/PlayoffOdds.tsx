@@ -106,7 +106,7 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
           {settled
             ? `The regular season is over, so the field is set. Title odds come from playing the bracket ${odds.sims.toLocaleString('en-US')} times.`
             : `From playing the last ${weeksLeft} regular-season ${weeksLeft === 1 ? 'week' : 'weeks'} (Weeks ${odds.weeks![0]}–${odds.weeks![1]}) and the playoffs ${odds.sims.toLocaleString('en-US')} times.`}
-          {' '}Each team&apos;s weekly score is drawn from what it has scored this season, blended with its projected best lineup that week, so byes and injuries count. Division winners and one wild card per conference make it; the better division winner in each conference gets the bye. Ties go by the league&apos;s order: {usesVp ? 'victory points, ' : 'record, '}head-to-head, division record, conference record, points. Percentages are shares of simulations, so ‘&gt;99’ isn&apos;t a clinch.
+          {' '}Each team&apos;s weekly score is drawn from what it has scored this season, blended with its projected best lineup that week, so byes and injuries count. Division winners and one wild card per conference make it; the better division winner in each conference gets the bye. Ties go by the rule book: {usesVp ? 'victory points, then record, then ' : 'record, then '}head-to-head, division record, conference record and points for division winners; conference record, points and head-to-head for the wild card. Percentages are shares of simulations, so ‘&gt;99’ isn&apos;t a clinch.
         </div>
       </div>
     </div>
