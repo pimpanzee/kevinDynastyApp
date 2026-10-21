@@ -26,7 +26,8 @@ interface Recap {
   recap: {
     headline: string;
     intro: string;
-    matchups: Array<{ winner: string; loser: string; text: string }>;
+    /** headline: the game's own headline (recaps from before it was added have none). */
+    matchups: Array<{ headline?: string; winner: string; loser: string; text: string }>;
     storylines: Array<{ title: string; text: string }>;
     nextWeek: string;
   };
@@ -127,6 +128,11 @@ export default function RecapScreen({ franchises, myFranchiseId }: { franchises:
               const meIn = w?.id === mine || l?.id === mine;
               return (
                 <section key={i} style={{ padding: '12px 16px 14px', borderBottom: '1px solid var(--line)', background: meIn ? 'var(--bg-200)' : undefined, boxShadow: meIn ? 'inset 3px 0 0 var(--volt)' : undefined }}>
+                  {m.headline && (
+                    <h2 style={{ margin: '0 0 6px', font: DISPLAY(16, 800), lineHeight: 1.15, letterSpacing: '.02em', textTransform: 'uppercase', textWrap: 'balance' }}>
+                      {m.headline}
+                    </h2>
+                  )}
                   <Side team={w} name={m.winner} pts={score(w?.id)} won mine={mine} />
                   <Side team={l} name={m.loser} pts={score(l?.id)} won={false} mine={mine} />
                   <p style={{ margin: '8px 0 0', font: '400 14px/1.45 var(--font-body)', color: 'var(--ink)' }}>{m.text}</p>
