@@ -753,6 +753,7 @@ export async function getStandingsView(nowOverride?: string | null): Promise<Sta
       group.franchiseIds
         .map((id) => standings.get(id))
         .filter((r): r is StandingsRow => Boolean(r)),
+      Boolean(ctx.league.victoryPoints),
     );
     const leader = rows[0];
     return {

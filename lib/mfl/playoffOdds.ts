@@ -244,17 +244,24 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
   };
 
   const pct = (wl: number[]) => (wl[0] + wl[1] ? wl[0] / (wl[0] + wl[1]) : 0);
+  // The league's order as MFL actually applies it. With victory points that is
+  // VP, then division record, conference record and points: MFL lists H2H in
+  // the settings but its standings don't use it (RatCats over Nick at Nite at
+  // 6 VP each in 2026, though Nick at Nite won their game). Without VP (the
+  // 2021–2025 seasons), record, then head-to-head, then the same.
   const better = (a: number, b: number) => {
-    if (vp && vps[a] !== vps[b]) return vps[b] - vps[a];
     const ga = wins[a] + losses[a] + ties[a];
     const gb = wins[b] + losses[b] + ties[b];
     const pa = ga ? (wins[a] + ties[a] / 2) / ga : 0;
     const pb = gb ? (wins[b] + ties[b] / 2) / gb : 0;
-    if (!vp && pa !== pb) return pb - pa;
-    if (h2h[a][b] !== h2h[b][a]) return h2h[b][a] - h2h[a][b];
-    if (div[a] === div[b] && pct(divWL[a]) !== pct(divWL[b])) return pct(divWL[b]) - pct(divWL[a]);
+    if (vp) {
+      if (vps[a] !== vps[b]) return vps[b] - vps[a];
+    } else {
+      if (pa !== pb) return pb - pa;
+      if (h2h[a][b] !== h2h[b][a]) return h2h[b][a] - h2h[a][b];
+    }
+    if (pct(divWL[a]) !== pct(divWL[b])) return pct(divWL[b]) - pct(divWL[a]);
     if (pct(confWL[a]) !== pct(confWL[b])) return pct(confWL[b]) - pct(confWL[a]);
-    if (vp && pa !== pb) return pb - pa;
     return pf[b] - pf[a];
   };
 

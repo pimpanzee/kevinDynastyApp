@@ -6,12 +6,14 @@ import LeagueFrame from '@/components/league/LeagueFrame';
 import TeamChip from '@/components/league/TeamChip';
 import { DISPLAY } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
+import { compareTeams, recordPct } from '@/lib/standingsSort';
 import type { StandingsTeamView, StandingsView } from '@/lib/types';
 import PlayoffOdds, { pctLabel } from './PlayoffOdds';
 
 /**
- * League › Standings: conference, then division, teams ordered by VP then
- * PF. Scrolls sideways with the team column pinned. Under each conference,
+ * League › Standings: conference, then division, teams ordered by VP, then
+ * division record, conference record and PF (as MFL ranks them). Scrolls
+ * sideways with the team column pinned. Under each conference,
  * the wild-card race in one line (two division winners + one wild card per
  * conference make the playoffs). Rows open the team page. A toggle at the top
  * swaps the table for simulated playoff odds; the table keeps a PO% column.
@@ -37,7 +39,13 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
   };
   const usesVp = view.groups.some((g) => g.teams.some((t) => t.vp !== null));
   const score = (t: StandingsTeamView) => (usesVp ? t.vp ?? 0 : wins(t));
-  const order = (a: StandingsTeamView, b: StandingsTeamView) => score(b) - score(a) || num(b.pf) - num(a.pf);
+  const key = (t: StandingsTeamView) => ({ vp: usesVp ? t.vp ?? 0 : null, record: t.record, div: t.div, conf: t.conf, pf: num(t.pf) });
+  const order = (a: StandingsTeamView, b: StandingsTeamView) => compareTeams(key(a), key(b));
+  /** What separates two teams level on VP (or wins), in the league's order. */
+  const tiebreak = (a: StandingsTeamView, b: StandingsTeamView) =>
+    !usesVp && recordPct(a.record) !== recordPct(b.record) ? 'record'
+      : recordPct(a.div) !== recordPct(b.div) ? 'division record'
+      : recordPct(a.conf) !== recordPct(b.conf) ? 'conference record' : 'points';
 
   // Conference → divisions, from "CONFERENCE 1 · DIVISION 1!".
   const confs: Array<{ name: string; divs: Array<{ name: string; teams: StandingsTeamView[] }> }> = [];
@@ -71,7 +79,7 @@ export default function StandingsScreen({ view }: { view: StandingsView }) {
             const gap = wc && next ? score(wc) - score(next) : 0;
             const wcLine = !wc ? '' : !next ? `WILD CARD · ${wc.name}`
               : gap > 0 ? `WILD CARD · ${wc.name} leads ${next.name} by ${gap} ${unit}`
-              : `WILD CARD · ${wc.name} holds it over ${next.name} on points (both ${score(wc)} ${unit})`;
+              : `WILD CARD · ${wc.name} holds it over ${next.name} on ${tiebreak(wc, next)} (both ${score(wc)} ${unit})`;
             return (
               <div key={c.name}>
                 <div style={{ display: 'flex', alignItems: 'center', height: 32, padding: '0 16px', borderBottom: '1px solid var(--edge)', background: 'var(--bg-000)' }}>

@@ -1,6 +1,7 @@
 import { TTL, cached } from './cache';
 import type { League } from './league';
 import { getWeeklyResults } from './matchups';
+import { compareTeams } from '@/lib/standingsSort';
 
 /**
  * Standings computed from weekly results rather than read from
@@ -190,17 +191,10 @@ export function gamesBack(row: StandingsRow, leader: StandingsRow): string {
   return gb <= 0 ? '—' : gb.toFixed(1);
 }
 
-/**
- * The league's own sort (standingsSort = VICTORY_POINTS,H2H,DIVPCT,CONFPCT,PTS):
- * victory points when it uses them, then win percentage, then points for.
- */
-export function sortDivision(rows: StandingsRow[]): StandingsRow[] {
-  return rows.slice().sort((a, b) => {
-    if (b.vp !== a.vp) return b.vp - a.vp;
-    const pa = a.games ? (a.wins + a.ties / 2) / a.games : 0;
-    const pb = b.games ? (b.wins + b.ties / 2) / b.games : 0;
-    return pb !== pa ? pb - pa : b.pf - a.pf;
-  });
+/** Rows in the league's order (lib/standingsSort). `usesVp` defaults to whether any team has VP. */
+export function sortDivision(rows: StandingsRow[], usesVp = rows.some((r) => r.vp > 0)): StandingsRow[] {
+  const key = (r: StandingsRow) => ({ vp: usesVp ? r.vp : null, record: r.record, div: r.divRecord, conf: r.confRecord, pf: r.pf });
+  return rows.slice().sort((a, b) => compareTeams(key(a), key(b)));
 }
 
 /** Victory points behind the division leader. */
