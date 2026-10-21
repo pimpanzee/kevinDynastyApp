@@ -14,7 +14,7 @@ import type { StandingsOdds, StandingsTeamView, StandingsView } from '@/lib/type
  * division winner and wild card from those same simulations.
  */
 
-const COLS = '160px 30px 44px 44px 64px 48px';
+const COLS = '140px 30px 66px 64px 42px 48px';
 const head = { textAlign: 'right', paddingRight: 8 } as const;
 
 /** A share as a whole percentage, without claiming certainty a simulation can't give. */
@@ -71,9 +71,9 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
               <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 26, background: 'var(--bg-200)', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                 <span style={{ position: 'sticky', left: 0, zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 16, background: 'var(--bg-200)', boxShadow: '1px 0 0 var(--line)' }}>TEAM</span>
                 <span style={head}>{usesVp ? 'VP' : 'W'}</span>
-                <span style={head}>DIV</span>
+                <span style={{ ...head, color: 'var(--ink)' }}>PLAYOFFS</span>
+                <span style={head}>DIVISION</span>
                 <span style={head}>BYE</span>
-                <span style={{ ...head, color: 'var(--ink)' }}>PLAYOFF</span>
                 <span style={{ ...head, paddingRight: 16 }}>TITLE</span>
               </div>
               {teams.map((t) => {
@@ -81,7 +81,7 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
                 const me = t.franchiseId === mine;
                 const po = o?.playoffs ?? 0;
                 const cell = (p: number | undefined, extra?: React.CSSProperties) => (
-                  <span style={{ ...head, font: '500 13px/1 var(--font-body)', color: (p ?? 0) >= 0.5 ? 'var(--ink-2)' : 'var(--ink-3)', ...extra }}>{fmt(p)}</span>
+                  <span style={{ ...head, font: '500 13px/1 var(--font-body)', color: (p ?? 0) >= 0.5 ? 'var(--ink-2)' : 'var(--ink-3)', ...extra }}>{fmt(p)}%</span>
                 );
                 return (
                   <Link key={t.franchiseId} href={`/league/team/${t.franchiseId}/`} style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 44, borderBottom: '1px solid var(--line)', background: me ? 'var(--bg-200)' : undefined, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
@@ -90,14 +90,9 @@ export default function PlayoffOdds({ view, odds, confs, mine, usesVp, toggle }:
                       <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.25 var(--font-body)`, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
                     </span>
                     <span style={{ ...head, font: '500 13px/1 var(--font-body)', color: 'var(--ink-2)' }}>{usesVp ? t.vp ?? '—' : t.record.split('-')[0]}</span>
+                    <span style={{ ...head, font: DISPLAY(16), color: po >= 0.5 ? 'var(--ink)' : 'var(--ink-3)' }}>{fmt(o?.playoffs)}%</span>
                     {cell(o?.division)}
                     {cell(o?.bye)}
-                    <span style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8 }}>
-                      <span aria-hidden style={{ position: 'absolute', left: 6, right: 4, bottom: 9, height: 3, borderRadius: 2, background: 'var(--line)' }}>
-                        <span style={{ display: 'block', width: `${Math.round(po * 100)}%`, height: '100%', borderRadius: 2, background: po >= 0.5 ? 'var(--volt)' : 'var(--ink-3)' }} />
-                      </span>
-                      <span style={{ font: DISPLAY(16), color: po >= 0.5 ? 'var(--ink)' : 'var(--ink-3)', marginTop: -6 }}>{fmt(o?.playoffs)}</span>
-                    </span>
                     {cell(o?.title, { paddingRight: 16 })}
                   </Link>
                 );
@@ -150,7 +145,7 @@ function Bracket({ divs, odds, mine, fmt }: {
     const muted = seed === '';
     return (
       <Link href={`/league/team/${t.franchiseId}/`} style={{ display: 'grid', gridTemplateColumns: '18px 26px minmax(0, 1fr) auto 44px', alignItems: 'center', gap: 8, height: 38, padding: '0 16px 0 12px', boxShadow: me ? 'inset 3px 0 0 var(--volt)' : undefined, background: me ? 'var(--bg-200)' : undefined, opacity: muted ? 0.75 : 1 }}>
-        <span style={{ font: DISPLAY(14, 800), textAlign: 'right', color: seed === '1' ? 'var(--volt)' : 'var(--ink-2)' }}>{seed}</span>
+        <span style={{ font: DISPLAY(14, 800), textAlign: 'right', color: 'var(--ink-2)' }}>{seed}</span>
         <TeamChip name={t.name} icon={t.icon} size={24} />
         <span style={{ minWidth: 0, font: `${me ? 700 : 600} 13.5px/1.2 var(--font-body)`, color: muted ? 'var(--ink-2)' : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
         <span style={{ font: DISPLAY(10), letterSpacing: '.08em', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{tag}</span>
@@ -164,10 +159,10 @@ function Bracket({ divs, odds, mine, fmt }: {
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 16px 4px', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
         <span>PROJECTED BRACKET</span><span>CONFIDENCE</span>
       </div>
-      {line(top, '1', 'BYE', o(top)?.bye ?? 0)}
+      {line(top, '1', 'FIRST RD BYE', o(top)?.bye ?? 0)}
       <div style={{ position: 'relative', margin: '4px 0' }}>
         <span aria-hidden style={{ position: 'absolute', left: 4, top: 12, bottom: 12, width: 4, borderLeft: '1.5px solid var(--ink-3)', borderTop: '1.5px solid var(--ink-3)', borderBottom: '1.5px solid var(--ink-3)' }} />
-        {line(host, '2', 'DIV WIN', hostShare(host))}
+        {line(host, '2', 'DIVISION', hostShare(host))}
         {line(wc, '3', 'WILD CARD', o(wc)?.wildcard ?? 0)}
       </div>
       {out && (
