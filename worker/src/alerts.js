@@ -81,7 +81,7 @@ export function lockAlerts({ now, week, kickoffs, starters, minStarters, injurie
         key: `lock:${week}:${t}`,
         title: `Lineup check: kickoff in ${mins} min`,
         body: `${capital(problems.join('; '))}.`,
-        url: '/team/lineup/',
+        url: `/matchups/${week}/?open=mine`,
       });
     }
   }
@@ -107,7 +107,7 @@ export function injuryAlerts({ now, week, prev, injuries, starters, kickoffs, pl
       key,
       title: `${p.name} is ${fmtStatus(inj.status)}`,
       body: `He's in your lineup for week ${week}${inj.details ? ` (${inj.details})` : ''}. Swap him before his kickoff.`,
-      url: '/team/lineup/',
+      url: `/matchups/${week}/?open=mine`,
     });
   }
   return alerts;
@@ -138,7 +138,7 @@ export function inactiveAlerts({ now, week, starters, kickoffs, players, injurie
       key,
       title: `${p.name} is inactive`,
       body: `He's in your week ${week} lineup and won't play. Kickoff is in ${mins} min: swap him now.`,
-      url: '/team/lineup/',
+      url: `/matchups/${week}/?open=mine`,
       urgent: true,
     });
   }

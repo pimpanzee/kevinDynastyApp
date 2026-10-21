@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar, { HeaderButton } from '@/components/HeaderBar';
-import LineupAlert from '@/components/LineupAlert';
 import LiveStamp from '@/components/LiveStamp';
 import MedianRace from '@/components/MedianRace';
 import PhoneFrame from '@/components/PhoneFrame';
@@ -88,11 +87,8 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
       {weekOpen && <WeekMenu weeks={view.weeks} current={view.week} onPick={pickWeek} onClose={() => setWeekOpen(false)} />}
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {mine && alerts.length > 0 && (
-          <LineupAlert alerts={alerts} href={`/matchups/${view.week}/${mine.index}/`} />
-        )}
-
-        {mine && <MyCard m={mine} state={gameState(view.phase, mine)} href={`/matchups/${view.week}/${mine.index}/`} flush={alerts.length === 0} />}
+        {/* Your scorebug has one job: open your matchup. A lineup problem is a red badge on your side; the fix is in the matchup. */}
+        {mine && <MyCard m={mine} state={gameState(view.phase, mine)} href={`/matchups/${view.week}/${mine.index}/`} flush alerts={mine.isMine ? alerts.length : 0} />}
         {live?.started && view.phase === 'live' && view.matchups.some((m) => !m.final) && <LiveStamp fetchedAt={live.fetchedAt} stale={live.stale} />}
 
         <MedianRace view={view} />
@@ -121,7 +117,7 @@ export default function MatchupsScreen({ view: built }: { view: WeekView }) {
  * bottom border is the only line) and its fill carries up into the
  * pull-down bounce instead of a strip of page background.
  */
-function MyCard({ m, state, href, flush }: { m: MatchupView; state: GameState; href: string; flush: boolean }) {
+function MyCard({ m, state, href, flush, alerts }: { m: MatchupView; state: GameState; href: string; flush: boolean; alerts: number }) {
   const me = scoreLines(m.home, state);
   const opp = scoreLines(m.away, state);
   const pre = state === 'future';
@@ -141,7 +137,7 @@ function MyCard({ m, state, href, flush }: { m: MatchupView; state: GameState; h
     </div>
   );
   return (
-    <Link href={href} aria-label={`Your matchup: ${m.home.name} ${me.num}, ${m.away.name} ${opp.num}`} style={{ display: 'block', background: 'var(--bg-100)', borderTop: flush ? 'none' : '1px solid var(--edge)', borderBottom: '1px solid var(--edge)', position: 'relative' }}>
+    <Link href={href} aria-label={`Your matchup: ${m.home.name} ${me.num}, ${m.away.name} ${opp.num}${alerts ? `. Lineup alert: ${alerts} ${alerts === 1 ? 'starter' : 'starters'}` : ''}`} style={{ display: 'block', background: 'var(--bg-100)', borderTop: flush ? 'none' : '1px solid var(--edge)', borderBottom: '1px solid var(--edge)', position: 'relative' }}>
       {flush && <span aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: '100%', height: '100vh', background: 'var(--bg-100)' }} />}
       <div style={{ padding: '12px 16px 14px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'end', gap: 12 }}>
@@ -151,7 +147,12 @@ function MyCard({ m, state, href, flush }: { m: MatchupView; state: GameState; h
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginTop: 12 }}>
           <div>
             <div style={{ font: scoreFont, letterSpacing: '-.01em', fontVariantNumeric: 'tabular-nums', color: pre ? 'var(--ink-3)' : 'var(--volt)' }}>{me.num}</div>
-            {me.proj && <div style={sub}>{me.proj}</div>}
+            {(me.proj || alerts > 0) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                {me.proj && <span style={{ ...sub, marginTop: 0 }}>{me.proj}</span>}
+                {alerts > 0 && <span style={{ flex: 'none', padding: '2px 4px', background: 'var(--live)', color: '#fff', borderRadius: 2, font: DISPLAY(10), letterSpacing: '.08em', whiteSpace: 'nowrap' }}>LINEUP · {alerts}</span>}
+              </div>
+            )}
           </div>
           <div style={{ padding: '0 10px', font: DISPLAY(13), letterSpacing: '.1em', fontVariantNumeric: 'tabular-nums', color: state === 'past' ? 'var(--ink)' : 'var(--ink-2)' }}>
             {state === 'past' ? 'FINAL' : pct != null ? `${pct}% / ${100 - pct}%` : ''}
