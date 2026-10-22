@@ -8,8 +8,8 @@ import InjuryTag from '@/components/InjuryTag';
 import LineupAlert from '@/components/LineupAlert';
 import { PlayerLink } from '@/components/PlayerCard';
 import PhoneFrame from '@/components/PhoneFrame';
-import SubTabs from '@/components/SubTabs';
 import { posColor } from '@/components/pos';
+import { capUsed, overCapBy } from '@/lib/cap';
 import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
 import { getMine, isError, write, type Mine, type RelayError, SIGNED_OUT } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
@@ -274,13 +274,9 @@ export default function LineupScreen({
   const removed = mine ? mine.starters.filter((id) => !starters.has(id) && isActive(id)) : [];
   const changed = added.length + removed.length > 0;
   const problemsNow = broken(lineup);
-  // Cap as MFL counts it: every non-taxi salary plus adjustments (dead cap, carryover).
-  // MFL refuses any lineup while a team is over, so don't let one be sent.
-  const capUsed = mine
-    ? Math.round((mine.roster.filter((p) => p.status !== 'TAXI_SQUAD').reduce((t, p) => t + p.salary, 0)
-      + (mine.capAdjust ?? capAdjust[mine.franchiseId] ?? 0)) * 100) / 100
-    : 0;
-  const overCap = mine && cap > 0 && capUsed > cap ? Math.round((capUsed - cap) * 100) / 100 : 0;
+  // MFL refuses any lineup while a team is over the cap, so don't let one be sent.
+  const capNow = mine ? capUsed(mine.roster, mine.capAdjust ?? capAdjust[mine.franchiseId] ?? 0) : 0;
+  const overCap = mine ? overCapBy(capNow, cap) : 0;
   const openSlots = Math.max(0, rules.max - lineup.length);
 
   // With a player (or an open slot) picked: what each row in the other group would do to the lineup.
@@ -518,7 +514,6 @@ export default function LineupScreen({
           </span>
         ) : undefined}
       />
-      <SubTabs label="Make moves" tabs={[{ key: 'lineup', label: 'LINEUP', href: '/team/lineup/' }, { key: 'moves', label: 'MANAGE ROSTER', href: '/team/moves/' }]} active={mode} />
 
       {mine && rows && (
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, background: 'var(--bg-100)', borderBottom: '1px solid var(--line)' }}>
@@ -564,7 +559,7 @@ export default function LineupScreen({
             {!sel && overCap > 0 && (
               <div role="alert" style={{ margin: '12px 16px 0', padding: '10px 12px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '500 13px/1.45 var(--font-body)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span>
-                  <b>You’re {money(overCap)} over the ${cap.toLocaleString('en-US')} cap</b> ({money(capUsed)} with dead cap; taxi salaries don’t count).
+                  <b>You’re {money(overCap)} over the ${cap.toLocaleString('en-US')} cap</b> ({money(capNow)} with dead cap; taxi salaries don’t count).
                   MFL won’t take a lineup from a team over the cap, so submitting is off until you’re under.
                 </span>
                 <span>
