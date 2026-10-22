@@ -11,7 +11,7 @@ import { useHistory } from '@/lib/useHistory';
 
 /**
  * League › Recap: the week's AI-written recap (relay GET /recap), newest
- * first, with a chip per week that has one. Scores come from the league
+ * first, with a dropdown of the weeks that have one. Scores come from the league
  * history; the words are the recap's own.
  */
 
@@ -78,27 +78,31 @@ export default function RecapScreen({ franchises, myFranchiseId }: { franchises:
     <LeagueFrame>
       <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-100)', paddingBottom: 24 }}>
         {data && data.weeks.length > 1 && (
-          <div role="tablist" aria-label="Recap week" style={{ display: 'flex', gap: 6, padding: '10px 16px', overflowX: 'auto', borderBottom: '1px solid var(--line)' }}>
-            {[...data.weeks].reverse().map((w) => {
-              const on = w === data.week;
-              return (
-                <button
-                  key={w}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => setWeek(w)}
-                  style={{
-                    flex: 'none', height: 28, padding: '0 12px', borderRadius: 2, cursor: 'pointer',
-                    border: `1px solid ${on ? 'var(--volt)' : 'var(--edge)'}`,
-                    background: on ? 'var(--volt)' : 'transparent', color: on ? 'var(--on-volt)' : 'var(--ink-2)',
-                    font: DISPLAY(12), letterSpacing: '.1em',
-                  }}
-                >
-                  WK {w}
-                </button>
-              );
-            })}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--line)' }}>
+            <label htmlFor="recap-week" style={{ font: DISPLAY(12), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
+              WEEK
+            </label>
+            <div style={{ position: 'relative' }}>
+              <select
+                id="recap-week"
+                value={data.week}
+                onChange={(e) => setWeek(Number(e.target.value))}
+                style={{
+                  appearance: 'none', WebkitAppearance: 'none', height: 32, padding: '0 34px 0 12px', borderRadius: 2, cursor: 'pointer',
+                  border: '1px solid var(--volt)', background: 'transparent', color: 'var(--ink)',
+                  font: DISPLAY(13), letterSpacing: '.1em',
+                }}
+              >
+                {[...data.weeks].reverse().map((w, i) => (
+                  <option key={w} value={w} style={{ color: '#000' }}>
+                    WK {w}{i === 0 ? ' · LATEST' : ''}
+                  </option>
+                ))}
+              </select>
+              <svg aria-hidden width="12" height="12" viewBox="0 0 12 12" style={{ position: 'absolute', right: 12, top: 10, pointerEvents: 'none' }}>
+                <path d="M2 4l4 4 4-4" fill="none" stroke="var(--volt)" strokeWidth="2" />
+              </svg>
+            </div>
           </div>
         )}
 

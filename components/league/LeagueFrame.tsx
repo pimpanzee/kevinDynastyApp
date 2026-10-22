@@ -7,13 +7,13 @@ import PhoneFrame from '@/components/PhoneFrame';
 import SubTabs from '@/components/SubTabs';
 
 const TABS = [
-  { key: 'recap', label: 'RECAP', href: '/league/recap/' },
   { key: 'activity', label: 'ACTIVITY', href: '/league/' },
+  { key: 'recap', label: 'RECAP', href: '/league/recap/' },
   { key: 'standings', label: 'STANDINGS', href: '/league/standings/' },
   { key: 'ratings', label: 'RATINGS', href: '/league/ratings/' },
 ];
 
-/** The League section: header, RECAP · ACTIVITY · STANDINGS · RATINGS, the tab bar. */
+/** The League section: header, ACTIVITY · RECAP · STANDINGS · RATINGS, the tab bar. */
 export default function LeagueFrame({ children }: { children: ReactNode }) {
   return (
     <PhoneFrame style={{ position: 'relative' }}>
