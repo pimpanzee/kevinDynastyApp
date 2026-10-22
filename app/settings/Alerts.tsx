@@ -96,7 +96,7 @@ export default function Alerts() {
       )}
       {!why && (
         <p style={{ margin: '8px 0 0', font: '500 12px/1.45 var(--font-body)', color: 'var(--ink-3)' }}>
-          {status || (on ? 'Alerts for your team come to this device only.' : 'Lineup checks before kickoff, injuries and inactives, waiver results, stat corrections and a Tuesday recap, pushed to this device.')}
+          {status || (on ? 'Alerts for your team come to this device only.' : 'Lineup checks before kickoff, injuries and inactives, waiver results, trade offers and replies, stat corrections and a Tuesday recap, pushed to this device.')}
         </p>
       )}
     </div>

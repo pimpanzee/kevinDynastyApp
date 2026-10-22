@@ -17,6 +17,8 @@ export const ALERTS = [
   { key: 'injury', label: 'Injuries', sub: 'A starter is ruled Out, Doubtful or IR before his game' },
   { key: 'inactive', label: 'Inactive starters', sub: 'A starter is on his team’s game-day inactives, about 90 minutes before kickoff' },
   { key: 'waivers', label: 'Waiver results', sub: 'Who you won and lost when claims run' },
+  { key: 'trade', label: 'Trade replies', sub: 'A trade you sent is accepted, countered, declined or expires' },
+  { key: 'offer', label: 'Trade offers', sub: 'Another owner sends you a trade offer' },
   { key: 'recap', label: 'Weekly recap', sub: 'Tuesday: your result, the high score, your bench' },
   { key: 'correction', label: 'Stat corrections', sub: 'MFL changes a score in your game after the week, and whether it flips the result' },
   { key: 'login', label: 'MFL login expired', sub: 'When your MFL login stops working and you need to sign in again' },
