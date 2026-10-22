@@ -23,7 +23,7 @@ import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
 import { instructions, problems, RECAP_SCHEMA, recentJokesFrom } from './writer.js';
-import { bbidAdds, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
+import { bbidAdds, completedTrades, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, tradeAlerts, waiverAlert } from './alerts.js';
 import { fetchInactives, fetchScoreboard, MFL_TO_ESPN } from './plays.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -1027,6 +1027,11 @@ export class WriteRelay {
 
     // Your own claim edits aren't waiver results: start the comparison over.
     if (outcome.ok !== false && type === 'blindBidWaiverRequest') this.setState(`pending:${o.franchiseId}`, undefined);
+    // Nor are trades you answered or withdrew yourself: no push about them.
+    if (outcome.ok !== false && type === 'tradeResponse') {
+      const seen = this.getState(`trades:${o.franchiseId}`);
+      if (seen) this.setState(`trades:${o.franchiseId}`, seen.filter((t) => t.id !== checked.params.TRADE_ID));
+    }
 
     if (outcome.ok) return { ok: true };
     return {
@@ -1079,7 +1084,7 @@ export class WriteRelay {
 
   async push(sub, alert) {
     const site = (this.env.SITE_URL ?? '').replace(/\/$/, '');
-    const message = { title: alert.title, body: alert.body, tag: alert.key.split(':')[0], url: `${site}${alert.url ?? '/'}` };
+    const message = { title: alert.title, body: alert.body, tag: alert.tag ?? alert.key.split(':')[0], url: `${site}${alert.url ?? '/'}` };
     try {
       const r = await sendPush(sub, message, await this.vapid(), site || 'https://pimpanzee.github.io', { urgency: alert.urgent ? 'high' : 'normal' });
       if (r.gone) this.sql.exec('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint);
@@ -1258,6 +1263,24 @@ export class WriteRelay {
         if (a && (await this.notify(fid, 'waivers', a))) sent.push(prefix + a.key);
       });
 
+      // Trades: compare this run's pending offers with the last run's (read with the owner's login).
+      await step(`${fid} trades`, async () => {
+        const all = readPendingTrades((await this.read(o, `${league}&TYPE=pendingTrades`)).pendingTrades);
+        if (all === null) return; // a reply we can't read: no comparison, no guesses
+        const after = all.filter((t) => t.from === fid || t.to === fid);
+        const before = this.getState(`trades:${fid}`);
+        this.setState(`trades:${fid}`, after);
+        if (!before) return; // first look: offers already there aren't news
+        const still = new Set(after.map((t) => t.id));
+        const gone = before.some((t) => t.from === fid && !still.has(t.id));
+        const completed = gone ? completedTrades(await shared(`${league}&TYPE=transactions&TRANS_TYPE=TRADE&DAYS=2`)) : [];
+        const ids = before.concat(after).flatMap((t) => [...t.give, ...t.get]).filter((k) => /^\d+$/.test(k));
+        const players = ids.length ? await names(ids) : {};
+        for (const { type, alert } of tradeAlerts({ me: fid, before, after, completed, now, franchises: info.franchises, players })) {
+          if (await this.notify(fid, type, alert)) sent.push(prefix + alert.key);
+        }
+      });
+
       // Tuesday recap, from mid-morning Eastern.
       await step(`${fid} recap`, async () => {
         const d = new Date(now);
@@ -1375,7 +1398,7 @@ export function readPendingTrades(root) {
 }
 
 /** Alert types a device can turn on or off. */
-export const ALERT_TYPES = ['lock', 'injury', 'inactive', 'waivers', 'recap', 'correction', 'login'];
+export const ALERT_TYPES = ['lock', 'injury', 'inactive', 'waivers', 'trade', 'offer', 'recap', 'correction', 'login'];
 /** Devices kept per owner at most (oldest dropped). */
 const MAX_SUBS = 5;
 

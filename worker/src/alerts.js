@@ -12,6 +12,8 @@
  * - recap: Tuesday, last week's result, the high score and the biggest bench mistake.
  * - correction: MFL changed a played week's score (a stat correction) in your
  *   game, with whether it changed the result.
+ * - trade: a trade offer you sent was accepted, countered, declined or expired.
+ * - offer: a new trade offer was sent to you.
  */
 
 /** How long before a kickoff the lineup check runs. */
@@ -309,6 +311,102 @@ export function correctionAlert({ season, week, change, franchiseId, franchises,
     url: `/matchups/${week}/`,
     urgent: was !== now,
   };
+}
+
+/** A trade asset's name: a player, or "2027 Round 2" for a pick. */
+export function assetName(key, players) {
+  const fp = /^FP_\d{4}_(\d{4})_(\d{1,2})$/.exec(key);
+  if (fp) return `${fp[1]} Round ${fp[2]}`;
+  const dp = /^DP_(\d{2})_(\d{2})$/.exec(key);
+  if (dp) return `Pick ${Number(dp[1]) + 1}.${String(Number(dp[2]) + 1).padStart(2, '0')}`;
+  return players[key]?.name ?? `Player ${key}`;
+}
+
+/**
+ * Completed trades from a transactions export (TRANS_TYPE=TRADE), as
+ * [{ teams: [a, b], at }]. MFL logs only finished trades: offers, counters
+ * and rejections leave no record.
+ */
+export function completedTrades(transactions) {
+  return list(transactions?.transactions?.transaction)
+    .filter((t) => t.type === 'TRADE' && t.franchise && t.franchise2)
+    .map((t) => ({ teams: [String(t.franchise), String(t.franchise2)], at: Number(t.timestamp) * 1000 || 0 }));
+}
+
+/** How long before an offer's send time a completed trade between the two teams still counts as it (clock skew). */
+const TRADE_SLACK_MS = 5 * 60 * 1000;
+
+/**
+ * Trade pushes from two reads of one owner's pending trades
+ * (relay.js readPendingTrades): the last run's and this one's. An offer you
+ * sent that's gone was accepted (MFL logged a trade between you two after it
+ * was sent), countered (the same team sent you a new offer in the same run),
+ * expired, or declined. Offers sent to you that weren't there before are new.
+ * Offers you answered or withdrew in the app are taken out of `before` by the
+ * relay, so they don't come back as news. Returns [{ type, alert }].
+ */
+export function tradeAlerts({ me, before, after, completed, now, franchises, players }) {
+  if (!before || !after) return [];
+  const name = (id) => franchises[id] ?? `Team ${id}`;
+  const names = (ids) => (ids.length ? ids.map((k) => assetName(k, players)).join(', ') : 'nothing');
+  const terms = (get, give) => `you get ${names(get)}; you give ${names(give)}`;
+  const was = new Set(before.map((t) => t.id));
+  const still = new Set(after.map((t) => t.id));
+  const fresh = after.filter((t) => t.to === me && t.from !== me && !was.has(t.id));
+  const used = new Set();
+  const out = [];
+  for (const t of before) {
+    if (t.from !== me || still.has(t.id)) continue;
+    const them = t.to;
+    const done = (completed ?? []).find((c) => c.teams.includes(me) && c.teams.includes(them) && c.at >= (t.sent ?? 0) - TRADE_SLACK_MS);
+    const counter = fresh.find((n) => n.from === them && !used.has(n.id));
+    let alert;
+    if (done) {
+      alert = {
+        key: `trade:${t.id}:accepted`,
+        title: `${name(them)} accepted your trade`,
+        body: `${capital(terms(t.get, t.give))}. It's done on MFL.`,
+        url: '/team/',
+      };
+    } else if (counter) {
+      used.add(counter.id);
+      alert = {
+        key: `trade:${t.id}:countered:${counter.id}`,
+        title: `${name(them)} countered your offer`,
+        body: `Their counter: ${terms(counter.give, counter.get)}. Tap to answer it.`,
+        url: '/team/trades/',
+      };
+    } else if (t.expires && t.expires <= now) {
+      alert = {
+        key: `trade:${t.id}:expired`,
+        title: `Your offer to ${name(them)} expired`,
+        body: `${capital(terms(t.get, t.give))}. They never answered.`,
+        url: `/league/team/${them}/trade/`,
+      };
+    } else {
+      alert = {
+        key: `trade:${t.id}:declined`,
+        title: `${name(them)} declined your trade`,
+        body: `${capital(terms(t.get, t.give))}. Tap to send them another.`,
+        url: `/league/team/${them}/trade/`,
+      };
+    }
+    out.push({ type: 'trade', alert: { ...alert, tag: `trade-${t.id}` } });
+  }
+  for (const n of fresh) {
+    if (used.has(n.id)) continue;
+    out.push({
+      type: 'offer',
+      alert: {
+        key: `offer:${n.id}`,
+        tag: `trade-${n.id}`,
+        title: `New trade offer from ${name(n.from)}`,
+        body: `${capital(terms(n.give, n.get))}. Tap to answer it.`,
+        url: '/team/trades/',
+      },
+    });
+  }
+  return out;
 }
 
 const fmt = (n) => (Math.round(n * 10) / 10).toFixed(1);
