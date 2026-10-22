@@ -362,10 +362,18 @@ function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Sid
 function BenchCell({ slot, side, game, onScore }: { slot: Slot; side: Side; game: string; onScore: () => void }) {
   const { p } = slot;
   const right = side === 'away';
+  const yet = notStarted(p);
+  // Same score block as a starter, one size smaller: points, then the projection under them.
+  const ptsInner = (
+    <>
+      <div style={{ font: DISPLAY(16), fontVariantNumeric: 'tabular-nums', color: yet ? 'var(--ink-3)' : 'var(--ink)', paddingBottom: 2, borderBottom: p.breakdown && !yet ? '1px dotted var(--edge)' : undefined }}>{yet ? '—' : p.pts}</div>
+      <div style={{ font: '500 10.5px/1 var(--font-body)', color: 'var(--ink-3)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{projText(p)}</div>
+    </>
+  );
   const pts = p.breakdown ? (
     <button type="button" onClick={onScore} aria-label={`${p.name}: ${p.pts} points. Show score breakdown`}
-      style={{ flex: 'none', border: 0, background: 'none', padding: 0, color: 'inherit', font: DISPLAY(16), fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }}>{p.pts}</button>
-  ) : <div style={{ flex: 'none', font: DISPLAY(16), fontVariantNumeric: 'tabular-nums' }}>{p.pts}</div>;
+      style={{ flex: 'none', border: 0, background: 'none', padding: 0, color: 'inherit', textAlign: right ? 'left' : 'right', cursor: 'pointer' }}>{ptsInner}</button>
+  ) : <div style={{ flex: 'none', textAlign: right ? 'left' : 'right' }}>{ptsInner}</div>;
   const name = (
     <div style={{ flex: 1, minWidth: 0, textAlign: right ? 'right' : undefined }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: right ? 'flex-end' : undefined }}>
@@ -382,7 +390,7 @@ function BenchCell({ slot, side, game, onScore }: { slot: Slot; side: Side; game
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         {right ? <>{pts}{name}</> : <>{name}{pts}</>}
       </div>
-      <Byline text={notStarted(p) ? undefined : p.byline} right={right} />
+      <Byline text={yet ? undefined : p.byline} right={right} />
     </div>
   );
 }
