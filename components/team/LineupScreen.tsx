@@ -6,6 +6,7 @@ import BottomSheet from '@/components/BottomSheet';
 import HeaderBar from '@/components/HeaderBar';
 import InjuryTag from '@/components/InjuryTag';
 import LineupAlert from '@/components/LineupAlert';
+import { PlayerLink } from '@/components/PlayerCard';
 import PhoneFrame from '@/components/PhoneFrame';
 import SubTabs from '@/components/SubTabs';
 import { posColor } from '@/components/pos';
@@ -637,12 +638,12 @@ export default function LineupScreen({
                   <div style={{ marginTop: 4 }}><SectionHead label={`${m.group} · ${ids.length}`} /></div>
                   {ids.map((id) => (
                     <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 48, padding: '0 8px 0 16px', borderBottom: '1px solid var(--line)' }}>
-                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <PlayerLink playerId={id} style={{ ...NAME_CELL, gap: 3 }}>
                         <span style={{ font: '600 14px/1.2 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{info(id).name}</span>
                         <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                           <b style={{ fontWeight: 700, color: posColor(info(id).pos) }}>{info(id).pos || '—'}</b> · <span style={{ color: m.danger ? 'var(--fall)' : undefined }}>{m.path}</span>
                         </span>
-                      </span>
+                      </PlayerLink>
                       <button type="button" disabled={busy} onClick={() => unqueue(id)} aria-label={`Remove ${info(id).name} from these changes`} style={{ ...btn(false), height: 36, padding: 0, width: 64, font: DISPLAY(11.5), letterSpacing: '.06em', color: 'var(--ink-2)' }}>REMOVE</button>
                     </div>
                   ))}
@@ -746,10 +747,10 @@ export default function LineupScreen({
     const num: CSSProperties = { flex: 'none', textAlign: 'right', font: '500 13px/1 var(--font-body)', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' };
     return (
       <div style={{ ...rowStyle(state), opacity: state === 'dim' ? 0.5 : 1 }}>
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <PlayerLink playerId={id} style={NAME_CELL}>
           <Name id={id} tag={tag} />
           <Line id={id} />
-        </span>
+        </PlayerLink>
         <span style={{ ...num, width: COL.proj, font: DISPLAY(17), color: bad ? 'var(--live)' : starting ? 'var(--ink)' : 'var(--ink-2)' }}>{pr === null ? '—' : one(pr)}</span>
         <span style={{ ...num, width: COL.ppg }}>{p.ppg ? one(p.ppg) : '—'}</span>
         <span style={{ ...num, width: COL.pct }}>{p.startPct === undefined || p.startPct === null ? '—' : `${Math.round(p.startPct)}%`}</span>
@@ -808,12 +809,12 @@ export default function LineupScreen({
     const width = (k: MoveKey) => (moves.length === 3 || MOVES[k].danger ? 44 : 92);
     return (
       <div style={{ ...rowStyle(null), background: q ? (q.danger ? DROP_TINT : QUEUE_TINT) : undefined, boxShadow: q ? `inset 3px 0 0 ${q.danger ? 'var(--fall)' : 'var(--volt)'}` : undefined }}>
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <PlayerLink playerId={id} style={NAME_CELL}>
           <Name id={id} />
           {q ? (
             <span style={{ font: DISPLAY(11), letterSpacing: '.08em', color: q.danger ? 'var(--fall)' : 'var(--volt)', whiteSpace: 'nowrap' }}>{q.tag} · QUEUED</span>
           ) : <Line id={id} />}
-        </span>
+        </PlayerLink>
         <span style={{ ...num, width: COL.proj, font: DISPLAY(17), color: 'var(--ink)' }}>{pr === null ? '—' : one(pr)}</span>
         <span style={{ ...num, width: COL.ppg }}>{p.ppg ? one(p.ppg) : '—'}</span>
         <span style={{ flex: 'none', width: 140, display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
@@ -841,6 +842,9 @@ export default function LineupScreen({
     );
   }
 }
+
+/** The name + matchup block of a row; tapping it opens the player card. */
+const NAME_CELL: CSSProperties = { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4, alignSelf: 'stretch', justifyContent: 'center' };
 
 function Empty({ text }: { text: string }) {
   return <div style={{ padding: '14px 16px', font: '500 13px/1.4 var(--font-body)', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}>{text}</div>;
