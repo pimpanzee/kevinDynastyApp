@@ -22,7 +22,7 @@
 import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
-import { instructions, problems, RECAP_SCHEMA } from './writer.js';
+import { instructions, problems, RECAP_SCHEMA, recentJokesFrom } from './writer.js';
 import { bbidAdds, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, waiverAlert } from './alerts.js';
 import { fetchInactives, fetchScoreboard, MFL_TO_ESPN } from './plays.js';
 import { newVapidKeys, sendPush } from './webpush.js';
@@ -806,7 +806,8 @@ export class WriteRelay {
    * Everything the recap task needs to write a week: the instructions (with
    * the RECAP_TONE voice), the JSON shape, the fact sheet, the storylines
    * (without that week's own earlier changes, so a rewrite starts clean) and
-   * last week's headline. Week defaults to the last one stored.
+   * last week's headline, and the last three recaps' jokes not to reuse.
+   * Week defaults to the last one stored.
    */
   async recapBrief(weekParam) {
     if (weekParam && !WEEK.test(weekParam)) return { error: 'Bad week', status: 400 };
@@ -821,6 +822,8 @@ export class WriteRelay {
       instructions: instructions(this.env.RECAP_TONE || 'roast'),
       schema: RECAP_SCHEMA,
       previousHeadline: this.getState(`recap:${season}:${week - 1}`)?.recap?.headline ?? null,
+      // Lines from the last three recaps, so jokes aren't repeated.
+      recentJokes: recentJokesFrom([1, 2, 3].map((n) => week - n > 0 && this.getState(`recap:${season}:${week - n}`)?.recap)),
       facts,
       storylines: story.forWriter,
     };
@@ -854,7 +857,7 @@ export class WriteRelay {
     const { season, week } = brief;
     const keep = {
       headline: recap.headline, intro: recap.intro, nextWeek: recap.nextWeek,
-      matchups: recap.matchups.map(({ winner, loser, text }) => ({ winner, loser, text })),
+      matchups: recap.matchups.map(({ headline, winner, loser, text }) => ({ headline, winner, loser, text })),
       storylines: recap.storylines.map(({ title, text }) => ({ title, text })),
       ledger: recap.ledger.slice(0, 5).map(({ op, id, title, teams, text }) => ({ op, id, title: title ?? '', teams: Array.isArray(teams) ? teams : [], text: text ?? '' })),
     };

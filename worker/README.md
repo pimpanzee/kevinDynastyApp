@@ -105,14 +105,23 @@ plan (no API key or per-call cost), not by the relay. Each Tuesday it:
 
 1. reads `GET /recap/brief[?week=N]`: the instructions (in the
    `RECAP_TONE` voice), the JSON shape (`schema`), the week's fact sheet,
-   the storylines and last week's headline (`src/writer.js`);
-2. writes the recap as JSON, under 500 words: headline, a short intro, two
-   or three lines per game, at most 3 storylines, next week, and its own
-   changes to the storyline ledger;
-3. sends drafts to `POST /recap/check?week=N` until `problems` is empty
-   (every field present, one paragraph per game, and every number found in
-   the facts);
-4. saves it with `POST /recap/save?week=N`, which needs
+   the storylines, last week's headline and `recentJokes`, lines from the
+   last three recaps not to reuse (`src/writer.js`);
+2. reads the league lore, a private file in the Claude project
+   (`weekly-recap/lore.md`) and the shared Google Doc it points to, where the league adds
+   lore. Both are kept out of this public repo and the relay;
+   the brief's instructions tell the task where it is (`LORE_FILE`);
+3. writes the recap as JSON, under 500 words: headline, a short intro, a
+   headline and two or three lines per game, at most 3 storylines, next
+   week, and its own changes to the storyline ledger; after saving, it adds
+   a lore bit only when something is truly juicy (most weeks, nothing).
+   It also reads the league Slack (`SLACK_CHANNELS`, read only) for the
+   week's drama;
+4. sends drafts to `POST /recap/check?week=N` until `problems` is empty
+   (every field present, one paragraph and headline per game, every number
+   found in the facts, no banned stock lines such as "Brutal" or "Math
+   checks out", and no sentence repeated from `recentJokes`);
+5. saves it with `POST /recap/save?week=N`, which needs
    `Authorization: Bearer <RECAP_KEY>`. The relay checks it again, keeps it
    (replacing an earlier one), and stores its ledger changes as
    `ledgerAi:<season>:<week>` for later weeks' storylines.
