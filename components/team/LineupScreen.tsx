@@ -14,7 +14,7 @@ import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
 import { getMine, isError, write, type Mine, type RelayError, SIGNED_OUT } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 import SectionHead from './SectionHead';
-import { DISPLAY } from './format';
+import { DISPLAY, money } from './format';
 
 export interface LineupPlayer {
   name: string;
@@ -140,6 +140,8 @@ export default function LineupScreen({
   rules,
   limits,
   season,
+  cap,
+  capAdjust,
 }: {
   mode: 'lineup' | 'moves';
   players: Record<string, LineupPlayer>;
@@ -149,6 +151,10 @@ export default function LineupScreen({
   limits: TeamsData['limits'];
   /** The MFL season, for taxi eligibility. */
   season: number;
+  /** League salary cap. */
+  cap: number;
+  /** Franchise → salary adjustments (dead cap etc.) at build time. */
+  capAdjust: Record<string, number>;
 }) {
   const [mine, setMine] = useState<Mine | null>(null);
   const [loadError, setLoadError] = useState<RelayError | null>(null);
@@ -268,6 +274,13 @@ export default function LineupScreen({
   const removed = mine ? mine.starters.filter((id) => !starters.has(id) && isActive(id)) : [];
   const changed = added.length + removed.length > 0;
   const problemsNow = broken(lineup);
+  // Cap as MFL counts it: every non-taxi salary plus adjustments (dead cap, carryover).
+  // MFL refuses any lineup while a team is over, so don't let one be sent.
+  const capUsed = mine
+    ? Math.round((mine.roster.filter((p) => p.status !== 'TAXI_SQUAD').reduce((t, p) => t + p.salary, 0)
+      + (mine.capAdjust ?? capAdjust[mine.franchiseId] ?? 0)) * 100) / 100
+    : 0;
+  const overCap = mine && cap > 0 && capUsed > cap ? Math.round((capUsed - cap) * 100) / 100 : 0;
   const openSlots = Math.max(0, rules.max - lineup.length);
 
   // With a player (or an open slot) picked: what each row in the other group would do to the lineup.
@@ -548,6 +561,17 @@ export default function LineupScreen({
 
         {mine && rows && mode === 'lineup' && (
           <>
+            {!sel && overCap > 0 && (
+              <div role="alert" style={{ margin: '12px 16px 0', padding: '10px 12px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '500 13px/1.45 var(--font-body)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span>
+                  <b>You’re {money(overCap)} over the ${cap.toLocaleString('en-US')} cap</b> ({money(capUsed)} with dead cap; taxi salaries don’t count).
+                  MFL won’t take a lineup from a team over the cap, so submitting is off until you’re under.
+                </span>
+                <span>
+                  Drop, IR or taxi someone in <Link href="/team/moves/" style={{ color: 'var(--volt)', fontWeight: 600 }}>Manage roster</Link>, or move salary in a <Link href="/team/trades/" style={{ color: 'var(--volt)', fontWeight: 600 }}>trade</Link>.
+                </span>
+              </div>
+            )}
             {!sel && !valid && (
               <div role="alert" style={{ margin: '12px 16px 0', padding: '10px 12px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '500 13px/1.4 var(--font-body)' }}>
                 This lineup isn’t legal: {problemsNow.join('; ')}. Fix it before you submit.
@@ -581,8 +605,8 @@ export default function LineupScreen({
       {mode === 'lineup' && mine && changed && !sel && (
         <div style={{ flex: 'none', display: 'flex', gap: 8, padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', background: 'var(--bg-100)', borderTop: '1px solid var(--edge)' }}>
           <button type="button" onClick={() => { setStarters(new Set(mine.starters)); setNotice(null); }} style={btn(false)}>UNDO</button>
-          <button type="button" disabled={!valid || busy} onClick={() => setConfirming(true)} style={{ ...btn(true), flex: 1, opacity: valid ? 1 : 0.5 }}>
-            {!valid ? 'LINEUP NOT LEGAL YET' : weekOk ? `SUBMIT LINEUP · ${diff >= 0 ? '+' : '−'}${one(Math.abs(diff))}` : 'SUBMIT LINEUP'}
+          <button type="button" disabled={!valid || overCap > 0 || busy} onClick={() => setConfirming(true)} style={{ ...btn(true), flex: 1, opacity: valid && !overCap ? 1 : 0.5 }}>
+            {overCap > 0 ? `OVER THE CAP BY ${money(overCap)}` : !valid ? 'LINEUP NOT LEGAL YET' : weekOk ? `SUBMIT LINEUP · ${diff >= 0 ? '+' : '−'}${one(Math.abs(diff))}` : 'SUBMIT LINEUP'}
           </button>
         </div>
       )}
@@ -603,7 +627,7 @@ export default function LineupScreen({
               </p>
             )}
             <p style={{ margin: '0 0 8px', color: 'var(--ink-3)', fontSize: 12.5 }}>You can change it again until each player&apos;s kickoff.</p>
-            <button type="button" disabled={busy} onClick={submit} style={{ ...btn(true), width: '100%' }}>{progress ?? (busy ? 'SUBMITTING…' : 'SUBMIT TO MFL')}</button>
+            <button type="button" disabled={busy || overCap > 0} onClick={submit} style={{ ...btn(true), width: '100%' }}>{progress ?? (busy ? 'SUBMITTING…' : 'SUBMIT TO MFL')}</button>
           </div>
         </BottomSheet>
       )}

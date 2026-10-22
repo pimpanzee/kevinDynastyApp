@@ -35,5 +35,7 @@ export async function getLineupProps() {
   for (const t of data.teams) {
     for (const p of t.roster) players[p.id] ??= { name: p.name, pos: p.pos, team: p.team, injury: p.injury, draftYear: details.get(p.id)?.draftYear };
   }
-  return { players, projWeek: playersData.projWeek, rules: data.lineup, limits: data.limits, season: Number(SEASON) };
+  // Cap and each team's adjustments at build time; the relay's live adjustments win when it has them.
+  const capAdjust = Object.fromEntries(data.teams.map((t) => [t.id, t.adj]));
+  return { players, projWeek: playersData.projWeek, rules: data.lineup, limits: data.limits, season: Number(SEASON), cap: data.cap, capAdjust };
 }

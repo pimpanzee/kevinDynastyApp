@@ -897,9 +897,11 @@ export class WriteRelay {
     const league = `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1`;
     try {
       const w = weekParam ? `&W=${weekParam}` : '';
-      const [live, rosters] = await Promise.all([
+      const [live, rosters, adjustments] = await Promise.all([
         this.read(o, `${league}&TYPE=liveScoring&DETAILS=1${w}`),
         this.read(o, `${league}&TYPE=rosters&FRANCHISE=${franchiseId}`),
+        // Dead cap, carryover and refunds. Optional: the screen falls back to the build's.
+        this.read(o, `${league}&TYPE=salaryAdjustments`).catch(() => null),
       ]);
       const week = Number(weekParam || live.liveScoring?.week);
       // nflSchedule isn't league data, so only the api host answers it.
@@ -920,8 +922,13 @@ export class WriteRelay {
       for (const g of list(schedule.nflSchedule?.matchup)) {
         for (const t of list(g.team)) kickoffs[t.id] = Number(g.kickoff) * 1000;
       }
+      const capAdjust = adjustments
+        ? Math.round(list(adjustments.salaryAdjustments?.salaryAdjustment)
+          .filter((a) => a.franchise_id === franchiseId)
+          .reduce((t, a) => t + (Number(a.amount) || 0), 0) * 100) / 100
+        : null;
       // No markCookie here: these reads are public, so they succeed with a dead cookie too.
-      return { week, franchiseId, roster, starters, kickoffs, fetchedAt: Date.now() };
+      return { week, franchiseId, roster, starters, kickoffs, capAdjust, fetchedAt: Date.now() };
     } catch (e) {
       return { error: e.message, signedOut: e.signedOut || undefined, status: e.signedOut ? 401 : 502 };
     }
