@@ -42,6 +42,12 @@ export default function RecapScreen({ franchises, myFranchiseId }: { franchises:
   const [data, setData] = useState<Recap | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'none' | 'error'>('loading');
 
+  // A recap push opens ?week=N.
+  useEffect(() => {
+    const w = Number(new URLSearchParams(window.location.search).get('week'));
+    if (Number.isInteger(w) && w > 0) setWeek(w);
+  }, []);
+
   useEffect(() => {
     if (!RELAY) return setState('none');
     let live = true;
