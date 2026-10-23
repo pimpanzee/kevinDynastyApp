@@ -116,6 +116,21 @@ export function scoreBreakdown(position: string, stats: Stats, rules: RuleSet, o
   return { rows: rows.map(({ value: _, ...r }) => r), total: fmtPts(official) };
 }
 
+/**
+ * Re-point a breakdown at a newer official score, keeping its stat rows. The
+ * build's breakdowns use MFL's weekly results, which carry no player points
+ * until the week is settled; the live overlay brings the real score, and
+ * between games (when no fresh stats are read) this keeps the table adding
+ * up to it instead of to the build's 0.
+ */
+export function rebaseBreakdown(b: Breakdown, official: number): Breakdown {
+  const rows = b.rows.filter((r) => r.label !== 'Other');
+  const sum = round2(rows.reduce((t, r) => t + Number(r.points), 0));
+  const gap = round2(official - sum);
+  if (Math.abs(gap) >= 0.01) rows.push({ label: 'Other', stat: '', per: '', points: fmtPts(gap) });
+  return { rows, total: fmtPts(official) };
+}
+
 /** Fantasy points for a stat line under the league's rules — for projections, which MFL can't explain. */
 export function scorePoints(position: string, stats: Stats, rules: RuleSet): number {
   return round2(scoredRows(position, stats, rules).reduce((t, r) => t + r.value, 0));
