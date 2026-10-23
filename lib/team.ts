@@ -59,7 +59,13 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
       },
     };
   })).filter((x) => POSITIONS.includes(x.p.position));
-  const market = buildMarket(all.map((x) => x.input), minSalary);
+  // Replacement level counts everyone with games this season, free agents too.
+  const pool = [...totals].flatMap(([id, t]) => {
+    const ppg = t.gp > 0 ? estimate(id) : null;
+    const pos = players.get(id)?.position;
+    return ppg !== null && pos && POSITIONS.includes(pos) ? [{ pos, ppg }] : [];
+  });
+  const market = buildMarket(all.map((x) => x.input), pool, league.lineup, league.franchises.length, minSalary);
   const values = market.values;
 
   // Projected draft order from the current standings: worst record picks first.

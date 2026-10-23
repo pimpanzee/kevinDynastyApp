@@ -220,19 +220,19 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
    projPPG = Sleeper's weekly projections scored with league rules, averaged over the next 3
    weeks he's projected to play (else the last 3 finished weeks). No projection → plain YTD PPG.
    Free agents' MARKET price on the player card uses the same blended PPG.
-2. Rank players within each position by PPG → positional rank (QB1, RB6, WR33…).
-3. **Market price** for a rank = median salary of rostered players at that position whose PPG rank
-   falls within a band around it (±3 ranks, i.e. a 7-player window; widen to ±5 when the band has
-   fewer than 4 salaried players). Median, not mean, so one outlier contract doesn't set the price.
-   **Rookie and minimum contracts are scored but don't set the price**: they're left out of the
-   market sample (their salary was set by the draft slot or the league floor, not by bidding), but
-   they still get a VALUE against that market — so a rookie playing like an RB6 shows as a big steal.
-   - "Minimum" = salary at the league's minimum salary (from MFL league settings).
-   - "Rookie" = on a rookie-draft contract. How MFL marks this in this league (a `contractStatus`
-     code, `contractInfo`, or draft-year data) still needs confirming against real roster data.
-   - If a band has fewer than 4 qualifying salaries even at ±5 ranks (common deep down the WR list,
-     where most players are on minimums), use the nearest band up the rankings that does; if none,
-     VALUE shows `—`.
+2. Rank players within each position by PPG → positional rank (QB1, RB6, WR33…), shown on the Cap tab.
+3. **Market price** (`lib/contractValue.ts`, built 2026-10-23; replaced the ±3/±5 rank bands, which jumped
+   around when nearby players swapped places):
+   - **Replacement level**: fill all 12 starting lineups league-wide (each position's minimum, then the flex
+     and superflex spots with the best left, within each position's max, from MFL's lineup rules). A
+     position's replacement PPG = average of the next 3 players there, free agents included.
+   - **PAR** = blended PPG − replacement PPG.
+   - **Price curve per position** from the bid-on contracts only (rookie-draft deals, minimum salaries and
+     taxi are scored but never set the price): sort those contracts' PAR high to low and their salaries
+     high to low; the k-th most PAR is worth the k-th biggest salary, interpolated in between. Busts fall to
+     the bottom of the PAR order, so their money prices the players who produced. Monotone, and never above
+     a salary someone really paid. Under 8 such contracts at a position → all positions pooled.
+   - PAR ≤ 0 → the $5 minimum.
 4. **VALUE (per season)** = market price − salary.
    - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
