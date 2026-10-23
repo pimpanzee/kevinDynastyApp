@@ -1,11 +1,13 @@
 import { FRANCHISE_ID, SEASON } from '@/lib/config';
+import { getContractOrigins } from '@/lib/contractKinds';
 import { buildMarket } from '@/lib/contractValue';
 import { getByeWeeks } from '@/lib/mfl/byes';
 import { TTL } from '@/lib/mfl/cache';
 import { asArray, mflGet } from '@/lib/mfl/client';
 import { getInjuries } from '@/lib/mfl/injuries';
+import { resolveNow } from '@/lib/mfl/clock';
 import { getLeague } from '@/lib/mfl/league';
-import { getPlayers, lookup } from '@/lib/mfl/players';
+import { getPlayerDetails, getPlayers, lookup } from '@/lib/mfl/players';
 import { getRosters, getSalaryAdjustments } from '@/lib/mfl/rosters';
 import { computeStandings, sortDivision } from '@/lib/mfl/standings';
 import { rookieSalary, slotLabel } from '@/lib/rookieScale';
@@ -39,13 +41,19 @@ interface RawPicks {
 interface RawPick { year?: string; round?: string; originalPickFor?: string }
 
 async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number) => number | null }> {
-  const [league, players, rosters, adjustments, injuries, byes, { done, totals }, estimate, picksBody] = await Promise.all([
+  const [league, players, rosters, adjustments, injuries, byes, { done, totals }, estimate, details, picksBody] = await Promise.all([
     getLeague(), getPlayers(), getRosters(SEASON), getSalaryAdjustments(), getInjuries(), getByeWeeks(), getSeasonTotals(), getPpgEstimator(),
+    getPlayerDetails(),
     mflGet<RawPicks>('futureDraftPicks', { ttl: TTL.ROSTERS, cacheKey: `futureDraftPicks:${SEASON}` }),
   ]);
   const standings = await computeStandings(done, league);
   const season = Number(SEASON);
   const minSalary = 5;
+
+  const origins = await getContractOrigins(rosters);
+  const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+  const now = resolveNow().getTime();
+  const ageOf = (birthdate?: number) => (birthdate ? (now - birthdate * 1000) / YEAR_MS : undefined);
 
   // Contract value, league-wide, on PPG blended with projections (lib/ppgEstimate.ts).
   const all = [...rosters.entries()].flatMap(([, slots]) => slots.map((s) => {
@@ -56,6 +64,10 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
       input: {
         id: s.playerId, pos: p.position, salary: s.salary, years: s.contractYear, contractStatus: s.contractStatus,
         taxi: s.status === 'TAXI_SQUAD', ppg: t && t.gp > 0 ? estimate(s.playerId) : null,
+        hurt: ['IR', 'O', 'D'].includes(injuries.get(s.playerId) ?? ''),
+        age: ageOf(details.get(s.playerId)?.birthdate),
+        kind: origins.get(s.playerId)?.kind, bid: origins.get(s.playerId)?.bid,
+        draftYear: details.get(s.playerId)?.draftYear,
       },
     };
   })).filter((x) => POSITIONS.includes(x.p.position));
@@ -65,7 +77,17 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
     const pos = players.get(id)?.position;
     return ppg !== null && pos && POSITIONS.includes(pos) ? [{ pos, ppg }] : [];
   });
-  const market = buildMarket(all.map((x) => x.input), pool, league.lineup, league.franchises.length, minSalary);
+  // Waiver level: healthy free agents with 2+ games (one big game shouldn't
+  // set it, and a player on IR, out or doubtful can't fill in).
+  const owned = new Set([...rosters.values()].flat().map((s) => s.playerId));
+  const hurt = (id: string) => ['IR', 'O', 'D'].includes(injuries.get(id) ?? '');
+  const waivers = [...totals].flatMap(([id, t]) => {
+    const ppg = t.gp >= 2 && !owned.has(id) && !hurt(id) ? estimate(id) : null;
+    const pos = players.get(id)?.position;
+    return ppg !== null && pos && POSITIONS.includes(pos) ? [{ pos, ppg }] : [];
+  });
+  const seasonLeft = Math.max(0, Math.min(1, (league.endWeek - done) / league.endWeek));
+  const market = buildMarket(all.map((x) => x.input), pool, waivers, league.lineup, league.franchises.length, minSalary, seasonLeft);
   const values = market.values;
 
   // Projected draft order from the current standings: worst record picks first.
@@ -99,7 +121,8 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
         injury: injuries.get(slot.playerId), rank: v?.rank ?? null, gp: t?.gp ?? 0, pts: t?.pts ?? 0,
         ppg: t && t.gp > 0 ? round2(t.pts / t.gp) : null, salary: slot.salary, years: Math.max(1, slot.contractYear),
         status: slot.contractStatus.trim(), slot: slot.status === 'TAXI_SQUAD' ? 'TAXI' : slot.status === 'INJURED_RESERVE' ? 'IR' : 'ACTIVE',
-        market: v?.market ?? null, value: v?.value ?? null, contractValue: v?.contractValue ?? null,
+        market: v?.market ?? null, value: v?.value ?? null, contractValue: v?.contractValue ?? null, futureValue: v?.futureValue ?? null, cutSaves: v?.cutSaves ?? null,
+        est: t && t.gp > 0 ? round2(estimate(slot.playerId) ?? 0) : null,
       };
     }).sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || (a.rank ?? 999) - (b.rank ?? 999) || b.salary - a.salary);
 

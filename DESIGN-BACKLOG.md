@@ -216,9 +216,11 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 
 **Calculation**, rebuilt once per data refresh, league-wide:
 1. For every rostered player compute PPG, blended with a projection (`lib/ppgEstimate.ts`):
-   `ppg = (YTD pts + k·projPPG) / (gp + k)`, with k = 5 QB, 6 RB, 7 WR, 8 TE prior games.
-   projPPG = Sleeper's weekly projections scored with league rules, averaged over the next 3
-   weeks he's projected to play (else the last 3 finished weeks). No projection → plain YTD PPG.
+   `ppg = (YTD pts − best game + k·projPPG) / (gp − 1 + k)` (best game left out from 4 games), with
+   k = 5 QB, 10 RB, 11 WR, 16 TE prior games — tuned by backtest on 2021–2025 (rest-of-season PPG after
+   weeks 2–12; average miss 18–22% lower than plain PPG, and held out-of-sample on 2024–25).
+   projPPG = Sleeper's projection for the next week he's projected to play (up to 3 out), scored with
+   league rules (else the last 3 finished weeks). No projection → plain YTD PPG.
    Free agents' MARKET price on the player card uses the same blended PPG.
 2. Rank players within each position by PPG → positional rank (QB1, RB6, WR33…), shown on the Cap tab.
 3. **Market price** (`lib/contractValue.ts`, built 2026-10-23; replaced the ±3/±5 rank bands, which jumped
@@ -234,10 +236,49 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
      a salary someone really paid. Under 8 such contracts at a position → all positions pooled.
    - PAR ≤ 0 → the $5 minimum.
 4. **VALUE (per season)** = market price − salary.
+   - **Bench value** (step 2, 2026-10-23): a player below starter level still beats the waiver wire. Waiver
+     level = average blended PPG of the best 3 healthy free agents at the position (2+ games; IR, out and
+     doubtful excluded). Points above it are worth 4 fill-in starts a season at the position's own price per
+     point; market = the higher of that and the starter price.
    - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
-5. **Contract value** = sum over the years left of (market price − that year's cap hit), where the cap
-   hit rises 10% a year (`salary × 1.1^k` for k = 0…years left − 1). Used for the Cap tab lists.
+5. **Contract value** = what keeping him is worth (step 2, 2026-10-23): Σ over years left of
+   (market_k − salary × 1.1^k), each later year discounted 20% a year. market_k prices the PPG his
+   position's aging curve expects that year (`lib/aging.ts`, measured on 2010–2025 seasons incl. missed
+   games: e.g. RBs −9% at 27, −15% at 28, −20% after; WRs −7% at 28, −15% at 30; QBs flat to 32;
+   TEs roughly flat to 29; ages from MFL birthdates). It's set against cutting him:
+   - Cut = −dead cap (salary × years × 30%, half this season and half next for a multi-year deal), minus
+     the production lost for the rest of this season (market − $5) × share of the season left: until the
+     May auction only a waiver-level player can replace him.
+   - When cutting saves $25+, the Cap tab's rows show an orange `CUT SAVES $158` tag after the name
+     (the total still shows keeping him: he isn't cut). Never on
+     rookie-draft deals (their value is growth the model can't see yet) or IR / out / doubtful players.
+
+6. **Contract types** (`lib/contractKinds.ts`, 2026-10-23), from MFL's auction results (2021 on) and this
+   season's transactions:
+   - **auction**: his latest auction win, when today's salary is that bid plus its 10% raises. These set the
+     price curve, at the winning bid (a new contract wouldn't carry the raises).
+   - **rookie**: contractStatus `R.0` / `R.1` (`R.1` = back half of a 2+2). Scored, never set the price.
+     Team options are added when he's worth more than they cost: 2024+ draftees in the first half (`R.0`)
+     get the +2 years at the usual raises; first-rounders get a 5th year at the position's top-10 average
+     salary (2024+) or a 4th year at +10% (2022–23).
+   - **waiver**: added in season (waivers or free agency) after his last auction win, 1 year left. One year,
+     never extended; doesn't set the price.
+   - **other** (tags, RFA, deals MFL has no auction record for): sets the price at today's salary.
+7. **Title equity** (`lib/mfl/playoffOdds.ts` `computeTitleEquity`, `lib/titleEquity.ts`, 2026-10-23): what
+   lineup points are worth this season, in odds and league money. The playoff-odds sim is replayed for each
+   team with its weekly expected score moved by −40…+40 points (same random seasons each time, 4,000 sims),
+   giving playoff odds, title odds and expected winnings ($640 / $320 / $120 for 1st–3rd, third place =
+   semifinal losers in the title week, plus $10 per regular-season win) at each step. A trade's change in
+   each team's best lineup (blended PPG, active players only, IR = 0) is read off that curve. Roughly
+   $10 of winnings per weekly point for a contender, near $0 for teams out of it.
+
+**Review trade — TRADE IMPACT** (under AFTER THE TRADE): header `TRADE IMPACT` with a `WIN NOW | REBUILD`
+switch (opens on WIN NOW when your playoff odds are 25%+, else REBUILD).
+- WIN NOW: You / them rows · `+2.9 pts/wk` under the name · PLAYOFFS / TITLE / WINNINGS, each the after
+  value with the change below (rise / fall colour). Footnote names the sims and payouts.
+- REBUILD: VALUE AFTER {season}: the change in contract value of the players' later years (TeamPlayer
+  `futureValue`, cap dollars). Picks aren't valued (footnote says so when picks are in the trade).
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"
