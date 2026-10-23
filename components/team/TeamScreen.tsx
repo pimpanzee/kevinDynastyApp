@@ -36,6 +36,7 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
 
   // Over the cap, MFL refuses any lineup, so SET LINEUP is off. The build's
   // numbers show first; MFL's live roster replaces them so a fix counts at once.
+  const [tip, setTip] = useState(false);
   const [liveOver, setLiveOver] = useState<number | null>(null);
   useEffect(() => {
     if (!canMove) return;
@@ -78,14 +79,19 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
       {canMove && (
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, margin: '10px 16px 0' }}>
           {overCap > 0
-            ? <span role="link" aria-disabled="true" style={{ ...moveLink, opacity: 0.45, cursor: 'not-allowed' }}>SET LINEUP</span>
+            ? (
+              <span style={{ position: 'relative', display: 'flex' }}>
+                <button type="button" aria-disabled="true" onClick={() => setTip((t) => !t)} style={{ ...moveLink, flex: 1, border: 0, opacity: 0.45, cursor: 'not-allowed' }}>SET LINEUP</button>
+                {tip && (
+                  <span role="tooltip" style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 5, whiteSpace: 'nowrap', padding: '8px 10px', borderRadius: 4, background: 'var(--ink)', color: 'var(--bg-100)', font: '600 12.5px/1.2 var(--font-body)', boxShadow: '0 4px 12px rgba(0,0,0,.25)' }}>
+                    <span aria-hidden style={{ position: 'absolute', top: -5, left: 18, width: 10, height: 10, background: 'var(--ink)', transform: 'rotate(45deg)' }} />
+                    {money(overCap)} over the ${data.cap.toLocaleString('en-US')} cap.
+                  </span>
+                )}
+              </span>
+            )
             : <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>}
           <Link href="/team/moves/" style={moveLink}>MANAGE ROSTER</Link>
-          {overCap > 0 && (
-            <p role="alert" style={{ gridColumn: '1 / -1', margin: 0, padding: '8px 10px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '600 12.5px/1.4 var(--font-body)', color: 'var(--ink)' }}>
-              {money(overCap)} over the ${data.cap.toLocaleString('en-US')} cap.
-            </p>
-          )}
           <Link href="/team/trades/" style={{ ...moveLink, gridColumn: '1 / -1', height: 36, background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)' }}>TRADE OFFERS</Link>
         </div>
       )}
