@@ -124,7 +124,8 @@ plan (no API key or per-call cost), not by the relay. Each Tuesday it:
 5. saves it with `POST /recap/save?week=N`, which needs
    `Authorization: Bearer <RECAP_KEY>`. The relay checks it again, keeps it
    (replacing an earlier one), and stores its ledger changes as
-   `ledgerAi:<season>:<week>` for later weeks' storylines.
+   `ledgerAi:<season>:<week>` for later weeks' storylines. The next alert run
+   (from 14:00 UTC Tuesday) pushes it to every owner with recap alerts on.
 
 The voice is `RECAP_TONE`: `roast` (the default), `playful`, `straight`, or
 any description of a voice. Change it with the GitHub variable
@@ -194,7 +195,9 @@ refused. Commissioner actions are out of scope.
   when a starter in it is out (or the lineup is short or has a bye), a
   starter newly ruled Out/Doubtful/IR, a starter on his team's game-day
   inactives (from ESPN's game roster, looked for in the 85 minutes before his
-  kickoff), waiver results, the Tuesday recap, a stat correction that moved a
+  kickoff), waiver results, the Tuesday recap (the saved written recap's
+  headline and its line on their game, opening the Recap tab; the plain
+  result and bench recap instead if none is saved by 19:00 UTC), a stat correction that moved a
   score in their game (found by the history re-reads), and a notice when
   their MFL login expires. League-wide reads are shared across
   owners in a run; pending claims are read with each owner's own login. The

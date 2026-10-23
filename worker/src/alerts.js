@@ -9,7 +9,9 @@
  * - inactive: a starter is on his team's game-day inactives list, which
  *   comes out about 90 minutes before kickoff.
  * - waivers: blind bids you had pending were processed: won or lost.
- * - recap: Tuesday, last week's result, the high score and the biggest bench mistake.
+ * - recap: Tuesday, the league's AI recap (its headline and the line on your
+ *   game); if none is saved by mid-afternoon, last week's result, the high
+ *   score and the biggest bench mistake.
  * - correction: MFL changed a played week's score (a stat correction) in your
  *   game, with whether it changed the result.
  * - trade: a trade offer you sent was accepted, countered, declined or expired.
@@ -239,6 +241,34 @@ export function recapAlert({ week, results, franchiseId, franchises, players }) 
     parts.push('No points left on your bench');
   }
   return { key: `recap:${week}`, title: `Week ${week} recap`, body: `${parts.join('. ')}.`, url: '/matchups/' };
+}
+
+/** The longest a recap push body runs, in characters. */
+const RECAP_BODY_MAX = 180;
+
+/**
+ * The push for the league's written recap (relay /recap/save): the headline,
+ * then a new line with the recap's take on this team's game, cut at a sentence end to fit a
+ * notification. Falls back to the intro when the team has no game.
+ */
+export function writtenRecapAlert({ week, recap, teamName }) {
+  if (!recap?.headline) return null;
+  const me = String(teamName ?? '').trim();
+  const game = (recap.matchups ?? []).find((m) => String(m.winner).trim() === me || String(m.loser).trim() === me);
+  const text = String(game?.text || recap.intro || '').trim();
+  let body = text;
+  if (body.length > RECAP_BODY_MAX) {
+    // Sentence ends: . ! or ? then a space and a capital (not 103.9).
+    const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
+    body = '';
+    for (const s of sentences) {
+      const next = body ? `${body} ${s}` : s;
+      if (next.length > RECAP_BODY_MAX) break;
+      body = next;
+    }
+    body = body || `${text.slice(0, RECAP_BODY_MAX - 1).trimEnd()}…`;
+  }
+  return { key: `recap:${week}`, title: `Week ${week} recap`, body: body ? `${recap.headline}\n${body}` : recap.headline, url: `/league/recap/?week=${week}` };
 }
 
 /** Score changes smaller than this are float noise, not corrections. */

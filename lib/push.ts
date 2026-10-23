@@ -19,7 +19,7 @@ export const ALERTS = [
   { key: 'waivers', label: 'Waiver results', sub: 'Who you won and lost when claims run' },
   { key: 'trade', label: 'Trade replies', sub: 'A trade you sent is accepted, countered, declined or expires' },
   { key: 'offer', label: 'Trade offers', sub: 'Another owner sends you a trade offer' },
-  { key: 'recap', label: 'Weekly recap', sub: 'Tuesday: your result, the high score, your bench' },
+  { key: 'recap', label: 'Weekly recap', sub: 'Tuesday: the league recap’s headline and its take on your game' },
   { key: 'correction', label: 'Stat corrections', sub: 'MFL changes a score in your game after the week, and whether it flips the result' },
   { key: 'login', label: 'MFL login expired', sub: 'When your MFL login stops working and you need to sign in again' },
 ] as const;

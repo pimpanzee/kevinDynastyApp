@@ -23,7 +23,7 @@ import { buildFacts, parsePlayers, readMoves } from './facts.js';
 import { HistoryStore } from './history.js';
 import { applyChanges, ledgerForWriter, stepLedger } from './storylines.js';
 import { instructions, problems, RECAP_SCHEMA, recentJokesFrom } from './writer.js';
-import { bbidAdds, completedTrades, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, tradeAlerts, waiverAlert } from './alerts.js';
+import { bbidAdds, completedTrades, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, tradeAlerts, waiverAlert, writtenRecapAlert } from './alerts.js';
 import { fetchInactives, fetchScoreboard, MFL_TO_ESPN } from './plays.js';
 import { newVapidKeys, sendPush } from './webpush.js';
 
@@ -1281,13 +1281,21 @@ export class WriteRelay {
         }
       });
 
-      // Tuesday recap, from mid-morning Eastern.
+      // Tuesday recap, from mid-morning Eastern: the written recap once it's
+      // saved, or the plain one if none is saved by mid-afternoon.
       await step(`${fid} recap`, async () => {
         const d = new Date(now);
         if (d.getUTCDay() !== 2 || d.getUTCHours() < 14 || !week) return;
         const times = Object.values(kickoffs);
         const recapWeek = times.length && times.every((t) => t < now) ? week : week - 1;
         if (recapWeek < 1 || done.has(`recap:${recapWeek}`)) return;
+        const written = this.getState(`recap:${Number(this.env.MFL_SEASON)}:${recapWeek}`);
+        if (written) {
+          const a = writtenRecapAlert({ week: recapWeek, recap: written.recap, teamName: info.franchises[fid] });
+          if (a && (await this.notify(fid, 'recap', a))) sent.push(prefix + a.key);
+          return;
+        }
+        if (d.getUTCHours() < 19) return;
         const results = await shared(`${league}&TYPE=weeklyResults&W=${recapWeek}`);
         const mine = list(results.weeklyResults?.matchup).flatMap((m) => list(m.franchise)).find((f) => f.id === fid);
         const players = await names(list(mine?.player).map((p) => p.id));
