@@ -9,6 +9,7 @@ import { getNflSchedule, lastCompletedWeek } from '@/lib/mfl/schedule';
 import { mflScores } from '@/lib/players';
 import { scorePoints, type Stats } from '@/lib/scoring';
 import { getSeasonTotals } from '@/lib/seasonTotals';
+import { getPpgEstimator } from '@/lib/ppgEstimate';
 import { getMarketPricer } from '@/lib/team';
 import { getScoringRules, getSleeperIds, getSleeperTable } from '@/lib/stats/sleeper';
 import type { PlayerCardData, PlayerCardWeek } from '@/lib/types';
@@ -74,14 +75,14 @@ async function loadContext() {
     weeks.set(week, { stats, points, ranks: positionRanks(points, positionOf), proj });
   }
   // Season to date from the finished weeks, so a simulated clock never sees the future.
-  const [{ totals }, priceFor] = await Promise.all([getSeasonTotals(), getMarketPricer()]);
+  const [{ totals }, priceFor, estimate] = await Promise.all([getSeasonTotals(), getMarketPricer(), getPpgEstimator()]);
   const ytd = new Map([...totals].map(([id, t]) => [id, t.pts]));
   const ovr = new Map([...ytd].filter(([id]) => POSITIONS.has(positionOf(id) ?? '')).sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i + 1]));
 
   const held = new Map<string, { franchiseId: string; slot: RosterSlot }>();
   for (const [franchiseId, list] of rosters) for (const slot of list) held.set(slot.playerId, { franchiseId, slot });
 
-  return { now, league, players, details, injuries, byes, nfl, sleeperIds, weeks, ytd, totals, ovr, rules, priceFor, ytdRanks: positionRanks(ytd, positionOf), held };
+  return { now, league, players, details, injuries, byes, nfl, sleeperIds, weeks, ytd, totals, ovr, rules, priceFor, estimate, ytdRanks: positionRanks(ytd, positionOf), held };
 }
 
 let context: ReturnType<typeof loadContext> | null = null;
@@ -150,8 +151,8 @@ export async function getPlayerCard(id: string): Promise<PlayerCardData | null> 
       rank: ctx.ytdRanks.get(id) ?? null,
       ovrRank: ctx.ovr.get(id) ?? null,
     },
-    market: !held && ctx.totals.get(id)?.gp
-      ? ctx.priceFor(p.position, ctx.totals.get(id)!.pts / ctx.totals.get(id)!.gp) ?? undefined
+    market: !held && ctx.totals.get(id)?.gp && ctx.estimate(id) !== null
+      ? ctx.priceFor(p.position, ctx.estimate(id)!) ?? undefined
       : undefined,
     log,
   };

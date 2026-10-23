@@ -5,7 +5,8 @@ import { isRookieContract } from '@/lib/rookieScale';
  * production costs on this league's own market, minus what he's paid.
  *
  * League-wide, once per build: rank rostered players within their position
- * by PPG; a rank's market price is the median salary of the players ranked
+ * by PPG (blended with projections, lib/ppgEstimate.ts); a rank's market
+ * price is the median salary of the players ranked
  * within ±3 of it (±5 when that band has fewer than 4 salaries), counting
  * only contracts that were bid on — rookie-draft deals, minimum salaries
  * and the taxi squad are scored against the market but never set it.

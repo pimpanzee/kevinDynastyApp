@@ -9,6 +9,7 @@ import { getPlayers, lookup } from '@/lib/mfl/players';
 import { getRosters, getSalaryAdjustments } from '@/lib/mfl/rosters';
 import { computeStandings, sortDivision } from '@/lib/mfl/standings';
 import { rookieSalary, slotLabel } from '@/lib/rookieScale';
+import { getPpgEstimator } from '@/lib/ppgEstimate';
 import { getSeasonTotals } from '@/lib/seasonTotals';
 import type { TeamPick, TeamPlayer, TeamsData, TeamView } from '@/lib/types';
 
@@ -38,15 +39,15 @@ interface RawPicks {
 interface RawPick { year?: string; round?: string; originalPickFor?: string }
 
 async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number) => number | null }> {
-  const [league, players, rosters, adjustments, injuries, byes, { done, totals }, picksBody] = await Promise.all([
-    getLeague(), getPlayers(), getRosters(SEASON), getSalaryAdjustments(), getInjuries(), getByeWeeks(), getSeasonTotals(),
+  const [league, players, rosters, adjustments, injuries, byes, { done, totals }, estimate, picksBody] = await Promise.all([
+    getLeague(), getPlayers(), getRosters(SEASON), getSalaryAdjustments(), getInjuries(), getByeWeeks(), getSeasonTotals(), getPpgEstimator(),
     mflGet<RawPicks>('futureDraftPicks', { ttl: TTL.ROSTERS, cacheKey: `futureDraftPicks:${SEASON}` }),
   ]);
   const standings = await computeStandings(done, league);
   const season = Number(SEASON);
   const minSalary = 5;
 
-  // Contract value, league-wide.
+  // Contract value, league-wide, on PPG blended with projections (lib/ppgEstimate.ts).
   const all = [...rosters.entries()].flatMap(([, slots]) => slots.map((s) => {
     const p = lookup(players, s.playerId);
     const t = totals.get(s.playerId);
@@ -54,7 +55,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
       slot: s, p, t,
       input: {
         id: s.playerId, pos: p.position, salary: s.salary, years: s.contractYear, contractStatus: s.contractStatus,
-        taxi: s.status === 'TAXI_SQUAD', ppg: t && t.gp > 0 ? t.pts / t.gp : null,
+        taxi: s.status === 'TAXI_SQUAD', ppg: t && t.gp > 0 ? estimate(s.playerId) : null,
       },
     };
   })).filter((x) => POSITIONS.includes(x.p.position));

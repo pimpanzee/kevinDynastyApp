@@ -215,10 +215,11 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 - Position — MFL players.
 
 **Calculation**, rebuilt once per data refresh, league-wide:
-1. For every rostered player compute PPG (YTD pts ÷ games played).
-   - Early season (fewer than 4 games played league-wide), blend toward last season's PPG,
-     weighted by games played: `ppg = (gp·ytdPPG + (4−gp)·lastPPG) / 4`. Rookies with no prior
-     season use their projection instead.
+1. For every rostered player compute PPG, blended with a projection (`lib/ppgEstimate.ts`):
+   `ppg = (YTD pts + k·projPPG) / (gp + k)`, with k = 5 QB, 6 RB, 7 WR, 8 TE prior games.
+   projPPG = Sleeper's weekly projections scored with league rules, averaged over the next 3
+   weeks he's projected to play (else the last 3 finished weeks). No projection → plain YTD PPG.
+   Free agents' MARKET price on the player card uses the same blended PPG.
 2. Rank players within each position by PPG → positional rank (QB1, RB6, WR33…).
 3. **Market price** for a rank = median salary of rostered players at that position whose PPG rank
    falls within a band around it (±3 ranks, i.e. a 7-player window; widen to ±5 when the band has
