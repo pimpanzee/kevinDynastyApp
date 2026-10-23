@@ -1,6 +1,6 @@
 import { barWidth, fmtScore, formatClock, scoreBar, shareLeft, winPct } from '@/lib/format';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, SideView, WeekView } from '@/lib/types';
-import { scoreBreakdown, statLine, trimStats, type Stats } from '@/lib/scoring';
+import { rebaseBreakdown, scoreBreakdown, statLine, trimStats, type Stats } from '@/lib/scoring';
 
 /**
  * Live-score overlay. Pages are prebuilt, so during games the browser polls
@@ -135,7 +135,9 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
     // Once his game starts, his projection is what he has plus the pre-game
     // projection's share of the game still to play.
     const projNow = secs >= GAME_SECONDS ? undefined : fmtScore(pts + projValue(p.proj) * Math.min(1, secs / GAME_SECONDS));
-    return { ...p, pts: fmtScore(pts), ptsExact: pts, line, projNow };
+    // The built breakdown adds up to the build's score; point it at this one.
+    const breakdown = p.breakdown && rebaseBreakdown(p.breakdown, pts);
+    return { ...p, pts: fmtScore(pts), ptsExact: pts, line, projNow, breakdown };
   };
   const patchRows = (rows: BoxRowView[]) => rows.map((r) => ({ ...r, home: patch(r.home), away: patch(r.away) }));
 
