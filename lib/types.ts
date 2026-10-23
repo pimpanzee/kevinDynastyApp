@@ -378,10 +378,10 @@ export interface TeamPlayer {
   market: number | null;
   /** Per-season surplus: market − salary. */
   value: number | null;
-  /** The better of keeping (later years discounted) and cutting (−dead cap). */
+  /** Keeping him over the years left, later years discounted. */
   contractValue: number | null;
-  /** Cutting him beats keeping him (the Cap tab's worst list says so). */
-  cut: boolean;
+  /** What cutting him would save over keeping him ($25+), else null. */
+  cutSaves: number | null;
 }
 
 export interface TeamPick {

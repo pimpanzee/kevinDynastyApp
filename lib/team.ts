@@ -110,7 +110,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
         injury: injuries.get(slot.playerId), rank: v?.rank ?? null, gp: t?.gp ?? 0, pts: t?.pts ?? 0,
         ppg: t && t.gp > 0 ? round2(t.pts / t.gp) : null, salary: slot.salary, years: Math.max(1, slot.contractYear),
         status: slot.contractStatus.trim(), slot: slot.status === 'TAXI_SQUAD' ? 'TAXI' : slot.status === 'INJURED_RESERVE' ? 'IR' : 'ACTIVE',
-        market: v?.market ?? null, value: v?.value ?? null, contractValue: v?.contractValue ?? null, cut: v?.cut ?? false,
+        market: v?.market ?? null, value: v?.value ?? null, contractValue: v?.contractValue ?? null, cutSaves: v?.cutSaves ?? null,
       };
     }).sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || (a.rank ?? 999) - (b.rank ?? 999) || b.salary - a.salary);
 

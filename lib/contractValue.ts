@@ -21,9 +21,10 @@ import { isRookieContract } from '@/lib/rookieScale';
  *    at the position (blended PPG, 2+ games, not IR / out / doubtful).
  *    Points above it are worth BENCH_STARTS fill-in starts a season at the
  *    position's own price per point. Market = the higher of the two prices.
- * VALUE = market − salary per season. Contract value is the better of:
- *  - keep: Σ over years left of (market − salary × 1.1^k), each later year
- *    discounted DISCOUNT a year (injury, turnover, uncertainty), or
+ * VALUE = market − salary per season. Contract value is what keeping him is
+ * worth: Σ over years left of (market − salary × 1.1^k), each later year
+ * discounted DISCOUNT a year (injury, turnover, uncertainty). It's set
+ * against cutting him, to flag when that would save money:
  *  - cut: the dead cap (lib/cap.ts), half this season and half next for a
  *    multi-year deal cut in season, plus the production lost for the rest
  *    of this season: until the May auction, only a waiver-level player
@@ -50,14 +51,15 @@ export interface ValueResult {
   market: number | null;
   /** Market − salary, per season. */
   value: number | null;
-  /** max(keep, cut): keep = Σ over years left of (market − salary × 1.1^k) / 1.2^k; cut = −dead cap. */
+  /** Keeping him: Σ over years left of (market − salary × 1.1^k) / 1.2^k. */
   contractValue: number | null;
   /**
-   * True when cutting him beats keeping him by more than the fair band.
-   * Never for rookie deals (their value is growth this model can't see yet)
-   * or hurt players (their PPG may not show what they are).
+   * What cutting him would save over keeping him, when that's more than the
+   * fair band; otherwise null. Never for rookie deals (their value is growth
+   * this model can't see yet) or hurt players (their PPG may not show what
+   * they are).
    */
-  cut: boolean;
+  cutSaves: number | null;
 }
 
 /** The starting lineup: total starters and each position's min–max. */
@@ -174,14 +176,14 @@ export function ratePerPar(curve: PriceCurve, minSalary: number): number {
   return par > 0 ? dollars / par : 0;
 }
 
-/** Contract value and whether cutting beats keeping (see the header). */
-export function contractTotal(market: number, salary: number, years: number, lostIfCut: number): { total: number; cut: boolean } {
+/** Keeping him, and what cutting him would save over that (see the header). */
+export function contractTotal(market: number, salary: number, years: number, lostIfCut: number): { keep: number; cutSaves: number } {
   const n = Math.max(years, 1);
   let keep = 0;
   for (let k = 0; k < n; k++) keep += (market - salary * 1.1 ** k) / (1 + DISCOUNT) ** k;
   const dead = deadCap(salary, n);
   const cut = (n > 1 ? -(dead / 2 + dead / 2 / (1 + DISCOUNT)) : -dead) - lostIfCut;
-  return { total: Math.max(keep, cut), cut: cut > keep + FAIR_BAND };
+  return { keep, cutSaves: cut - keep };
 }
 
 /**
@@ -249,14 +251,15 @@ export function buildMarket(
       const rank = rankOf.get(p.id) ?? null;
       const price = p.ppg === null ? null : marketFor(p.pos, p.ppg);
       if (price === null) {
-        out.set(p.id, { rank, market: null, value: null, contractValue: null, cut: false });
+        out.set(p.id, { rank, market: null, value: null, contractValue: null, cutSaves: null });
         continue;
       }
       const m = Math.round(price);
       // Cut mid-season, the only stand-in is a waiver-level player (worth the
       // minimum) until the May auction can buy his production back.
-      const { total, cut } = contractTotal(m, p.salary, p.years, Math.max(0, m - minSalary) * seasonLeft);
-      out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: total, cut: cut && !p.hurt && !isRookieContract(p.contractStatus) });
+      const { keep, cutSaves } = contractTotal(m, p.salary, p.years, Math.max(0, m - minSalary) * seasonLeft);
+      const flag = cutSaves >= FAIR_BAND && !p.hurt && !isRookieContract(p.contractStatus);
+      out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: keep, cutSaves: flag ? cutSaves : null });
     }
   }
   const priceFor = (pos: string, ppg: number) => {

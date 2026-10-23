@@ -240,12 +240,13 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
      point; market = the higher of that and the starter price.
    - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
-5. **Contract value** = the better of keeping and cutting (step 2, 2026-10-23):
-   - Keep = Σ over years left of (market − salary × 1.1^k), each later year discounted 20% a year.
+5. **Contract value** = what keeping him is worth (step 2, 2026-10-23): Σ over years left of
+   (market − salary × 1.1^k), each later year discounted 20% a year. It's set against cutting him:
    - Cut = −dead cap (salary × years × 30%, half this season and half next for a multi-year deal), minus
      the production lost for the rest of this season (market − $5) × share of the season left: until the
      May auction only a waiver-level player can replace him.
-   - When cutting wins by $25+, the Cap tab's rows show an orange `CUT` tag after the name. Never on
+   - When cutting saves $25+, the Cap tab's rows show an orange `CUT SAVES $158` tag after the name
+     (the total still shows keeping him: he isn't cut). Never on
      rookie-draft deals (their value is growth the model can't see yet) or IR / out / doubtful players.
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):

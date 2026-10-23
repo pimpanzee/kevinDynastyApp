@@ -36,9 +36,9 @@ export default function CapTab({ data, team }: { data: TeamsData; team: TeamView
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <span style={{ font: '600 14px/1.25 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
-          {/* Cutting beats keeping: the total shown is the cut's cost (dead cap + lost production). */}
-          {p.cut && p.contractValue !== null && p.contractValue < 0 && (
-            <span title={`Cutting beats keeping: ${money(deadCap(p.salary, p.years))} dead cap`} style={{ flex: 'none', padding: '2px 4px', borderRadius: 2, border: '1px solid var(--fall)', color: 'var(--fall)', font: DISPLAY(9), letterSpacing: '.08em' }}>CUT</span>
+          {/* Cutting would save money (dead cap + production lost vs keeping him). */}
+          {p.cutSaves !== null && (
+            <span title={`Cutting him (${money(deadCap(p.salary, p.years))} dead cap) beats keeping him`} style={{ flex: 'none', padding: '2px 4px', borderRadius: 2, border: '1px solid var(--fall)', color: 'var(--fall)', font: DISPLAY(9), letterSpacing: '.08em' }}>CUT SAVES ${Math.round(p.cutSaves).toLocaleString('en-US')}</span>
           )}
         </div>
         <div style={{ font: '500 12px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</div>
