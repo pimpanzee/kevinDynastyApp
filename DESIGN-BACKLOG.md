@@ -216,9 +216,11 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
 
 **Calculation**, rebuilt once per data refresh, league-wide:
 1. For every rostered player compute PPG, blended with a projection (`lib/ppgEstimate.ts`):
-   `ppg = (YTD pts + k·projPPG) / (gp + k)`, with k = 5 QB, 6 RB, 7 WR, 8 TE prior games.
-   projPPG = Sleeper's weekly projections scored with league rules, averaged over the next 3
-   weeks he's projected to play (else the last 3 finished weeks). No projection → plain YTD PPG.
+   `ppg = (YTD pts − best game + k·projPPG) / (gp − 1 + k)` (best game left out from 4 games), with
+   k = 5 QB, 10 RB, 11 WR, 16 TE prior games — tuned by backtest on 2021–2025 (rest-of-season PPG after
+   weeks 2–12; average miss 18–22% lower than plain PPG, and held out-of-sample on 2024–25).
+   projPPG = Sleeper's projection for the next week he's projected to play (up to 3 out), scored with
+   league rules (else the last 3 finished weeks). No projection → plain YTD PPG.
    Free agents' MARKET price on the player card uses the same blended PPG.
 2. Rank players within each position by PPG → positional rank (QB1, RB6, WR33…), shown on the Cap tab.
 3. **Market price** (`lib/contractValue.ts`, built 2026-10-23; replaced the ±3/±5 rank bands, which jumped
@@ -242,8 +244,9 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
 5. **Contract value** = what keeping him is worth (step 2, 2026-10-23): Σ over years left of
    (market_k − salary × 1.1^k), each later year discounted 20% a year. market_k prices the PPG his
-   position's aging curve expects that year (`lib/aging.ts`, step 4: e.g. RBs −10% at 27, −15% at 28;
-   WRs +5% at 24, −10% at 30; QBs flat to 32; ages from MFL birthdates). It's set against cutting him:
+   position's aging curve expects that year (`lib/aging.ts`, measured on 2010–2025 seasons incl. missed
+   games: e.g. RBs −9% at 27, −15% at 28, −20% after; WRs −7% at 28, −15% at 30; QBs flat to 32;
+   TEs roughly flat to 29; ages from MFL birthdates). It's set against cutting him:
    - Cut = −dead cap (salary × years × 30%, half this season and half next for a multi-year deal), minus
      the production lost for the rest of this season (market − $5) × share of the season left: until the
      May auction only a waiver-level player can replace him.
