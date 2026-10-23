@@ -56,6 +56,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
       input: {
         id: s.playerId, pos: p.position, salary: s.salary, years: s.contractYear, contractStatus: s.contractStatus,
         taxi: s.status === 'TAXI_SQUAD', ppg: t && t.gp > 0 ? estimate(s.playerId) : null,
+        hurt: ['IR', 'O', 'D'].includes(injuries.get(s.playerId) ?? ''),
       },
     };
   })).filter((x) => POSITIONS.includes(x.p.position));
@@ -65,7 +66,17 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
     const pos = players.get(id)?.position;
     return ppg !== null && pos && POSITIONS.includes(pos) ? [{ pos, ppg }] : [];
   });
-  const market = buildMarket(all.map((x) => x.input), pool, league.lineup, league.franchises.length, minSalary);
+  // Waiver level: healthy free agents with 2+ games (one big game shouldn't
+  // set it, and a player on IR, out or doubtful can't fill in).
+  const owned = new Set([...rosters.values()].flat().map((s) => s.playerId));
+  const hurt = (id: string) => ['IR', 'O', 'D'].includes(injuries.get(id) ?? '');
+  const waivers = [...totals].flatMap(([id, t]) => {
+    const ppg = t.gp >= 2 && !owned.has(id) && !hurt(id) ? estimate(id) : null;
+    const pos = players.get(id)?.position;
+    return ppg !== null && pos && POSITIONS.includes(pos) ? [{ pos, ppg }] : [];
+  });
+  const seasonLeft = Math.max(0, Math.min(1, (league.endWeek - done) / league.endWeek));
+  const market = buildMarket(all.map((x) => x.input), pool, waivers, league.lineup, league.franchises.length, minSalary, seasonLeft);
   const values = market.values;
 
   // Projected draft order from the current standings: worst record picks first.
@@ -99,7 +110,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
         injury: injuries.get(slot.playerId), rank: v?.rank ?? null, gp: t?.gp ?? 0, pts: t?.pts ?? 0,
         ppg: t && t.gp > 0 ? round2(t.pts / t.gp) : null, salary: slot.salary, years: Math.max(1, slot.contractYear),
         status: slot.contractStatus.trim(), slot: slot.status === 'TAXI_SQUAD' ? 'TAXI' : slot.status === 'INJURED_RESERVE' ? 'IR' : 'ACTIVE',
-        market: v?.market ?? null, value: v?.value ?? null, contractValue: v?.contractValue ?? null,
+        market: v?.market ?? null, value: v?.value ?? null, contractValue: v?.contractValue ?? null, cut: v?.cut ?? false,
       };
     }).sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || (a.rank ?? 999) - (b.rank ?? 999) || b.salary - a.salary);
 

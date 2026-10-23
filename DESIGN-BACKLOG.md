@@ -234,10 +234,19 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
      a salary someone really paid. Under 8 such contracts at a position → all positions pooled.
    - PAR ≤ 0 → the $5 minimum.
 4. **VALUE (per season)** = market price − salary.
+   - **Bench value** (step 2, 2026-10-23): a player below starter level still beats the waiver wire. Waiver
+     level = average blended PPG of the best 3 healthy free agents at the position (2+ games; IR, out and
+     doubtful excluded). Points above it are worth 4 fill-in starts a season at the position's own price per
+     point; market = the higher of that and the starter price.
    - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
-5. **Contract value** = sum over the years left of (market price − that year's cap hit), where the cap
-   hit rises 10% a year (`salary × 1.1^k` for k = 0…years left − 1). Used for the Cap tab lists.
+5. **Contract value** = the better of keeping and cutting (step 2, 2026-10-23):
+   - Keep = Σ over years left of (market − salary × 1.1^k), each later year discounted 20% a year.
+   - Cut = −dead cap (salary × years × 30%, half this season and half next for a multi-year deal), minus
+     the production lost for the rest of this season (market − $5) × share of the season left: until the
+     May auction only a waiver-level player can replace him.
+   - When cutting wins by $25+, the Cap tab's rows show an orange `CUT` tag after the name. Never on
+     rookie-draft deals (their value is growth the model can't see yet) or IR / out / doubtful players.
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"

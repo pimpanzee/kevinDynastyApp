@@ -2,6 +2,7 @@
 
 import { usePlayerCard } from '@/components/PlayerCard';
 import { posColor } from '@/components/pos';
+import { deadCap } from '@/lib/cap';
 import type { TeamPlayer, TeamsData, TeamView } from '@/lib/types';
 import SectionHead from './SectionHead';
 import { DISPLAY, money, signedDollars } from './format';
@@ -33,7 +34,13 @@ export default function CapTab({ data, team }: { data: TeamsData; team: TeamView
     <button key={p.id} type="button" onClick={() => card?.open(p.id)} style={{ display: 'grid', gridTemplateColumns: '30px 1fr auto 16px', alignItems: 'center', gap: 10, height: 46, width: '100%', padding: '0 16px', border: 0, borderBottom: '1px solid var(--line)', background: 'none', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 20, borderRadius: 2, background: posColor(p.pos), color: 'var(--on-volt)', font: DISPLAY(10), letterSpacing: '.08em' }}>{p.pos}</span>
       <div style={{ minWidth: 0 }}>
-        <div style={{ font: '600 14px/1.25 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span style={{ font: '600 14px/1.25 var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+          {/* Cutting beats keeping: the total shown is the cut's cost (dead cap + lost production). */}
+          {p.cut && p.contractValue !== null && p.contractValue < 0 && (
+            <span title={`Cutting beats keeping: ${money(deadCap(p.salary, p.years))} dead cap`} style={{ flex: 'none', padding: '2px 4px', borderRadius: 2, border: '1px solid var(--fall)', color: 'var(--fall)', font: DISPLAY(9), letterSpacing: '.08em' }}>CUT</span>
+          )}
+        </div>
         <div style={{ font: '500 12px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</div>
       </div>
       <span style={{ font: DISPLAY(16), fontVariantNumeric: 'tabular-nums', color: tone }}>{right}</span>
