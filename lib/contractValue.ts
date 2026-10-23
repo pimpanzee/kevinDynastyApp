@@ -1,5 +1,6 @@
 import { ppgPath } from '@/lib/aging';
 import { deadCap } from '@/lib/cap';
+import type { ContractKind } from '@/lib/contractKinds';
 import { isRookieContract } from '@/lib/rookieScale';
 
 /**
@@ -26,7 +27,10 @@ import { isRookieContract } from '@/lib/rookieScale';
  * worth: Σ over years left of (market_k − salary × 1.1^k), each later year
  * discounted DISCOUNT a year (injury, turnover, uncertainty). market_k
  * prices the PPG he's expected to score that year by his position's aging
- * curve (lib/aging.ts). It's set
+ * curve (lib/aging.ts). Rookie deals add their team options (see below);
+ * a waiver pickup's deal is one year, never extended. Only auction deals
+ * (at their winning bid, before raises) and ones we can't place set the
+ * price curve (lib/contractKinds.ts). It's set
  * against cutting him, to flag when that would save money:
  *  - cut: the dead cap (lib/cap.ts), half this season and half next for a
  *    multi-year deal cut in season, plus the production lost for the rest
@@ -47,6 +51,12 @@ export interface ValueInput {
   hurt?: boolean;
   /** Age in years today; none → no aging. */
   age?: number;
+  /** Where the contract came from (lib/contractKinds.ts); none → read from contractStatus. */
+  kind?: ContractKind;
+  /** Auction deals: the winning bid, the base value before raises. */
+  bid?: number;
+  /** Rookie deals: the year he was drafted, for which team option applies. */
+  draftYear?: number;
 }
 
 export interface ValueResult {
@@ -219,8 +229,10 @@ export function buildMarket(
   // auctions (the league pays QBs far more per point than TEs); a position
   // with too few falls back to all positions together.
   const bids = players
-    .filter((p) => p.ppg !== null && !p.taxi && !isRookieContract(p.contractStatus) && p.salary > minSalary)
-    .map((p) => ({ pos: p.pos, par: parOf(p.pos, p.ppg!), salary: p.salary }));
+    .filter((p) => p.ppg !== null && !p.taxi && setsPrice(p) && p.salary > minSalary)
+    // An auction deal's price is its winning bid: today's salary carries
+    // years of 10% raises a new contract wouldn't.
+    .map((p) => ({ pos: p.pos, par: parOf(p.pos, p.ppg!), salary: p.bid ?? p.salary }));
   const pooled = fitCurve(bids, minSalary);
   const curves = new Map<string, PriceCurve | null>();
   for (const pos of replacement.keys()) {
@@ -243,6 +255,14 @@ export function buildMarket(
     return Math.max(starter, bench);
   };
 
+  // 2024+ first-rounders' 5th-year option costs the average of the top 10
+  // salaries at the position.
+  const topTen = new Map<string, number>();
+  for (const pos of replacement.keys()) {
+    const sal = players.filter((p) => p.pos === pos).map((p) => p.salary).sort((a, b) => b - a).slice(0, 10);
+    if (sal.length) topTen.set(pos, sal.reduce((a, b) => a + b, 0) / sal.length);
+  }
+
   const out = new Map<string, ValueResult>();
   const byPos = new Map<string, ValueInput[]>();
   for (const p of players) {
@@ -262,11 +282,38 @@ export function buildMarket(
       const m = Math.round(price);
       // Cut mid-season, the only stand-in is a waiver-level player (worth the
       // minimum) until the May auction can buy his production back.
+      const kind = kindOf(p);
+      // A waiver pickup's deal is one year and can never be extended.
+      const years = kind === 'waiver' ? 1 : Math.max(p.years, 1);
+      // Team options after the deal (league rules, Article 4.2.2), each taken
+      // only when he's worth more than it costs:
+      // - 2024+ draftees in the first half of a 2+2 deal ("R.0"): the +2
+      //   years at the usual 10% raises;
+      // - first-rounders: a 5th year at the position's top-10 average salary
+      //   (2024+ draftees) or a 4th year at +10% (2022–23 draftees).
+      const options: number[][] = [];
+      if (kind === 'rookie') {
+        const late = (p.draftYear ?? 0) >= 2024;
+        const firstHalf = /^\d\.0$/.test(p.contractStatus.trim());
+        if (late && firstHalf) options.push([years, years + 1].map((k) => p.salary * 1.1 ** k));
+        const after = years + options.flat().length;
+        if (roundOf(p.contractStatus) === 1) {
+          const price = late ? topTen.get(p.pos) : p.salary * 1.1 ** after;
+          if (price !== undefined) options.push([price]);
+        }
+      }
       // Later years price the PPG his aging curve expects then.
-      const markets = ppgPath(p.pos, p.ppg!, p.age, Math.max(p.years, 1))
+      const markets = ppgPath(p.pos, p.ppg!, p.age, years + options.flat().length)
         .map((ppg, k) => (k === 0 ? m : Math.round(marketFor(p.pos, ppg) ?? m)));
-      const { keep, cutSaves } = contractTotal(markets, p.salary, Math.max(0, m - minSalary) * seasonLeft);
-      const flag = cutSaves >= FAIR_BAND && !p.hurt && !isRookieContract(p.contractStatus);
+      const { keep: kept, cutSaves } = contractTotal(markets.slice(0, years), p.salary, Math.max(0, m - minSalary) * seasonLeft);
+      let keep = kept;
+      let k = years;
+      for (const prices of options) {
+        let block = 0;
+        for (const price of prices) { block += (markets[k] - price) / (1 + DISCOUNT) ** k; k++; }
+        keep += Math.max(0, block);
+      }
+      const flag = cutSaves >= FAIR_BAND && !p.hurt && kind !== 'rookie';
       out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: keep, cutSaves: flag ? cutSaves : null });
     }
   }
@@ -275,6 +322,21 @@ export function buildMarket(
     return price === null ? null : Math.round(price);
   };
   return { values: out, priceFor, replacement, waiver, curves };
+}
+
+function kindOf(p: ValueInput): ContractKind {
+  return p.kind ?? (isRookieContract(p.contractStatus) ? 'rookie' : 'other');
+}
+
+/** Only contracts someone bid on at auction (or that we can't place) set the price; rookie deals and 1-year waiver pickups don't. */
+function setsPrice(p: ValueInput): boolean {
+  const kind = kindOf(p);
+  return kind === 'auction' || kind === 'other';
+}
+
+function roundOf(contractStatus: string): number | null {
+  const m = contractStatus.trim().match(/^(\d)\.\d$|^Rd(\d)$/i);
+  return m ? Number(m[1] ?? m[2]) : null;
 }
 
 /** "+$150", "−$88", or "fair" inside the band. */

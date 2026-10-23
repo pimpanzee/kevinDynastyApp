@@ -1,4 +1,5 @@
 import { FRANCHISE_ID, SEASON } from '@/lib/config';
+import { getContractOrigins } from '@/lib/contractKinds';
 import { buildMarket } from '@/lib/contractValue';
 import { getByeWeeks } from '@/lib/mfl/byes';
 import { TTL } from '@/lib/mfl/cache';
@@ -49,6 +50,7 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
   const season = Number(SEASON);
   const minSalary = 5;
 
+  const origins = await getContractOrigins(rosters);
   const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
   const now = resolveNow().getTime();
   const ageOf = (birthdate?: number) => (birthdate ? (now - birthdate * 1000) / YEAR_MS : undefined);
@@ -64,6 +66,8 @@ async function load(): Promise<TeamsData & { priceFor: (pos: string, ppg: number
         taxi: s.status === 'TAXI_SQUAD', ppg: t && t.gp > 0 ? estimate(s.playerId) : null,
         hurt: ['IR', 'O', 'D'].includes(injuries.get(s.playerId) ?? ''),
         age: ageOf(details.get(s.playerId)?.birthdate),
+        kind: origins.get(s.playerId)?.kind, bid: origins.get(s.playerId)?.bid,
+        draftYear: details.get(s.playerId)?.draftYear,
       },
     };
   })).filter((x) => POSITIONS.includes(x.p.position));

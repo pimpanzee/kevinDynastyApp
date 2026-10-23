@@ -23,9 +23,10 @@ export function slotLabel(round: number, slot: number): string {
 
 /**
  * True when MFL marks the contract as a rookie-draft deal: contractStatus
- * holds the draft round as "1.0"–"4.0" (sometimes with a trailing space) or
- * "Rd1". "FT1" is a franchise tag; blank is an ordinary contract.
+ * holds the draft round as "1.0"–"4.0" (sometimes with a trailing space),
+ * "1.1"–"4.1" in the back half of a 2+2 deal, or "Rd1". "FT1" is a
+ * franchise tag; blank is an ordinary contract.
  */
 export function isRookieContract(contractStatus: string): boolean {
-  return /^(\d)\.0$|^Rd\d$/i.test(contractStatus.trim());
+  return /^(\d)\.\d$|^Rd\d$/i.test(contractStatus.trim());
 }

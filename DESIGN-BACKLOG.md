@@ -251,6 +251,18 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
      (the total still shows keeping him: he isn't cut). Never on
      rookie-draft deals (their value is growth the model can't see yet) or IR / out / doubtful players.
 
+6. **Contract types** (`lib/contractKinds.ts`, 2026-10-23), from MFL's auction results (2021 on) and this
+   season's transactions:
+   - **auction**: his latest auction win, when today's salary is that bid plus its 10% raises. These set the
+     price curve, at the winning bid (a new contract wouldn't carry the raises).
+   - **rookie**: contractStatus `R.0` / `R.1` (`R.1` = back half of a 2+2). Scored, never set the price.
+     Team options are added when he's worth more than they cost: 2024+ draftees in the first half (`R.0`)
+     get the +2 years at the usual raises; first-rounders get a 5th year at the position's top-10 average
+     salary (2024+) or a 4th year at +10% (2022–23).
+   - **waiver**: added in season (waivers or free agency) after his last auction win, 1 year left. One year,
+     never extended; doesn't set the price.
+   - **other** (tags, RFA, deals MFL has no auction record for): sets the price at today's salary.
+
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"
   are left out. Header right-hand label: OVER CONTRACT.
