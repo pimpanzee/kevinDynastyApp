@@ -265,6 +265,20 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
    - **waiver**: added in season (waivers or free agency) after his last auction win, 1 year left. One year,
      never extended; doesn't set the price.
    - **other** (tags, RFA, deals MFL has no auction record for): sets the price at today's salary.
+7. **Title equity** (`lib/mfl/playoffOdds.ts` `computeTitleEquity`, `lib/titleEquity.ts`, 2026-10-23): what
+   lineup points are worth this season, in odds and league money. The playoff-odds sim is replayed for each
+   team with its weekly expected score moved by −40…+40 points (same random seasons each time, 4,000 sims),
+   giving playoff odds, title odds and expected winnings ($640 / $320 / $120 for 1st–3rd, third place =
+   semifinal losers in the title week, plus $10 per regular-season win) at each step. A trade's change in
+   each team's best lineup (blended PPG, active players only, IR = 0) is read off that curve. Roughly
+   $10 of winnings per weekly point for a contender, near $0 for teams out of it.
+
+**Review trade — TRADE IMPACT** (under AFTER THE TRADE): header `TRADE IMPACT` with a `WIN NOW | REBUILD`
+switch (opens on WIN NOW when your playoff odds are 25%+, else REBUILD).
+- WIN NOW: You / them rows · `+2.9 pts/wk` under the name · PLAYOFFS / TITLE / WINNINGS, each the after
+  value with the change below (rise / fall colour). Footnote names the sims and payouts.
+- REBUILD: VALUE AFTER {season}: the change in contract value of the players' later years (TeamPlayer
+  `futureValue`, cap dollars). Picks aren't valued (footnote says so when picks are in the trade).
 
 **Cap tab — BEST CONTRACTS / WORST CONTRACTS** (between the cap bar and COMMITTED):
 - Up to 3 each from your roster, ranked by contract value. Players whose per-season VALUE is "fair"

@@ -68,6 +68,8 @@ export interface ValueResult {
   value: number | null;
   /** Keeping him: Σ over years left of (market_k − salary × 1.1^k) / 1.2^k, market_k aged. */
   contractValue: number | null;
+  /** The part of contractValue after this season (the trade screen's rebuild view). */
+  futureValue: number | null;
   /**
    * What cutting him would save over keeping him, when that's more than the
    * fair band; otherwise null. Never for rookie deals (their value is growth
@@ -276,7 +278,7 @@ export function buildMarket(
       const rank = rankOf.get(p.id) ?? null;
       const price = p.ppg === null ? null : marketFor(p.pos, p.ppg);
       if (price === null) {
-        out.set(p.id, { rank, market: null, value: null, contractValue: null, cutSaves: null });
+        out.set(p.id, { rank, market: null, value: null, contractValue: null, futureValue: null, cutSaves: null });
         continue;
       }
       const m = Math.round(price);
@@ -314,7 +316,7 @@ export function buildMarket(
         keep += Math.max(0, block);
       }
       const flag = cutSaves >= FAIR_BAND && !p.hurt && kind !== 'rookie';
-      out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: keep, cutSaves: flag ? cutSaves : null });
+      out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: keep, futureValue: keep - (m - p.salary), cutSaves: flag ? cutSaves : null });
     }
   }
   const priceFor = (pos: string, ppg: number) => {

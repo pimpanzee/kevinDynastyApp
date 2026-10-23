@@ -380,6 +380,10 @@ export interface TeamPlayer {
   value: number | null;
   /** Keeping him over the years left, later years discounted. */
   contractValue: number | null;
+  /** The part of contractValue after this season. */
+  futureValue: number | null;
+  /** Points a week he's expected to score the rest of this season (blended PPG; null with no games). */
+  est: number | null;
   /** What cutting him would save over keeping him ($25+), else null. */
   cutSaves: number | null;
 }
