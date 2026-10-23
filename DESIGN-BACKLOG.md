@@ -241,7 +241,9 @@ League salary cap: **$2,200**. Money everywhere uses thousands separators (`$1,1
    - Shown on the Roster tab as `+$150` (`--rise`), `−$88` (`--fall`), or `fair` (`--ink-3`)
      when |VALUE| < $25 (about 1% of the $2,200 cap). Whole dollars, thousands separators.
 5. **Contract value** = what keeping him is worth (step 2, 2026-10-23): Σ over years left of
-   (market − salary × 1.1^k), each later year discounted 20% a year. It's set against cutting him:
+   (market_k − salary × 1.1^k), each later year discounted 20% a year. market_k prices the PPG his
+   position's aging curve expects that year (`lib/aging.ts`, step 4: e.g. RBs −10% at 27, −15% at 28;
+   WRs +5% at 24, −10% at 30; QBs flat to 32; ages from MFL birthdates). It's set against cutting him:
    - Cut = −dead cap (salary × years × 30%, half this season and half next for a multi-year deal), minus
      the production lost for the rest of this season (market − $5) × share of the season left: until the
      May auction only a waiver-level player can replace him.

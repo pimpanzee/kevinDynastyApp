@@ -1,3 +1,4 @@
+import { ppgPath } from '@/lib/aging';
 import { deadCap } from '@/lib/cap';
 import { isRookieContract } from '@/lib/rookieScale';
 
@@ -22,8 +23,10 @@ import { isRookieContract } from '@/lib/rookieScale';
  *    Points above it are worth BENCH_STARTS fill-in starts a season at the
  *    position's own price per point. Market = the higher of the two prices.
  * VALUE = market − salary per season. Contract value is what keeping him is
- * worth: Σ over years left of (market − salary × 1.1^k), each later year
- * discounted DISCOUNT a year (injury, turnover, uncertainty). It's set
+ * worth: Σ over years left of (market_k − salary × 1.1^k), each later year
+ * discounted DISCOUNT a year (injury, turnover, uncertainty). market_k
+ * prices the PPG he's expected to score that year by his position's aging
+ * curve (lib/aging.ts). It's set
  * against cutting him, to flag when that would save money:
  *  - cut: the dead cap (lib/cap.ts), half this season and half next for a
  *    multi-year deal cut in season, plus the production lost for the rest
@@ -42,6 +45,8 @@ export interface ValueInput {
   ppg: number | null;
   /** On IR, out or doubtful: his PPG may not show what he is. */
   hurt?: boolean;
+  /** Age in years today; none → no aging. */
+  age?: number;
 }
 
 export interface ValueResult {
@@ -51,7 +56,7 @@ export interface ValueResult {
   market: number | null;
   /** Market − salary, per season. */
   value: number | null;
-  /** Keeping him: Σ over years left of (market − salary × 1.1^k) / 1.2^k. */
+  /** Keeping him: Σ over years left of (market_k − salary × 1.1^k) / 1.2^k, market_k aged. */
   contractValue: number | null;
   /**
    * What cutting him would save over keeping him, when that's more than the
@@ -177,10 +182,10 @@ export function ratePerPar(curve: PriceCurve, minSalary: number): number {
 }
 
 /** Keeping him, and what cutting him would save over that (see the header). */
-export function contractTotal(market: number, salary: number, years: number, lostIfCut: number): { keep: number; cutSaves: number } {
-  const n = Math.max(years, 1);
+export function contractTotal(markets: number[], salary: number, lostIfCut: number): { keep: number; cutSaves: number } {
+  const n = Math.max(markets.length, 1);
   let keep = 0;
-  for (let k = 0; k < n; k++) keep += (market - salary * 1.1 ** k) / (1 + DISCOUNT) ** k;
+  for (let k = 0; k < n; k++) keep += (markets[k] - salary * 1.1 ** k) / (1 + DISCOUNT) ** k;
   const dead = deadCap(salary, n);
   const cut = (n > 1 ? -(dead / 2 + dead / 2 / (1 + DISCOUNT)) : -dead) - lostIfCut;
   return { keep, cutSaves: cut - keep };
@@ -257,7 +262,10 @@ export function buildMarket(
       const m = Math.round(price);
       // Cut mid-season, the only stand-in is a waiver-level player (worth the
       // minimum) until the May auction can buy his production back.
-      const { keep, cutSaves } = contractTotal(m, p.salary, p.years, Math.max(0, m - minSalary) * seasonLeft);
+      // Later years price the PPG his aging curve expects then.
+      const markets = ppgPath(p.pos, p.ppg!, p.age, Math.max(p.years, 1))
+        .map((ppg, k) => (k === 0 ? m : Math.round(marketFor(p.pos, ppg) ?? m)));
+      const { keep, cutSaves } = contractTotal(markets, p.salary, Math.max(0, m - minSalary) * seasonLeft);
       const flag = cutSaves >= FAIR_BAND && !p.hurt && !isRookieContract(p.contractStatus);
       out.set(p.id, { rank, market: m, value: m - p.salary, contractValue: keep, cutSaves: flag ? cutSaves : null });
     }
