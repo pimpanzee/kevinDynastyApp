@@ -557,14 +557,8 @@ export default function LineupScreen({
         {mine && rows && mode === 'lineup' && (
           <>
             {!sel && overCap > 0 && (
-              <div role="alert" style={{ margin: '12px 16px 0', padding: '10px 12px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '500 13px/1.45 var(--font-body)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span>
-                  <b>You’re {money(overCap)} over the ${cap.toLocaleString('en-US')} cap</b> ({money(capNow)} with dead cap; taxi salaries don’t count).
-                  MFL won’t take a lineup from a team over the cap, so submitting is off until you’re under.
-                </span>
-                <span>
-                  Drop, IR or taxi someone in <Link href="/team/moves/" style={{ color: 'var(--volt)', fontWeight: 600 }}>Manage roster</Link>, or move salary in a <Link href="/team/trades/" style={{ color: 'var(--volt)', fontWeight: 600 }}>trade</Link>.
-                </span>
+              <div role="alert" style={{ margin: '12px 16px 0', padding: '10px 12px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '600 13px/1.4 var(--font-body)' }}>
+                You’re {money(overCap)} over the ${cap.toLocaleString('en-US')} cap.
               </div>
             )}
             {!sel && !valid && (

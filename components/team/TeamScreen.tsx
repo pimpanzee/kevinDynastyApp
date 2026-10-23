@@ -82,8 +82,8 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
             : <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>}
           <Link href="/team/moves/" style={moveLink}>MANAGE ROSTER</Link>
           {overCap > 0 && (
-            <p role="alert" style={{ gridColumn: '1 / -1', margin: 0, padding: '8px 10px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '500 12.5px/1.4 var(--font-body)', color: 'var(--ink)' }}>
-              <b>{money(overCap)} over the ${data.cap.toLocaleString('en-US')} cap.</b> MFL won’t take a lineup until you’re under, so Set lineup is off. Drop, IR or taxi someone in Manage roster, or move salary in a trade.
+            <p role="alert" style={{ gridColumn: '1 / -1', margin: 0, padding: '8px 10px', background: 'var(--live-tint)', boxShadow: 'inset 3px 0 0 var(--live)', font: '600 12.5px/1.4 var(--font-body)', color: 'var(--ink)' }}>
+              {money(overCap)} over the ${data.cap.toLocaleString('en-US')} cap.
             </p>
           )}
           <Link href="/team/trades/" style={{ ...moveLink, gridColumn: '1 / -1', height: 36, background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)' }}>TRADE OFFERS</Link>
