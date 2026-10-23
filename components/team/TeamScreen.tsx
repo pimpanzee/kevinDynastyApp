@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import BottomNav from '@/components/BottomNav';
 import HeaderBar from '@/components/HeaderBar';
 import PhoneFrame from '@/components/PhoneFrame';
@@ -8,12 +8,13 @@ import SubTabs from '@/components/SubTabs';
 import AllTimeLine from '@/components/league/AllTimeLine';
 import Link from 'next/link';
 import { useMyTeam } from '@/lib/myTeam';
-import { canSignIn, useAccount } from '@/lib/relay';
+import { capUsed, overCapBy } from '@/lib/cap';
+import { canSignIn, getMine, isError, useAccount } from '@/lib/relay';
 import type { TeamsData } from '@/lib/types';
 import CapTab from './CapTab';
 import PicksTab from './PicksTab';
 import RosterTab from './RosterTab';
-import { pts1 } from './format';
+import { money, pts1 } from './format';
 
 export type TeamTab = 'roster' | 'cap' | 'picks';
 
@@ -31,6 +32,22 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
   const team = data.teams.find((t) => t.id === id) ?? data.teams[0];
   const myTeam = data.teams.find((t) => t.id === mine) ?? null;
   const tab = teamId ? localTab : routeTab ?? 'roster';
+  const canMove = tab === 'roster' && !teamId && !!account && account.franchiseId === id;
+
+  // Over the cap, MFL refuses any lineup, so SET LINEUP is off. The build's
+  // numbers show first; MFL's live roster replaces them so a fix counts at once.
+  const [tip, setTip] = useState(false);
+  const [liveOver, setLiveOver] = useState<number | null>(null);
+  useEffect(() => {
+    if (!canMove) return;
+    let gone = false;
+    getMine().then((r) => {
+      if (gone || isError(r)) return;
+      setLiveOver(overCapBy(capUsed(r.roster, r.capAdjust ?? team.adj), data.cap));
+    });
+    return () => { gone = true; };
+  }, [canMove, team.adj, data.cap]);
+  const overCap = liveOver ?? overCapBy(team.used, data.cap);
   const bits: Array<[string, string]> = [[team.record, '']];
   if (team.vp !== null) bits.push([String(team.vp), 'VP']);
   bits.push([pts1(team.avgPf), 'AVG PF'], [pts1(team.pp), 'PP']);
@@ -59,9 +76,21 @@ export default function TeamScreen({ data, tab: routeTab, teamId, header }: { da
         active={tab}
         onSelect={teamId ? (k) => setLocalTab(k as TeamTab) : undefined}
       />
-      {tab === 'roster' && !teamId && account && account.franchiseId === id && (
+      {canMove && (
         <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, margin: '10px 16px 0' }}>
-          <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>
+          {overCap > 0
+            ? (
+              <span style={{ position: 'relative', display: 'flex' }}>
+                <button type="button" aria-disabled="true" onClick={() => setTip((t) => !t)} style={{ ...moveLink, flex: 1, border: 0, opacity: 0.45, cursor: 'not-allowed' }}>SET LINEUP</button>
+                {tip && (
+                  <span role="tooltip" style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 5, whiteSpace: 'nowrap', padding: '8px 10px', borderRadius: 4, background: 'var(--ink)', color: 'var(--bg-100)', font: '600 12.5px/1.2 var(--font-body)', boxShadow: '0 4px 12px rgba(0,0,0,.25)' }}>
+                    <span aria-hidden style={{ position: 'absolute', top: -5, left: 18, width: 10, height: 10, background: 'var(--ink)', transform: 'rotate(45deg)' }} />
+                    {money(overCap)} over the ${data.cap.toLocaleString('en-US')} cap.
+                  </span>
+                )}
+              </span>
+            )
+            : <Link href="/team/lineup/" style={moveLink}>SET LINEUP</Link>}
           <Link href="/team/moves/" style={moveLink}>MANAGE ROSTER</Link>
           <Link href="/team/trades/" style={{ ...moveLink, gridColumn: '1 / -1', height: 36, background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)' }}>TRADE OFFERS</Link>
         </div>

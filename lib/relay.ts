@@ -161,6 +161,8 @@ export interface Mine {
   starters: string[];
   /** NFL team → kickoff, ms. */
   kickoffs: Record<string, number>;
+  /** Salary adjustments (dead cap, carryover, refunds) on MFL now; null or absent when unread. */
+  capAdjust?: number | null;
   fetchedAt: number;
 }
 
