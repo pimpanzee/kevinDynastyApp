@@ -8,7 +8,9 @@ import { posColor } from '@/components/pos';
 import { DISPLAY, money } from '@/components/team/format';
 import { useMyTeam } from '@/lib/myTeam';
 import { isError, useCanMove, write, SIGNED_OUT } from '@/lib/relay';
+import TradeImpact from '@/components/trade/TradeImpact';
 import TradeSides from '@/components/trade/TradeSides';
+import type { TitleEquity } from '@/lib/mfl/playoffOdds';
 import { tradeAssets, type TradeAsset } from '@/lib/trade';
 import type { TeamsData, TeamView } from '@/lib/types';
 
@@ -21,7 +23,7 @@ const back = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke=
  * theirs, see both teams' salary and roster after, add a note and an
  * expiry, and send it on MFL as you.
  */
-export default function TradeScreen({ data, teamId }: { data: TeamsData; teamId: string }) {
+export default function TradeScreen({ data, teamId, equity }: { data: TeamsData; teamId: string; equity: TitleEquity | null }) {
   const mine = useMyTeam(data.myFranchiseId);
   const canMove = useCanMove();
   const me = data.teams.find((t) => t.id === mine) ?? data.teams[0]!;
@@ -142,6 +144,7 @@ export default function TradeScreen({ data, teamId }: { data: TeamsData; teamId:
             })}
           </div>
           <div style={{ margin: '6px 16px 0', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Salary counts against the {money(data.cap)} cap; taxi players don&apos;t count. Contract years move with the players. Roster limit is {rosterMin}–{rosterMax}, not counting IR and taxi; players on IR or taxi are assumed to keep their spot.</div>
+          <TradeImpact data={data} me={me} them={them} give={give} get={get} equity={equity} />
           <div style={{ padding: '16px 16px 0' }}>
             <label htmlFor="trade-note" style={{ display: 'block', font: DISPLAY(12), letterSpacing: '.12em', color: 'var(--ink-2)' }}>NOTE TO {them.name.toUpperCase()} <span style={{ fontWeight: 600, color: 'var(--ink-3)' }}>· OPTIONAL</span></label>
             <textarea id="trade-note" rows={2} maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Shows with the offer on MFL" style={{ display: 'block', boxSizing: 'border-box', width: '100%', marginTop: 8, padding: '10px 12px', resize: 'none', font: '500 16px/1.35 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 2 }} />

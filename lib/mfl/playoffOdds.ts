@@ -148,7 +148,43 @@ async function projectedTotals(league: League, week: number, rosters: Awaited<Re
   return out;
 }
 
-export async function computePlayoffOdds(league: League, completed: number): Promise<PlayoffOdds | null> {
+/** League payouts (rule book): 1st, 2nd and 3rd place, plus this much per regular-season win. */
+export const PAYOUTS = { first: 640, second: 320, third: 120, perWin: 10 };
+
+/** Everything a simulation needs, read once. */
+interface Model {
+  n: number;
+  ids: string[];
+  startWeek: number;
+  lastReg: number;
+  firstOpen: number;
+  lastWeek: number;
+  played: Map<number, Map<number, number>>;
+  /** Expected score, week → team index. */
+  mean: Map<number, number[]>;
+  leagueMean: number;
+  spread: number;
+  pairs: Map<number, Array<[number, number]>>;
+  div: string[];
+  conf: string[];
+  vp: League['victoryPoints'];
+  bracket: { games: BracketGame[]; teams: number };
+  openingSeeds: Set<number>;
+  confFormat: boolean;
+  completed: number;
+}
+
+interface Tally {
+  sims: number;
+  playoffs: number[]; bye: number[]; division: number[]; wildcard: number[];
+  title: number[]; second: number[]; third: number[];
+  /** Summed final victory points (or wins, without VP). */
+  final: number[];
+  /** Summed regular-season head-to-head wins. */
+  wins: number[];
+}
+
+async function prepare(league: League, completed: number): Promise<Model | null> {
   const ids = league.franchises.map((f) => f.id);
   const n = ids.length;
   if (n < 4) return null;
@@ -156,7 +192,6 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
   const div = league.franchises.map((f) => f.divisionId);
   const conf = league.franchises.map((f) => f.conferenceId);
   const lastReg = league.lastRegularSeasonWeek;
-  const vp = league.victoryPoints;
 
   const [schedule, bracket] = await Promise.all([getLeagueSchedule(), getBracket()]);
 
@@ -221,28 +256,65 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
       .filter((p): p is [number, number] => p[0] !== undefined && p[1] !== undefined));
   }
 
-  // ── Simulate ──────────────────────────────────────────────────────────────
-  const random = rng(completed * 7919 + n);
-  const tally = {
-    playoffs: new Array(n).fill(0), bye: new Array(n).fill(0),
-    division: new Array(n).fill(0), wildcard: new Array(n).fill(0), title: new Array(n).fill(0), final: new Array(n).fill(0),
+  const conferences = [...new Set(conf)];
+  const divisions = [...new Set(div)];
+  const confFormat = bracket.teams === 6 && conferences.length === 2
+    && conferences.every((c) => divisions.filter((d) => conf[div.indexOf(d)] === c).length === 2);
+
+  // Seeds that play in the opening round; the rest have a bye.
+  bracket.games.sort((a, b) => a.week - b.week || Number(a.id) - Number(b.id));
+  const opening = bracket.games[0]?.week;
+  const openingSeeds = new Set(bracket.games.filter((g) => g.week === opening)
+    .flatMap((g) => [g.home, g.away]).flatMap((x) => ('seed' in x ? [x.seed] : [])));
+
+  return {
+    n, ids, startWeek: league.startWeek, lastReg, firstOpen, lastWeek, played, mean, leagueMean, spread,
+    pairs, div, conf, vp: league.victoryPoints, bracket, openingSeeds, confFormat, completed,
+  };
+}
+
+/**
+ * Every team's random swing for each simulated week, drawn once so that runs
+ * with a team made a little stronger or weaker (title equity) replay the same
+ * seasons and differ only by that change.
+ */
+function draws(model: Model, sims: number): Float64Array {
+  const { n, firstOpen, lastWeek } = model;
+  const weeks = Math.max(0, lastWeek - firstOpen + 1);
+  const random = rng(model.completed * 7919 + n);
+  const z = new Float64Array(sims * weeks * n);
+  for (let k = 0; k < z.length; k++) z[k] = random.normal();
+  return z;
+}
+
+/** Play the rest of the season `sims` times. `shift` adds points to a team's expected score every week still to play. */
+function simulate(model: Model, z: Float64Array, sims: number, shift?: number[]): Tally {
+  const { n, ids, startWeek, lastReg, firstOpen, lastWeek, played, mean, leagueMean, spread, pairs, div, conf, vp, bracket, openingSeeds, confFormat } = model;
+  const weeks = Math.max(0, lastWeek - firstOpen + 1);
+  const zeros = () => new Array(n).fill(0);
+  const tally: Tally = {
+    sims, playoffs: zeros(), bye: zeros(), division: zeros(), wildcard: zeros(),
+    title: zeros(), second: zeros(), third: zeros(), final: zeros(), wins: zeros(),
   };
 
-  const wins = new Array(n).fill(0);
-  const losses = new Array(n).fill(0);
-  const ties = new Array(n).fill(0);
-  const pf = new Array(n).fill(0);
-  const vps = new Array(n).fill(0);
+  const wins = zeros();
+  const losses = zeros();
+  const ties = zeros();
+  const pf = zeros();
+  const vps = zeros();
   const divWL = Array.from({ length: n }, () => [0, 0]);
   const confWL = Array.from({ length: n }, () => [0, 0]);
   const h2h = Array.from({ length: n }, () => new Array(n).fill(0));
-  const weekScore = new Array(n).fill(0);
+  const weekScore = zeros();
+  let base = 0;
 
   const scoreFor = (w: number, i: number) => {
     const actual = played.get(w)?.get(i);
     if (actual !== undefined) return actual;
-    const m = mean.get(w)?.[i] ?? (leagueMean || 100);
-    return Math.max(0, m + spread * random.normal());
+    const m = (mean.get(w)?.[i] ?? (leagueMean || 100)) + (shift?.[i] ?? 0);
+    const k = w - firstOpen;
+    const noise = k >= 0 && k < weeks ? z[base + k * n + i] : 0;
+    return Math.max(0, m + spread * noise);
   };
 
   const pct = (wl: number[]) => (wl[0] + wl[1] ? wl[0] / (wl[0] + wl[1]) : 0);
@@ -264,23 +336,17 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
     head(a, b) || h2hNet(a, b) || pct(divWL[b]) - pct(divWL[a]) || pct(confWL[b]) - pct(confWL[a]) || pf[b] - pf[a];
   const wcBetter = (a: number, b: number) =>
     head(a, b) || pct(confWL[b]) - pct(confWL[a]) || pf[b] - pf[a] || h2hNet(a, b);
-
   const conferences = [...new Set(conf)];
-  const divisions = [...new Set(div)];
-  const confFormat = bracket.teams === 6 && conferences.length === 2
-    && conferences.every((c) => divisions.filter((d) => conf[div.indexOf(d)] === c).length === 2);
+  // The title game is the last one; the two games feeding it are the semifinals.
+  const finalGame = bracket.games[bracket.games.length - 1];
+  const semis = finalGame ? [finalGame.home, finalGame.away].flatMap((x) => ('winnerOf' in x ? [x.winnerOf] : [])) : [];
 
-  // Seeds that play in the opening round; the rest have a bye.
-  bracket.games.sort((a, b) => a.week - b.week || Number(a.id) - Number(b.id));
-  const opening = bracket.games[0]?.week;
-  const openingSeeds = new Set(bracket.games.filter((g) => g.week === opening)
-    .flatMap((g) => [g.home, g.away]).flatMap((x) => ('seed' in x ? [x.seed] : [])));
-
-  for (let s = 0; s < SIMS; s++) {
+  for (let s = 0; s < sims; s++) {
+    base = s * weeks * n;
     wins.fill(0); losses.fill(0); ties.fill(0); pf.fill(0); vps.fill(0);
     for (let i = 0; i < n; i++) { divWL[i][0] = divWL[i][1] = 0; confWL[i][0] = confWL[i][1] = 0; h2h[i].fill(0); }
 
-    for (let w = league.startWeek; w <= lastReg; w++) {
+    for (let w = startWeek; w <= lastReg; w++) {
       const games = pairs.get(w) ?? [];
       if (!games.length) continue;
       for (let i = 0; i < n; i++) weekScore[i] = -1;
@@ -313,7 +379,7 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
     const divWinner = new Map<string, number>();
     for (const i of order) if (!divWinner.has(div[i])) divWinner.set(div[i], i);
     for (const i of divWinner.values()) tally.division[i]++;
-    for (let i = 0; i < n; i++) tally.final[i] += vp ? vps[i] : wins[i];
+    for (let i = 0; i < n; i++) { tally.final[i] += vp ? vps[i] : wins[i]; tally.wins[i] += wins[i]; }
 
     let seeds: number[];
     if (confFormat) {
@@ -337,8 +403,10 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
 
     // ── Bracket ──
     const winnerOf = new Map<string, number>();
+    const loserOf = new Map<string, number>();
     const who = (slot: Slot) => ('seed' in slot ? seeds[slot.seed - 1] : winnerOf.get(slot.winnerOf));
     let champ: number | undefined;
+    let runnerUp: number | undefined;
     for (const g of bracket.games) {
       const h = who(g.home);
       const a = who(g.away);
@@ -346,23 +414,106 @@ export async function computePlayoffOdds(league: League, completed: number): Pro
       const sh = scoreFor(g.week, h);
       const sa = scoreFor(g.week, a);
       // MFL breaks a playoff tie for the higher seed (the home side).
-      champ = sa > sh ? a : h;
-      winnerOf.set(g.id, champ);
+      const [won, lost] = sa > sh ? [a, h] : [h, a];
+      winnerOf.set(g.id, won);
+      loserOf.set(g.id, lost);
+      champ = won;
+      runnerUp = lost;
     }
     if (champ !== undefined) tally.title[champ]++;
+    if (runnerUp !== undefined) tally.second[runnerUp]++;
+    // Third place: the two semifinal losers play in the title game's week.
+    const [x, y] = semis.map((id) => loserOf.get(id));
+    if (finalGame && x !== undefined && y !== undefined) {
+      tally.third[scoreFor(finalGame.week, y) > scoreFor(finalGame.week, x) ? y : x]++;
+    }
   }
+  return tally;
+}
 
+/** Expected league winnings: places paid, plus a little per win. */
+const winnings = (t: Tally, i: number) =>
+  (PAYOUTS.first * t.title[i] + PAYOUTS.second * t.second[i] + PAYOUTS.third * t.third[i] + PAYOUTS.perWin * t.wins[i]) / t.sims;
+
+export async function computePlayoffOdds(league: League, completed: number): Promise<PlayoffOdds | null> {
+  const model = await prepare(league, completed);
+  if (!model) return null;
+  const t = simulate(model, draws(model, SIMS), SIMS);
   return {
     sims: SIMS,
-    weeks: firstOpen <= lastReg ? [firstOpen, lastReg] : null,
-    teams: ids.map((id, i) => ({
+    weeks: model.firstOpen <= model.lastReg ? [model.firstOpen, model.lastReg] : null,
+    teams: model.ids.map((id, i) => ({
       franchiseId: id,
-      playoffs: tally.playoffs[i] / SIMS,
-      bye: tally.bye[i] / SIMS,
-      division: tally.division[i] / SIMS,
-      wildcard: tally.wildcard[i] / SIMS,
-      title: tally.title[i] / SIMS,
-      avgFinal: tally.final[i] / SIMS,
+      playoffs: t.playoffs[i] / SIMS,
+      bye: t.bye[i] / SIMS,
+      division: t.division[i] / SIMS,
+      wildcard: t.wildcard[i] / SIMS,
+      title: t.title[i] / SIMS,
+      avgFinal: t.final[i] / SIMS,
     })),
   };
+}
+
+/**
+ * Title equity: what points are worth to each team this season, in odds and
+ * league dollars. Each team's season is replayed with its weekly score moved
+ * by each of SHIFTS (the same random seasons each time, so only the change
+ * shows), all others held as they are. A trade's worth this season is then
+ * read off the team's curve at its change in weekly lineup points.
+ */
+export interface TitleEquity {
+  sims: number;
+  /** Weekly points added to the team's expected score, in order (0 included). */
+  shifts: number[];
+  /** Regular-season and playoff weeks still to play. */
+  weeksLeft: number;
+  payouts: typeof PAYOUTS;
+  /** Per team, one entry per shift. */
+  teams: Record<string, { playoffs: number[]; title: number[]; winnings: number[] }>;
+}
+
+export const EQUITY_SHIFTS = [-40, -25, -15, -8, -4, 0, 4, 8, 15, 25, 40];
+const EQUITY_SIMS = 4000;
+
+export async function computeTitleEquity(league: League, completed: number): Promise<TitleEquity | null> {
+  const model = await prepare(league, completed);
+  if (!model || model.firstOpen > model.lastWeek) return null;
+  const z = draws(model, EQUITY_SIMS);
+  const teams: TitleEquity['teams'] = {};
+  model.ids.forEach((id) => { teams[id] = { playoffs: [], title: [], winnings: [] }; });
+  for (const d of EQUITY_SHIFTS) {
+    if (d === 0) {
+      const t = simulate(model, z, EQUITY_SIMS);
+      model.ids.forEach((id, i) => push(teams[id], t, i));
+      continue;
+    }
+    model.ids.forEach((id, i) => {
+      const shift = new Array(model.n).fill(0);
+      shift[i] = d;
+      push(teams[id], simulate(model, z, EQUITY_SIMS, shift), i);
+    });
+  }
+  return {
+    sims: EQUITY_SIMS,
+    shifts: EQUITY_SHIFTS,
+    weeksLeft: model.lastWeek - model.firstOpen + 1,
+    payouts: PAYOUTS,
+    teams,
+  };
+}
+
+function push(row: TitleEquity['teams'][string], t: Tally, i: number) {
+  row.playoffs.push(round4(t.playoffs[i] / t.sims));
+  row.title.push(round4(t.title[i] / t.sims));
+  row.winnings.push(Math.round(winnings(t, i) * 100) / 100);
+}
+const round4 = (x: number) => Math.round(x * 10000) / 10000;
+
+let equityCache: Promise<TitleEquity | null> | null = null;
+/** Title equity for the league as it stands (cached for the build). */
+export function getTitleEquity(league: League, completed: number): Promise<TitleEquity | null> {
+  return (equityCache ??= computeTitleEquity(league, completed).catch((e) => {
+    console.warn('title equity failed', e);
+    return null;
+  }));
 }

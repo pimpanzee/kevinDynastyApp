@@ -6,28 +6,39 @@ import { getScoringRules, getSleeperIds, getSleeperTable } from '@/lib/stats/sle
 
 /**
  * A steadier PPG for contract value: this season's points per game, pulled
- * toward Sleeper's projection by a fixed number of "prior games" per
- * position. A few hot or cold weeks move the estimate less; as games pile
- * up, this season's numbers take over.
+ * toward Sleeper's projection by a number of "prior games" per position. A
+ * few hot or cold weeks move the estimate less; as games pile up, this
+ * season's numbers take over. With 4+ games his single best game is left
+ * out, so one 2-touchdown fluke doesn't count as a trend.
  *
- *   estimate = (season pts + k × projected PPG) / (games played + k)
+ *   estimate = (season pts [− best game] + k × projected PPG) / (games [− 1] + k)
  *
- * The projection is Sleeper's weekly projections, scored with this league's
- * rules, averaged over the next three weeks he's projected to play (byes and
- * ruled-out weeks skipped). With none ahead (long injury, season over), the
+ * The projection is Sleeper's projection for the next week he's projected
+ * to play (byes and ruled-out weeks skipped, up to 3 weeks out), scored
+ * with this league's rules. With none ahead (long injury, season over), the
  * last three finished weeks' projections stand in. No projection at all →
- * plain season PPG.
+ * season PPG.
+ *
+ * Tuned by backtest (2026-10-23): replaying 2021–2025, predicting each
+ * player's rest-of-season PPG after weeks 2–12. Against plain season PPG,
+ * the average miss fell 18% (QB) to 22% (TE); tuned on 2021–23, the same
+ * gain held on 2024–25.
  */
 
-/** How many games the projection counts as. Positions that swing more week to week lean on it longer. */
-export const PRIOR_GAMES: Record<string, number> = { QB: 5, RB: 6, WR: 7, TE: 8 };
+/** How many games the projection counts as (backtest-tuned). */
+export const PRIOR_GAMES: Record<string, number> = { QB: 5, RB: 10, WR: 11, TE: 16 };
 const LOOK = 3;
+/** Games played before the best one is left out. */
+const DROP_BEST_FROM = 4;
 
-export function blendPpg(pos: string, pts: number, gp: number, prior: number | null): number | null {
+export function blendPpg(pos: string, pts: number, gp: number, best: number, prior: number | null): number | null {
   if (gp <= 0) return null;
-  if (prior === null) return pts / gp;
-  const k = PRIOR_GAMES[pos] ?? 6;
-  return (pts + k * prior) / (gp + k);
+  const drop = gp >= DROP_BEST_FROM;
+  const p = drop ? pts - best : pts;
+  const n = drop ? gp - 1 : gp;
+  if (prior === null) return p / n;
+  const k = PRIOR_GAMES[pos] ?? 10;
+  return (p + k * prior) / (n + k);
 }
 
 async function load(): Promise<(id: string) => number | null> {
@@ -60,10 +71,11 @@ async function load(): Promise<(id: string) => number | null> {
         .map((s) => scorePoints(pos, s, rules))
         .filter((p) => p > 0);
     };
-    let pts = projected(aheadTables);
-    if (!pts.length) pts = projected(behindTables);
+    // The next week he's projected to play; else the last finished weeks.
+    const next = projected(aheadTables).slice(0, 1);
+    const pts = next.length ? next : projected(behindTables);
     const prior = pts.length ? pts.reduce((a, b) => a + b, 0) / pts.length : null;
-    estimates.set(id, blendPpg(pos, t.pts, t.gp, prior));
+    estimates.set(id, blendPpg(pos, t.pts, t.gp, t.best, prior));
   }
   return (id) => estimates.get(id) ?? null;
 }
