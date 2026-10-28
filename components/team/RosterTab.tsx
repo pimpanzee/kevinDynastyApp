@@ -16,7 +16,7 @@ const head = { font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)', 
 
 /**
  * ROOM / ROSTER / IR / TAXI strip, then the list split the way MFL does it:
- * active roster, injured reserve, the cap total (active + IR + adjustments),
+ * active roster, injured reserve, the cap total (total salaries + adjustments),
  * then the taxi squad below the total because taxi salaries don't count.
  * Each section runs QB → RB → WR → TE and scrolls sideways with the player
  * column pinned; section bands and the cap total stay pinned full width.
@@ -71,7 +71,7 @@ export default function RosterTab({ data, team }: { data: TeamsData; team: TeamV
           {ir.map(row)}
           <Pinned>
             <div style={{ padding: '8px 16px 10px', background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }}>
-              {team.adj !== 0 && <Line label="ACTIVE + IR SALARIES" value={money(salaries)} />}
+              {team.adj !== 0 && <Line label="TOTAL SALARIES" value={money(salaries)} />}
               {team.adj !== 0 && <Line label="CAP ADJUSTMENTS" value={`${team.adj > 0 ? '+' : ''}${money(team.adj)}`} />}
               <Line label="COUNTS TOWARD CAP" value={money(team.used)} strong />
               <Line label="SALARY CAP" value={money(data.cap)} />
