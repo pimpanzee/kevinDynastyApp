@@ -41,6 +41,12 @@ const BIDS = /^(\d{1,8}_\d{1,4}_\d{1,8}(,\d{1,8}_\d{1,4}_\d{1,8})*)?$/;
 const TEXT = /^[^\u0000-\u001f<>]{0,250}$/;
 const FRANCHISE = /^\d{4}$/;
 const WEEK = /^([1-9]|1\d|2[0-2])$/;
+
+/** True when every game of an nflSchedule week has kicked off and finished. */
+export function weekOver(schedule, now) {
+  const games = list(schedule?.nflSchedule?.matchup);
+  return games.length > 0 && games.every((g) => Number(g.kickoff) * 1000 <= now && String(g.gameSecondsRemaining) === '0');
+}
 const ROUND = /^\d{1,2}$/;
 const UNIX_TIME = /^\d{10}$/;
 
@@ -897,15 +903,27 @@ export class WriteRelay {
     const league = `${MFL_HOST}/${MFL_SEASON}/export?L=${MFL_LEAGUE_ID}&JSON=1`;
     try {
       const w = weekParam ? `&W=${weekParam}` : '';
-      const [live, rosters, adjustments] = await Promise.all([
+      let [live, rosters, adjustments] = await Promise.all([
         this.read(o, `${league}&TYPE=liveScoring&DETAILS=1${w}`),
         this.read(o, `${league}&TYPE=rosters&FRANCHISE=${franchiseId}`),
         // Dead cap, carryover and refunds. Optional: the screen falls back to the build's.
         this.read(o, `${league}&TYPE=salaryAdjustments`).catch(() => null),
       ]);
-      const week = Number(weekParam || live.liveScoring?.week);
+      let week = Number(weekParam || live.liveScoring?.week);
       // nflSchedule isn't league data, so only the api host answers it.
-      const schedule = await this.read(o, `https://api.myfantasyleague.com/${MFL_SEASON}/export?TYPE=nflSchedule&W=${week}&JSON=1`);
+      const scheduleUrl = (n) => `https://api.myfantasyleague.com/${MFL_SEASON}/export?TYPE=nflSchedule&W=${n}&JSON=1`;
+      let schedule = await this.read(o, scheduleUrl(week));
+      // MFL keeps calling last week "current" for a few days after its last
+      // game (into Wednesday or later), so every player would show locked.
+      // Once all of its games are over, the week to set is the next one.
+      if (!weekParam && weekOver(schedule, Date.now())) {
+        const next = await this.read(o, scheduleUrl(week + 1)).catch(() => null);
+        if (list(next?.nflSchedule?.matchup).length) {
+          week += 1;
+          schedule = next;
+          live = await this.read(o, `${league}&TYPE=liveScoring&DETAILS=1&W=${week}`);
+        }
+      }
 
       const side = list(live.liveScoring?.matchup)
         .flatMap((m) => list(m.franchise))
