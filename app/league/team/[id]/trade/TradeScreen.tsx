@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import InjuryTag from '@/components/InjuryTag';
+import { PlayerLink } from '@/components/PlayerCard';
 import PhoneFrame from '@/components/PhoneFrame';
 import { posColor } from '@/components/pos';
 import { DISPLAY, money } from '@/components/team/format';
@@ -11,7 +12,7 @@ import { isError, useCanMove, write, SIGNED_OUT } from '@/lib/relay';
 import TradeImpact from '@/components/trade/TradeImpact';
 import TradeSides from '@/components/trade/TradeSides';
 import type { TitleEquity } from '@/lib/mfl/playoffOdds';
-import { tradeAssets, type TradeAsset } from '@/lib/trade';
+import { canRetain, retainedAmount, retentionNote, salaryAfter, tradeAssets, type TradeAsset } from '@/lib/trade';
 import type { TeamsData, TeamView } from '@/lib/types';
 
 type View = 'build' | 'review' | 'sent';
@@ -33,6 +34,7 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
   const [note, setNote] = useState('');
+  const [retain, setRetain] = useState<string[]>([]);
   const [days, setDays] = useState(3);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'bad' | 'warn'; text: string } | null>(null);
@@ -42,10 +44,19 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
   const out = mineAssets.filter((a) => give.includes(a.key));
   const inn = theirAssets.filter((a) => get.includes(a.key));
   const both = out.length > 0 && inn.length > 0;
-  const capOut = out.reduce((t, a) => t + a.capHit, 0);
-  const capIn = inn.reduce((t, a) => t + a.capHit, 0);
-  const mySalary = me.used + capIn - capOut;
-  const theirSalary = them.used + capOut - capIn;
+  // At most one retained player a side, and only ones still in the trade.
+  const retainOut = out.find((a) => retain.includes(a.key) && canRetain(a));
+  const retainIn = inn.find((a) => retain.includes(a.key) && canRetain(a));
+  const retained = new Set([retainOut?.key, retainIn?.key].filter((k): k is string => !!k));
+  const retainedBy = new Map<string, string>();
+  if (retainOut) retainedBy.set(retainOut.key, 'You');
+  if (retainIn) retainedBy.set(retainIn.key, them.name);
+  const mySalary = salaryAfter(me.used, out, inn, retained);
+  const theirSalary = salaryAfter(them.used, inn, out, retained);
+  const retainLine = retentionNote([
+    ...(retainOut ? [{ team: me.name, asset: retainOut }] : []),
+    ...(retainIn ? [{ team: them.name, asset: retainIn }] : []),
+  ], money);
   const actOut = out.filter((a) => a.active).length;
   const actIn = inn.filter((a) => a.active).length;
   const myRoster = me.counts.roster - actOut + actIn;
@@ -77,7 +88,8 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
       EXPIRES: String(Math.floor(Date.now() / 1000) + days * 86400),
     };
     // MFL takes up to 250 characters, with no angle brackets or control characters.
-    const comments = note.replace(/[<>\u0000-\u001f]/g, ' ').trim().slice(0, 250);
+    // The retention line goes first so the note can't push it out.
+    const comments = [retainLine, note].map((s) => s.replace(/[<>\u0000-\u001f]/g, ' ').trim()).filter(Boolean).join(' ').slice(0, 250);
     if (comments) params.COMMENTS = comments;
     const r = await write('tradeProposal', params);
     setBusy(false);
@@ -98,7 +110,7 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', color: 'var(--volt)' }}><path d="M20 6 9 17l-5-5" /></svg>
             <span style={{ font: '600 13.5px/1.35 var(--font-body)' }}>Offer sent to {them.name}. It expires in {EXPIRY.find((e) => e.days === days)?.label.toLowerCase()}.</span>
           </div>
-          <TradeSides out={out} inn={inn} style={{ margin: '16px 16px 0', border: '1px solid var(--line)', borderRadius: 4 }} />
+          <TradeSides out={out} inn={inn} retained={retainedBy} style={{ margin: '16px 16px 0', border: '1px solid var(--line)', borderRadius: 4 }} />
           <div style={{ display: 'grid', gap: 8, margin: 16 }}>
             <Link href="/team/trades/" style={{ ...primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>SEE TRADE OFFERS</Link>
             <Link href={`/league/team/${them.id}/`} style={{ ...secondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>BACK TO {them.name.toUpperCase()}</Link>
@@ -118,7 +130,12 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
       <PhoneFrame>
         <Top title="REVIEW TRADE" left={<button type="button" onClick={() => setView('build')} style={{ ...backLink, border: 0, background: 'none', cursor: 'pointer' }}>{back}EDIT</button>} />
         <div style={{ flex: 1, overflow: 'auto' }}>
-          <TradeSides out={out} inn={inn} style={{ background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }} />
+          <TradeSides out={out} inn={inn} retained={retainedBy} style={{ background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }} />
+          <Retention out={out} inn={inn} retained={retained} onToggle={(a, side) => {
+            const sideKeys = (side === 'give' ? out : inn).map((x) => x.key);
+            // Picking one replaces the other pick on that side.
+            setRetain((r) => (r.includes(a.key) ? r.filter((k) => k !== a.key) : [...r.filter((k) => !sideKeys.includes(k)), a.key]));
+          }} />
           <div style={{ margin: '12px 16px 0', border: '1px solid var(--line)', borderRadius: 4 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 64px', alignItems: 'center', height: 28, padding: '0 12px', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
               <span>AFTER THE TRADE</span><span style={{ textAlign: 'right' }}>SALARY</span><span style={{ textAlign: 'right' }}>ROSTER</span>
@@ -143,11 +160,12 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
               );
             })}
           </div>
-          <div style={{ margin: '6px 16px 0', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Salary counts against the {money(data.cap)} cap; taxi players don&apos;t count. Contract years move with the players. Roster limit is {rosterMin}–{rosterMax}, not counting IR and taxi; players on IR or taxi are assumed to keep their spot.</div>
+          <div style={{ margin: '6px 16px 0', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Salary counts against the {money(data.cap)} cap; taxi players don&apos;t count{retained.size ? ', and retained salary stays with the team sending the player' : ''}. Contract years move with the players. Roster limit is {rosterMin}–{rosterMax}, not counting IR and taxi; players on IR or taxi are assumed to keep their spot.</div>
           <TradeImpact data={data} me={me} them={them} give={give} get={get} equity={equity} />
           <div style={{ padding: '16px 16px 0' }}>
             <label htmlFor="trade-note" style={{ display: 'block', font: DISPLAY(12), letterSpacing: '.12em', color: 'var(--ink-2)' }}>NOTE TO {them.name.toUpperCase()} <span style={{ fontWeight: 600, color: 'var(--ink-3)' }}>· OPTIONAL</span></label>
-            <textarea id="trade-note" rows={2} maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Shows with the offer on MFL" style={{ display: 'block', boxSizing: 'border-box', width: '100%', marginTop: 8, padding: '10px 12px', resize: 'none', font: '500 16px/1.35 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 2 }} />
+            <textarea id="trade-note" rows={2} maxLength={Math.max(0, 250 - (retainLine ? retainLine.length + 1 : 0))} value={note} onChange={(e) => setNote(e.target.value)} placeholder={retainLine ? 'Shows with the offer on MFL, after the retention line' : 'Shows with the offer on MFL'} style={{ display: 'block', boxSizing: 'border-box', width: '100%', marginTop: 8, padding: '10px 12px', resize: 'none', font: '500 16px/1.35 var(--font-body)', color: 'var(--ink)', background: 'var(--bg-100)', border: '1px solid var(--line)', borderRadius: 2 }} />
+            {retainLine && <div style={{ marginTop: 6, font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>Added to the offer first: <span style={{ color: 'var(--ink-2)' }}>{retainLine}</span></div>}
           </div>
           <div style={{ padding: '14px 16px 16px' }}>
             <div id="exp-label" style={{ font: DISPLAY(12), letterSpacing: '.12em', color: 'var(--ink-2)' }}>OFFER EXPIRES</div>
@@ -203,10 +221,14 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
           return (
             <div key={a.key}>
               {i === firstPick && <div style={{ padding: '12px 16px 6px', font: DISPLAY(10), letterSpacing: '.12em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}>DRAFT PICKS</div>}
-              <button type="button" aria-pressed={on} onClick={() => toggle(a.key)} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 76px', alignItems: 'center', width: '100%', height: 52, padding: '0 16px', boxSizing: 'border-box', border: 0, borderBottom: '1px solid var(--line)', background: on ? 'var(--bg-200)' : 'transparent', boxShadow: on ? `inset 3px 0 0 ${side === 'give' ? 'var(--fall)' : 'var(--rise)'}` : 'none', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
+              {/* The row toggles the asset; the name opens the player card. */}
+              <div onClick={() => toggle(a.key)} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 76px', alignItems: 'center', width: '100%', height: 52, padding: '0 16px', boxSizing: 'border-box', borderBottom: '1px solid var(--line)', background: on ? 'var(--bg-200)' : 'transparent', boxShadow: on ? `inset 3px 0 0 ${side === 'give' ? 'var(--fall)' : 'var(--rise)'}` : 'none', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
+                <button type="button" aria-pressed={on} aria-label={`${on ? 'Remove' : 'Add'} ${a.name}`} onClick={(e) => { e.stopPropagation(); toggle(a.key); }} style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', margin: '0 0 0 -16px', padding: '0 0 0 16px', border: 0, background: 'none', cursor: 'pointer' }}>
                 <span aria-hidden style={{ width: 18, height: 18, boxSizing: 'border-box', borderRadius: 2, border: on ? 0 : '1.5px solid var(--edge)', background: on ? 'var(--volt)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-volt)' }}>
                   {on && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
                 </span>
+                </button>
+                <PlayerLink playerId={a.kind === 'player' ? a.key : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center' }}>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
                     <span style={{ font: '600 14px/1.2 var(--font-body)', ...clip }}>{a.name}</span>
@@ -215,8 +237,9 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
                   </span>
                   <span style={{ font: '500 12px/1.2 var(--font-body)', color: 'var(--ink-3)', ...clip }}><b style={{ fontWeight: 700, color: posColor(a.pos) }}>{a.pos}</b> · {a.meta}</span>
                 </span>
+                </PlayerLink>
                 <span style={{ textAlign: 'right', font: '500 13px/1 var(--font-body)', color: 'var(--ink-2)' }}>{a.kind === 'pick' ? '—' : money(a.salary)}</span>
-              </button>
+              </div>
             </div>
           );
         })}
@@ -235,6 +258,55 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
         <button type="button" disabled={!both} onClick={() => both && setView('review')} style={{ ...primary, background: both ? 'var(--volt)' : 'var(--bg-300)', color: both ? 'var(--on-volt)' : 'var(--ink-3)', cursor: both ? 'pointer' : 'default' }}>{both ? 'REVIEW TRADE' : 'PICK FROM BOTH SIDES'}</button>
       </div>
     </PhoneFrame>
+  );
+}
+
+/**
+ * League rule: the team sending a player can keep 30% of his salary, on an
+ * expiring contract, once. One pick a side; MFL can't carry it, so it goes in
+ * the note and the commish records it.
+ */
+function Retention({ out, inn, retained, onToggle }: {
+  out: TradeAsset[]; inn: TradeAsset[]; retained: ReadonlySet<string>;
+  onToggle: (a: TradeAsset, side: 'give' | 'get') => void;
+}) {
+  const rows = [
+    ...out.filter((a) => a.kind === 'player').map((a) => ({ a, side: 'give' as const, who: 'YOU KEEP' })),
+    ...inn.filter((a) => a.kind === 'player').map((a) => ({ a, side: 'get' as const, who: 'THEY KEEP' })),
+  ];
+  if (!rows.length) return null;
+  const any = rows.some((r) => canRetain(r.a));
+  return (
+    <div style={{ margin: '12px 16px 0', border: '1px solid var(--line)', borderRadius: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', height: 28, padding: '0 12px', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
+        <span>30% SALARY RETENTION</span><span style={{ marginLeft: 'auto', fontWeight: 600 }}>OPTIONAL</span>
+      </div>
+      {any ? rows.filter((r) => canRetain(r.a)).map(({ a, side, who }, i) => {
+        const on = retained.has(a.key);
+        const keep = retainedAmount(a);
+        return (
+          <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '6px 8px 6px 12px', borderTop: i ? '1px solid var(--line)' : undefined, fontVariantNumeric: 'tabular-nums' }}>
+            <PlayerLink playerId={a.key} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ font: '600 13.5px/1.2 var(--font-body)', ...clip }}>{a.name}</span>
+              <span style={{ font: '500 11.5px/1.25 var(--font-body)', color: 'var(--ink-3)', ...clip }}>
+                <b style={{ fontWeight: 700, color: posColor(a.pos) }}>{a.pos}</b> · {money(a.salary)} · 1 YR · {side === 'give' ? 'you send' : 'they send'}
+              </span>
+            </PlayerLink>
+            <button type="button" aria-pressed={on} onClick={() => onToggle(a, side)} style={{ flex: 'none', minWidth: 108, height: 40, padding: '0 8px', borderRadius: 2, border: `1px solid ${on ? 'var(--volt)' : 'var(--line)'}`, background: on ? 'var(--volt)' : 'transparent', color: on ? 'var(--on-volt)' : 'var(--ink-2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+              <span style={{ font: DISPLAY(10.5), letterSpacing: '.08em' }}>{who} 30%</span>
+              <span style={{ font: '600 11px/1 var(--font-body)', opacity: on ? 1 : 0.8 }}>{money(keep)}</span>
+            </button>
+          </div>
+        );
+      }) : (
+        <div style={{ padding: '10px 12px', font: '500 12px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>No one here can be retained: only expiring contracts (1 year left) can.</div>
+      )}
+      {any && (
+        <div style={{ padding: '8px 12px 10px', borderTop: '1px solid var(--line)', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
+          The team sending the player keeps 30% of his salary this season. Expiring contracts only, once per team, one player a side. MFL offers can&apos;t carry it, so it&apos;s added to your note and the commish enters it as a salary adjustment once the trade goes through.
+        </div>
+      )}
+    </div>
   );
 }
 
