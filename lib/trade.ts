@@ -54,3 +54,34 @@ export function pickName(key: string): string | null {
   if (dp) return `Pick ${Number(dp[1]) + 1}.${String(Number(dp[2]) + 1).padStart(2, '0')}`;
   return null;
 }
+
+/**
+ * League rule: the team sending a player may keep 30% of his salary, on an
+ * expiring contract (1 year left). MFL trades can't carry it, so the
+ * app counts it in the cap check and writes it into the offer's note; the
+ * commish records it as an MFL salary adjustment.
+ */
+export const RETAIN_SHARE = 0.3;
+
+export const canRetain = (a: TradeAsset) => a.kind === 'player' && a.years === 1 && a.capHit > 0;
+
+/** The part of a retained player's cap hit that stays with the team sending him, to the cent. */
+export const retainedAmount = (a: TradeAsset) => Math.round(a.capHit * RETAIN_SHARE * 100) / 100;
+
+/**
+ * Salary after the trade for the team that sends `out` and gets `inn`. A
+ * retained player's 30% stays with the team sending him.
+ */
+export function salaryAfter(used: number, out: TradeAsset[], inn: TradeAsset[], retained: ReadonlySet<string>): number {
+  const kept = (a: TradeAsset) => (retained.has(a.key) ? retainedAmount(a) : 0);
+  const r = used
+    - out.reduce((t, a) => t + a.capHit - kept(a), 0)
+    + inn.reduce((t, a) => t + a.capHit - kept(a), 0);
+  return Math.round(r * 100) / 100;
+}
+
+/** The line added to the offer's note on MFL, e.g. "30% retained: Shit-Hawks keeps $12.00 of Ja'Marr Chase." */
+export function retentionNote(parts: { team: string; asset: TradeAsset }[], fmt: (n: number) => string): string {
+  if (!parts.length) return '';
+  return `30% retained: ${parts.map((p) => `${p.team} keeps ${fmt(retainedAmount(p.asset))} of ${p.asset.name}`).join('; ')}.`;
+}
