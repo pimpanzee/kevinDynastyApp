@@ -32,6 +32,10 @@
  * run every 15 minutes sends them: lineup lock, injuries, game-day inactives
  * (from ESPN), waiver results, the Tuesday recap, and stat corrections found
  * by the history re-reads (alerts.js, webpush.js).
+ *
+ * The same run rebuilds the site when MFL has a new trade, waiver add, drop
+ * or IR/taxi move (siteRefresh.js), so rosters don't wait for GitHub's
+ * unreliable hourly schedule.
  */
 
 import { fetchGamePlays, fetchScoreboard, indexPlayers } from './plays.js';
@@ -95,7 +99,8 @@ export default {
   /**
    * Daily: is each owner's MFL login still good? Records how long they last
    * (relay.js `cookies`). Every 15 minutes: the push alert checks (relay.js
-   * `alerts`) and a few more reads of the league's history (history.js).
+   * `alerts`), a few more reads of the league's history (history.js), and a
+   * site rebuild if a roster move landed (siteRefresh.js).
    */
   async scheduled(event, env, ctx) {
     const stub = env.RELAY.get(env.RELAY.idFromName('relay'));
@@ -104,6 +109,7 @@ export default {
     } else {
       ctx.waitUntil(stub.fetch('https://relay/alerts'));
       ctx.waitUntil(stub.fetch('https://relay/history/fill'));
+      ctx.waitUntil(stub.fetch('https://relay/site/refresh'));
     }
   },
 };

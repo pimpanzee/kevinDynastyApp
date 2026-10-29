@@ -26,6 +26,7 @@ import { instructions, problems, RECAP_SCHEMA, recentJokesFrom } from './writer.
 import { bbidAdds, completedTrades, correctionAlert, inactiveAlerts, INACTIVES_WINDOW_MS, injuryAlerts, injuryIndex, list, lockAlerts, playerIndex, recapAlert, tradeAlerts, waiverAlert, writtenRecapAlert } from './alerts.js';
 import { fetchInactives, fetchScoreboard, MFL_TO_ESPN } from './plays.js';
 import { newVapidKeys, sendPush } from './webpush.js';
+import { decide, dispatchRebuild, latestMove } from './siteRefresh.js';
 
 const WRITE_TIMEOUT_MS = 15 * 1000;
 const CHECK_TIMEOUT_MS = 10 * 1000;
@@ -299,8 +300,9 @@ export class WriteRelay {
       if (path === '/alerts') return json(await this.alerts());
       if (path === '/daily') return json(await this.daily());
       if (path === '/history/fill') return json(await this.fillHistory());
+      if (path === '/site/refresh') return json(await this.siteRefresh());
       // League history is public data: no sign-in needed.
-      if (path === '/history') return json({ ...this.history.summary(), lastFill: this.getState('historyFill') ?? null });
+      if (path === '/history') return json({ ...this.history.summary(), lastFill: this.getState('historyFill') ?? null, siteRefresh: this.getState('siteRefresh') ?? null });
       // The weekly fact sheet the recap is written from: public league data too.
       if (path === '/recap/facts') return reply(await this.facts(url.searchParams.get('week')));
       if (path === '/recap/storylines') return reply(await this.storylines(url.searchParams.get('week')));
@@ -671,6 +673,31 @@ export class WriteRelay {
     const moves = readMoves(await this.transactions(season), { from: week > 1 ? end(week - 1) : -Infinity, to: end(week) });
     this.setState(key, { at: Date.now(), moves });
     return moves;
+  }
+
+  /**
+   * Rebuilds the site when MFL has a roster move it hasn't been rebuilt for
+   * (siteRefresh.js). Runs every 15 minutes; the outcome is kept in state
+   * `siteRefresh` and shown on GET /history as siteRefresh.
+   */
+  async siteRefresh() {
+    if (!this.env.SITE_REBUILD_TOKEN) return { skipped: 'no-token' };
+    const before = this.getState('siteRefresh') ?? {};
+    const body = await this.history.mfl(this.history.url(this.env.MFL_SEASON, 'TYPE=transactions&TRANS_TYPE=*&DAYS=3'));
+    const { seen, rebuild } = decide(before.seen, latestMove(body));
+    const state = { ...before, checkedAt: Date.now() };
+    if (!rebuild) state.seen = seen;
+    else {
+      try {
+        await dispatchRebuild(this.env);
+        // Only marked seen once GitHub took it, so a failed start retries next run.
+        Object.assign(state, { seen, rebuiltAt: Date.now(), error: undefined });
+      } catch (e) {
+        state.error = e.message;
+      }
+    }
+    this.setState('siteRefresh', state);
+    return state;
   }
 
   /** The season's trades, waiver adds and drops from MFL, read at most every 10 minutes. */

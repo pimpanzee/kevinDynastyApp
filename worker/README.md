@@ -139,6 +139,22 @@ Bearer, allowed website `gridlock-live.flynnliam3.workers.dev`, path prefix
 `/recap/save`, header `Authorization`, prefix `Bearer`). The task never
 sees the key; Anthropic's proxy adds it to its save request.
 
+## Site rebuild after roster moves
+
+The site is a static build, so rosters on the matchup, team and trade screens
+only change when **Deploy site** runs, and GitHub's hourly schedule for it
+often skips hours. The 15-minute run (`src/siteRefresh.js`) reads MFL's last
+3 days of transactions and, when there is a trade, waiver or free-agent add,
+drop, IR or taxi move, auction win or commissioner roster load it hasn't
+seen, starts **Deploy site** itself. A move shows on the site within about
+20 minutes. The last check is on `GET /history` as `siteRefresh`.
+
+**Setup:** in GitHub, **Settings → Developer settings → Fine-grained
+tokens → Generate new token**, repository access *Only select repositories*
+→ this repo, permission **Actions: Read and write** (nothing else). Add it as
+the repository secret `SITE_REBUILD_TOKEN`, then re-run **Deploy live
+relay**, which copies it to the Worker. Without it the relay skips this.
+
 ## Write relay (whole league)
 
 Any owner in the league can make moves for their own team from the app.
