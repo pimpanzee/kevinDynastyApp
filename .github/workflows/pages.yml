@@ -1,8 +1,10 @@
 name: Deploy site
 
 # The site is a static export: MFL is read at build time, so it is rebuilt on
-# a schedule to pick up new scores, standings and roster moves. Hourly;
-# lineups and live scores don't wait for it (they come through worker/).
+# a schedule to pick up new scores, standings and roster moves. Hourly, though
+# GitHub often skips hours; lineups and live scores don't wait for it (they
+# come through worker/), and the relay starts this workflow itself within 15
+# minutes of a trade or other roster move (worker/src/siteRefresh.js).
 #
 # It is served by Cloudflare Pages (project PAGES_PROJECT, at SITE_URL). The
 # old GitHub Pages address then only points people to the new one. If the

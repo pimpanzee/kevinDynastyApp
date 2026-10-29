@@ -17,6 +17,7 @@ jobs:
     env:
       HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
       HAS_RECAP_KEY: ${{ secrets.RECAP_KEY != '' }}
+      HAS_REBUILD_TOKEN: ${{ secrets.SITE_REBUILD_TOKEN != '' }}
     steps:
       - if: env.HAS_TOKEN != 'true'
         run: echo "::notice::CLOUDFLARE_API_TOKEN is not set; skipping the live relay deploy. See worker/README.md."
@@ -68,3 +69,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           RECAP_KEY: ${{ secrets.RECAP_KEY }}
         run: printf '%s' "$RECAP_KEY" | npx --yes wrangler@4 secret put RECAP_KEY
+
+      # SITE_REBUILD_TOKEN lets the relay rebuild the site after a trade or
+      # waiver move (worker/src/siteRefresh.js). Copied from the GitHub secret
+      # of the same name on every deploy, like RECAP_KEY.
+      - if: env.HAS_TOKEN == 'true' && env.HAS_REBUILD_TOKEN == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SITE_REBUILD_TOKEN: ${{ secrets.SITE_REBUILD_TOKEN }}
+        run: printf '%s' "$SITE_REBUILD_TOKEN" | npx --yes wrangler@4 secret put SITE_REBUILD_TOKEN
+
+      - if: env.HAS_TOKEN == 'true' && env.HAS_REBUILD_TOKEN != 'true'
+        run: echo "::notice::SITE_REBUILD_TOKEN is not set, so the site only rebuilds on GitHub's schedule after roster moves. See worker/README.md."

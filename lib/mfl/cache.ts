@@ -19,6 +19,11 @@ import { join } from 'node:path';
 interface Entry {
   value: unknown;
   expires: number;
+  /**
+   * Set when a build stretched a short-lived entry to BUILD_MIN_TTL_MS: the
+   * build (GITHUB_RUN_ID) it was stretched for. Only that build may reuse it.
+   */
+  run?: string;
 }
 
 const memory = new Map<string, Entry>();
@@ -37,6 +42,13 @@ const PERSIST_THRESHOLD_MS = 60 * 60 * 1000;
  */
 export const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
 const BUILD_MIN_TTL_MS = 20 * 60 * 1000;
+/**
+ * The workflow run doing this build. The disk cache is carried from one run
+ * to the next, and without this a build started minutes after another one
+ * (a rebuild after a trade) would reuse its stretched rosters and miss the
+ * trade.
+ */
+const BUILD_RUN = IS_BUILD ? process.env.GITHUB_RUN_ID : undefined;
 
 export const TTL = {
   /** League settings are effectively static within a season. */
@@ -62,6 +74,7 @@ async function readDisk(key: string): Promise<Entry | null> {
   try {
     const raw = await readFile(fileFor(key), 'utf8');
     const entry = JSON.parse(raw) as Entry;
+    if (entry.run && entry.run !== BUILD_RUN) return null;
     return entry.expires > Date.now() ? entry : null;
   } catch {
     return null;
@@ -115,7 +128,9 @@ export async function cached<T>(
   }
 
   const value = await load();
-  const entry: Entry = { value, expires: Date.now() + (ttlFor ? clamp(ttlFor(value)) : ttl) };
+  const own = ttlFor ? ttlFor(value) : requestedTtl;
+  const entry: Entry = { value, expires: Date.now() + clamp(own) };
+  if (BUILD_RUN && own < BUILD_MIN_TTL_MS) entry.run = BUILD_RUN;
   memory.set(key, entry);
   if (persist) await writeDisk(key, entry);
   return value;
