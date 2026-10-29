@@ -44,18 +44,19 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
   const out = mineAssets.filter((a) => give.includes(a.key));
   const inn = theirAssets.filter((a) => get.includes(a.key));
   const both = out.length > 0 && inn.length > 0;
-  // At most one retained player a side, and only ones still in the trade.
-  const retainOut = out.find((a) => retain.includes(a.key) && canRetain(a));
-  const retainIn = inn.find((a) => retain.includes(a.key) && canRetain(a));
-  const retained = new Set([retainOut?.key, retainIn?.key].filter((k): k is string => !!k));
-  const retainedBy = new Map<string, string>();
-  if (retainOut) retainedBy.set(retainOut.key, 'You');
-  if (retainIn) retainedBy.set(retainIn.key, them.name);
+  // Only players still in the trade.
+  const retainOut = out.filter((a) => retain.includes(a.key) && canRetain(a));
+  const retainIn = inn.filter((a) => retain.includes(a.key) && canRetain(a));
+  const retained = new Set([...retainOut, ...retainIn].map((a) => a.key));
+  const retainedBy = new Map<string, string>([
+    ...retainOut.map((a) => [a.key, 'You'] as [string, string]),
+    ...retainIn.map((a) => [a.key, them.name] as [string, string]),
+  ]);
   const mySalary = salaryAfter(me.used, out, inn, retained);
   const theirSalary = salaryAfter(them.used, inn, out, retained);
   const retainLine = retentionNote([
-    ...(retainOut ? [{ team: me.name, asset: retainOut }] : []),
-    ...(retainIn ? [{ team: them.name, asset: retainIn }] : []),
+    ...retainOut.map((asset) => ({ team: me.name, asset })),
+    ...retainIn.map((asset) => ({ team: them.name, asset })),
   ], money);
   const actOut = out.filter((a) => a.active).length;
   const actIn = inn.filter((a) => a.active).length;
@@ -131,11 +132,7 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
         <Top title="REVIEW TRADE" left={<button type="button" onClick={() => setView('build')} style={{ ...backLink, border: 0, background: 'none', cursor: 'pointer' }}>{back}EDIT</button>} />
         <div style={{ flex: 1, overflow: 'auto' }}>
           <TradeSides out={out} inn={inn} retained={retainedBy} style={{ background: 'var(--bg-100)', borderBottom: '1px solid var(--edge)' }} />
-          <Retention out={out} inn={inn} retained={retained} onToggle={(a, side) => {
-            const sideKeys = (side === 'give' ? out : inn).map((x) => x.key);
-            // Picking one replaces the other pick on that side.
-            setRetain((r) => (r.includes(a.key) ? r.filter((k) => k !== a.key) : [...r.filter((k) => !sideKeys.includes(k)), a.key]));
-          }} />
+          <Retention out={out} inn={inn} retained={retained} onToggle={(a) => setRetain((r) => (r.includes(a.key) ? r.filter((k) => k !== a.key) : [...r, a.key]))} />
           <div style={{ margin: '12px 16px 0', border: '1px solid var(--line)', borderRadius: 4 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 64px', alignItems: 'center', height: 28, padding: '0 12px', borderBottom: '1px solid var(--line)', font: DISPLAY(10), letterSpacing: '.1em', color: 'var(--ink-3)' }}>
               <span>AFTER THE TRADE</span><span style={{ textAlign: 'right' }}>SALARY</span><span style={{ textAlign: 'right' }}>ROSTER</span>
@@ -263,12 +260,12 @@ export default function TradeScreen({ data, teamId, equity }: { data: TeamsData;
 
 /**
  * League rule: the team sending a player can keep 30% of his salary, on an
- * expiring contract, once. One pick a side; MFL can't carry it, so it goes in
+ * expiring contract. MFL can't carry it, so it goes in
  * the note and the commish records it.
  */
 function Retention({ out, inn, retained, onToggle }: {
   out: TradeAsset[]; inn: TradeAsset[]; retained: ReadonlySet<string>;
-  onToggle: (a: TradeAsset, side: 'give' | 'get') => void;
+  onToggle: (a: TradeAsset) => void;
 }) {
   const rows = [
     ...out.filter((a) => a.kind === 'player').map((a) => ({ a, side: 'give' as const, who: 'YOU KEEP' })),
@@ -292,7 +289,7 @@ function Retention({ out, inn, retained, onToggle }: {
                 <b style={{ fontWeight: 700, color: posColor(a.pos) }}>{a.pos}</b> · {money(a.salary)} · 1 YR · {side === 'give' ? 'you send' : 'they send'}
               </span>
             </PlayerLink>
-            <button type="button" aria-pressed={on} onClick={() => onToggle(a, side)} style={{ flex: 'none', minWidth: 108, height: 40, padding: '0 8px', borderRadius: 2, border: `1px solid ${on ? 'var(--volt)' : 'var(--line)'}`, background: on ? 'var(--volt)' : 'transparent', color: on ? 'var(--on-volt)' : 'var(--ink-2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <button type="button" aria-pressed={on} onClick={() => onToggle(a)} style={{ flex: 'none', minWidth: 108, height: 40, padding: '0 8px', borderRadius: 2, border: `1px solid ${on ? 'var(--volt)' : 'var(--line)'}`, background: on ? 'var(--volt)' : 'transparent', color: on ? 'var(--on-volt)' : 'var(--ink-2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
               <span style={{ font: DISPLAY(10.5), letterSpacing: '.08em' }}>{who} 30%</span>
               <span style={{ font: '600 11px/1 var(--font-body)', opacity: on ? 1 : 0.8 }}>{money(keep)}</span>
             </button>
@@ -303,7 +300,7 @@ function Retention({ out, inn, retained, onToggle }: {
       )}
       {any && (
         <div style={{ padding: '8px 12px 10px', borderTop: '1px solid var(--line)', font: '500 11.5px/1.4 var(--font-body)', color: 'var(--ink-3)' }}>
-          The team sending the player keeps 30% of his salary this season. Expiring contracts only, once per team, one player a side. MFL offers can&apos;t carry it, so it&apos;s added to your note and the commish enters it as a salary adjustment once the trade goes through.
+          The team sending the player keeps 30% of his salary this season. Expiring contracts only. MFL offers can&apos;t carry it, so it&apos;s added to your note and the commish enters it as a salary adjustment once the trade goes through.
         </div>
       )}
     </div>

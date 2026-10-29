@@ -57,7 +57,7 @@ export function pickName(key: string): string | null {
 
 /**
  * League rule: the team sending a player may keep 30% of his salary, on an
- * expiring contract (1 year left), once. MFL trades can't carry it, so the
+ * expiring contract (1 year left). MFL trades can't carry it, so the
  * app counts it in the cap check and writes it into the offer's note; the
  * commish records it as an MFL salary adjustment.
  */
