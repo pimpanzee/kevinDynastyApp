@@ -314,10 +314,19 @@ function ScoreBlock({ view, mine, me, pre, final, footer }: { view: MatchupDetai
 }
 
 /** `POS · TM · Status` — position in its colour, team grey, a live game in red. */
+/** Kickoff time ("SUN 8:20 ET") while his game hasn't started; it sits on the game line, not the status line. */
+function kickoff(p: BoxPlayerView): string {
+  const st = status(p);
+  return !st.live && st.text && st.text !== 'Final' && st.text !== 'Bye' ? st.text : '';
+}
+/** The game line, led by the kickoff time before the game. */
+const withKickoff = (p: BoxPlayerView, game: string) => [kickoff(p), game].filter(Boolean).join(' ');
+
 function StatusLine({ p, right, clock }: { p: BoxPlayerView; right?: boolean; clock?: string }) {
   const st = status(p);
   // With a game clock, "Live" gives way to the clock on the game line below.
   if (st.live && clock) st.text = '';
+  if (kickoff(p)) st.text = '';
   const pos = p.live?.position ?? '';
   return (
     <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 2, textAlign: right ? 'right' : undefined, ...clip }}>
@@ -346,7 +355,7 @@ function StarterCell({ slot, side, game, pre, sit, sliders, onScore }: { slot: S
       <StatusLine p={p} right={right} clock={sit?.clock} />
       <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', ...clip }}>
         {sit && <><span aria-hidden style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--live)', margin: '0 4px 1px 0', verticalAlign: 'middle' }} /><span style={{ color: 'var(--ink)', fontWeight: 600 }}>{sit.clock}</span>{game ? ' ' : ''}</>}
-        {game || (sit ? '' : BLANK)}
+        {withKickoff(p, game) || (sit ? '' : BLANK)}
       </div>
     </div>
   );
@@ -397,7 +406,7 @@ function BenchCell({ slot, side, game, onScore }: { slot: Slot; side: Side; game
         {!right && <InjuryTag tag={p.injury} />}
       </div>
       <StatusLine p={p} right={right} />
-      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', ...clip }}>{game || BLANK}</div>
+      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', ...clip }}>{withKickoff(p, game) || BLANK}</div>
     </div>
   );
   return (
