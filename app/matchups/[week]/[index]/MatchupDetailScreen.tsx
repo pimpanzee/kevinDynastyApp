@@ -326,7 +326,8 @@ function StatusLine({ p, right, clock }: { p: BoxPlayerView; right?: boolean; cl
   const st = status(p);
   // With a game clock, "Live" gives way to the clock on the game line below.
   if (st.live && clock) st.text = '';
-  if (kickoff(p)) st.text = '';
+  // Before kickoff the time sits on the game line; once final, the W/L there says so.
+  if (kickoff(p) || st.text === 'Final') st.text = '';
   const pos = p.live?.position ?? '';
   return (
     <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 2, textAlign: right ? 'right' : undefined, ...clip }}>
@@ -433,7 +434,8 @@ function FieldSlider({ sit, team, right }: { sit: GameSituation; team: string; r
   const on = sit.offense === true && typeof sit.ball === 'number';
   const ball = on ? Math.min(100, Math.max(0, sit.ball!)) : 0;
   const track = { position: 'absolute', left: 0, top: 6, height: 4, borderRadius: 2 } as const;
-  const label = on ? `${short} ball, ${sit.down ?? ''} at ${sit.spot ?? ''}` : sit.offense === false ? `${short} on defense` : 'Change of possession';
+  // Between plays (kickoffs, extra points) ESPN has a ball spot but no down.
+  const label = on ? (sit.down ? `${short} ball, ${sit.down} at ${sit.spot ?? ''}` : `${short} ball`) : sit.offense === false ? `${short} on defense` : 'Change of possession';
   return (
     <div role="img" aria-label={label} style={{ marginTop: 5 }}>
       <div style={{ position: 'relative', height: 16, margin: '0 8px' }}>
@@ -445,7 +447,7 @@ function FieldSlider({ sit, team, right }: { sit: GameSituation; team: string; r
         </>}
       </div>
       <div style={line}>
-        {on
+        {on && !sit.down ? `${short} ball` : on
           ? <><span style={{ color: sit.redZone ? 'var(--live)' : 'var(--ink)', fontWeight: 600 }}>{sit.down}</span>{sit.spot ? ` @ ${sit.spot}` : ''}</>
           : sit.offense === false ? `${short} on defense` : BLANK}
       </div>
