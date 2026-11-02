@@ -20,6 +20,8 @@ import { lineupIssue, type LineupIssue } from '@/lib/lineupAlerts';
 import { detailMineOnLeft, useMyTeam } from '@/lib/myTeam';
 import type { BoxPlayerView, MatchupDetailView, SideView, WeekOption } from '@/lib/types';
 import { gameLine, useNflScores } from '@/lib/nflGames';
+import { shortTeam, useSituations, type GameSituation } from '@/lib/nflDrives';
+import { NFL_COLORS } from '@/lib/nflColors';
 import { useLive, useLiveStats } from '@/lib/useLive';
 
 type Side = 'home' | 'away';
@@ -42,6 +44,8 @@ const num = (s: string) => Number(s.replace(/[^\d.-]/g, '')) || 0;
  * when a game kicks off. Empty lines hold their space with a blank.
  */
 const STARTER_H = 88;
+/** Room for the field-position slider and its down line, while a starter's game is on. */
+const SLIDER_H = 38;
 const BENCH_H = 85;
 const BLANK = '\u00a0';
 /** Live projection once his game is under way, else the pre-game one. */
@@ -79,6 +83,9 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
   const stats = useLiveStats(built.scoring?.statsUrl, built.liveWindow);
   const nfl = useNflScores(built.scoresUrl, built.liveWindow);
   const game = (p: BoxPlayerView) => gameLine(p, nfl, !!built.simulatedAt);
+  const sits = useSituations(built.season, built.week, built.liveWindow, !!built.simulatedAt);
+  // A live starter's game situation, once ESPN has it and MFL agrees his game is on.
+  const sitOf = (p: BoxPlayerView) => (p.live && status(p).live ? sits?.get(p.live.team) : undefined);
   // Scores once games are under way; lineups (and pre-game projections) any time.
   const lived = live?.started ? applyLiveToDetail(built, live) : built;
   const scored = live ? applyLineupsToDetail(lived, live) : lived;
@@ -120,6 +127,8 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
   const rivalryAway = { id: view.away.franchiseId, name: view.away.name, icon: view.away.icon };
 
   const L = stack(view.starters, 'home'), R = stack(view.starters, 'away');
+  // Every starter box grows by the slider's height while any starter's game is on, so both sides still line up.
+  const sliders = [...L, ...R].some((s) => sitOf(s.p));
   const BL = stack(view.bench, 'home'), BR = stack(view.bench, 'away');
 
   return (
@@ -159,8 +168,8 @@ export default function MatchupDetailScreen({ view: built, weeks }: { view: Matc
 
         <SectionHead label="STARTERS" right={`${L.length} · ${R.length}`} mark />
         <Columns
-          left={L.map((s) => <StarterCell key={s.row} slot={s} side="home" game={game(s.p)} pre={pre} onScore={() => setOpen({ bench: false, side: 'home', row: s.row })} />)}
-          right={R.map((s) => <StarterCell key={s.row} slot={s} side="away" game={game(s.p)} pre={pre} onScore={() => setOpen({ bench: false, side: 'away', row: s.row })} />)}
+          left={L.map((s) => <StarterCell key={s.row} slot={s} side="home" game={game(s.p)} pre={pre} sit={sitOf(s.p)} sliders={sliders} onScore={() => setOpen({ bench: false, side: 'home', row: s.row })} />)}
+          right={R.map((s) => <StarterCell key={s.row} slot={s} side="away" game={game(s.p)} pre={pre} sit={sitOf(s.p)} sliders={sliders} onScore={() => setOpen({ bench: false, side: 'away', row: s.row })} />)}
         />
 
         <div style={{ marginTop: 12 }}><SectionHead label="BENCH" muted /></div>
@@ -305,8 +314,20 @@ function ScoreBlock({ view, mine, me, pre, final, footer }: { view: MatchupDetai
 }
 
 /** `POS · TM · Status` — position in its colour, team grey, a live game in red. */
-function StatusLine({ p, right }: { p: BoxPlayerView; right?: boolean }) {
+/** Kickoff time ("SUN 8:20 ET") while his game hasn't started; it sits on the game line, not the status line. */
+function kickoff(p: BoxPlayerView): string {
   const st = status(p);
+  return !st.live && st.text && st.text !== 'Final' && st.text !== 'Bye' ? st.text : '';
+}
+/** The game line, led by the kickoff time before the game. */
+const withKickoff = (p: BoxPlayerView, game: string) => [kickoff(p), game].filter(Boolean).join(' ');
+
+function StatusLine({ p, right, clock }: { p: BoxPlayerView; right?: boolean; clock?: string }) {
+  const st = status(p);
+  // With a game clock, "Live" gives way to the clock on the game line below.
+  if (st.live && clock) st.text = '';
+  // Before kickoff the time sits on the game line; once final, the W/L there says so.
+  if (kickoff(p) || st.text === 'Final') st.text = '';
   const pos = p.live?.position ?? '';
   return (
     <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 2, textAlign: right ? 'right' : undefined, ...clip }}>
@@ -318,7 +339,7 @@ function StatusLine({ p, right }: { p: BoxPlayerView; right?: boolean }) {
   );
 }
 
-function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Side; game: string; pre: boolean; onScore: () => void }) {
+function StarterCell({ slot, side, game, pre, sit, sliders, onScore }: { slot: Slot; side: Side; game: string; pre: boolean; sit?: GameSituation; sliders: boolean; onScore: () => void }) {
   const { p } = slot;
   const right = side === 'away';
   const issue = rowIssue(p);
@@ -332,8 +353,11 @@ function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Sid
         </span>
         {!right && <><InjuryTag tag={p.injury} /><InjuryTag tag={flag} /></>}
       </div>
-      <StatusLine p={p} right={right} />
-      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', ...clip }}>{game || BLANK}</div>
+      <StatusLine p={p} right={right} clock={sit?.clock} />
+      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', marginTop: 1, fontVariantNumeric: 'tabular-nums', ...clip }}>
+        {sit && <><span aria-hidden style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--live)', margin: '0 4px 1px 0', verticalAlign: 'middle' }} /><span style={{ color: 'var(--ink)', fontWeight: 600 }}>{sit.clock}</span>{game ? ' ' : ''}</>}
+        {withKickoff(p, game) || (sit ? '' : BLANK)}
+      </div>
     </div>
   );
   const yet = notStarted(p);
@@ -350,10 +374,11 @@ function StarterCell({ slot, side, game, pre, onScore }: { slot: Slot; side: Sid
     </button>
   ) : <div style={{ flex: 'none', textAlign: right ? 'left' : 'right' }}>{scoreInner}</div>;
   return (
-    <div style={{ height: STARTER_H, boxSizing: 'border-box', overflow: 'hidden', padding: right ? '9px 16px 9px 10px' : '9px 10px 9px 16px', minWidth: 0, borderBottom: '1px solid var(--line)' }}>
+    <div style={{ height: STARTER_H + (sliders ? SLIDER_H : 0), boxSizing: 'border-box', overflow: 'hidden', padding: right ? '9px 16px 9px 10px' : '9px 10px 9px 16px', minWidth: 0, borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         {right ? <>{score}{name}</> : <>{name}{score}</>}
       </div>
+      {sit && <FieldSlider sit={sit} team={p.live?.team ?? ''} right={right} />}
       <Byline text={!pre && !yet ? p.byline : undefined} right={right} />
     </div>
   );
@@ -382,7 +407,7 @@ function BenchCell({ slot, side, game, onScore }: { slot: Slot; side: Side; game
         {!right && <InjuryTag tag={p.injury} />}
       </div>
       <StatusLine p={p} right={right} />
-      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', ...clip }}>{game || BLANK}</div>
+      <div style={{ font: '500 11px/1.3 var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', ...clip }}>{withKickoff(p, game) || BLANK}</div>
     </div>
   );
   return (
@@ -391,6 +416,41 @@ function BenchCell({ slot, side, game, onScore }: { slot: Slot; side: Side; game
         {right ? <>{pts}{name}</> : <>{name}{pts}</>}
       </div>
       <Byline text={yet ? undefined : p.byline} right={right} />
+    </div>
+  );
+}
+
+/**
+ * Where his team's drive stands, Sleeper style: a bar from his own goal line
+ * (left) to the ball, with a team badge at the spot and the last 20 yards in
+ * red. On defense the bar sits empty. Rows without one keep the space blank at the bottom.
+ */
+function FieldSlider({ sit, team, right }: { sit: GameSituation; team: string; right: boolean }) {
+  const line = { height: 13, marginTop: 4, font: '500 10.5px/13px var(--font-body)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums', textAlign: right ? 'right' : undefined, ...clip } as const;
+  const short = shortTeam(team);
+  // Team colours are dark: the badge keeps the real one, the bar is lifted so it reads on the dark ground.
+  const badge = NFL_COLORS[team] ?? 'var(--edge)';
+  const color = `color-mix(in srgb, ${badge} 65%, #ffffff)`;
+  const on = sit.offense === true && typeof sit.ball === 'number';
+  const ball = on ? Math.min(100, Math.max(0, sit.ball!)) : 0;
+  const track = { position: 'absolute', left: 0, top: 6, height: 4, borderRadius: 2 } as const;
+  // Between plays (kickoffs, extra points) ESPN has a ball spot but no down.
+  const label = on ? (sit.down ? `${short} ball, ${sit.down} at ${sit.spot ?? ''}` : `${short} ball`) : sit.offense === false ? `${short} on defense` : 'Change of possession';
+  return (
+    <div role="img" aria-label={label} style={{ marginTop: 5 }}>
+      <div style={{ position: 'relative', height: 16, margin: '0 8px' }}>
+        <div style={{ ...track, right: 0, background: 'var(--bg-300)', opacity: on ? 1 : 0.6 }} />
+        {on && <>
+          <div style={{ ...track, left: '80%', right: 0, borderRadius: '0 2px 2px 0', background: 'color-mix(in srgb, var(--live) 55%, transparent)' }} />
+          <div style={{ ...track, width: `${ball}%`, background: color }} />
+          <div style={{ position: 'absolute', top: 0, left: `${ball}%`, width: 16, height: 16, marginLeft: -8, boxSizing: 'border-box', borderRadius: '50%', border: '2px solid var(--ink)', background: badge, color: '#fff', font: '800 6.5px/12px var(--font-display)', textAlign: 'center', letterSpacing: '.02em' }}>{short}</div>
+        </>}
+      </div>
+      <div style={line}>
+        {on && !sit.down ? `${short} ball` : on
+          ? <><span style={{ color: sit.redZone ? 'var(--live)' : 'var(--ink)', fontWeight: 600 }}>{sit.down}</span>{sit.spot ? ` @ ${sit.spot}` : ''}</>
+          : sit.offense === false ? `${short} on defense` : BLANK}
+      </div>
     </div>
   );
 }
