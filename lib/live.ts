@@ -84,13 +84,14 @@ function scoreMatchup(home: SideView, away: SideView, live: LiveData) {
   const a = liveSide(away, live.franchises[away.franchiseId]);
   if (!h || !a) return null;
   const decided = h.done && a.done;
+  const left = shareLeft(h.remaining + a.remaining, h.projected + a.projected);
   if (decided) {
     h.view.win = h.live >= a.live ? 'W' : 'L';
     a.view.win = a.live > h.live ? 'W' : 'L';
   } else {
-    [h.view.win, a.view.win] = winPct(h.projectedFinal, a.projectedFinal, shareLeft(h.remaining + a.remaining, h.projected + a.projected));
+    [h.view.win, a.view.win] = winPct(h.projectedFinal, a.projectedFinal, left);
   }
-  return { h, a, decided, bar: decided ? scoreBar(h.live, a.live) : barWidth(h.view.win) };
+  return { h, a, decided, left, bar: decided ? scoreBar(h.live, a.live) : barWidth(h.view.win) };
 }
 
 export function applyLiveToWeek(view: WeekView, live: LiveData): WeekView {
@@ -150,6 +151,7 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
     home: s.h.view,
     away: s.a.view,
     bar: s.bar,
+    shareLeft: s.decided ? undefined : s.left,
     starters: patchRows(view.starters),
     bench: patchRows(view.bench),
   };
@@ -208,7 +210,17 @@ export function applyStatsToDetail(view: MatchupDetailView, stats: Record<string
       projectedFinal: v.projectedFinal === undefined ? undefined : v.projectedFinal + by,
     };
   };
-  return { ...view, starters, bench, home: moveSide(view.home, shift.home), away: moveSide(view.away, shift.away) };
+  let home = moveSide(view.home, shift.home);
+  let away = moveSide(view.away, shift.away);
+  let bar = view.bar;
+  // The odds follow the corrected totals while the game is undecided.
+  if ((home !== view.home || away !== view.away) && view.shareLeft !== undefined) {
+    const [hw, aw] = winPct(home.projectedFinal ?? home.scoreValue, away.projectedFinal ?? away.scoreValue, view.shareLeft);
+    home = { ...home, win: hw };
+    away = { ...away, win: aw };
+    bar = barWidth(hw);
+  }
+  return { ...view, starters, bench, home, away, bar };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

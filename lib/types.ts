@@ -138,6 +138,8 @@ export interface MatchupDetailView {
   home: SideView;
   away: SideView;
   bar: string;
+  /** While live and undecided: share of both sides' projection still to play, for re-running the odds. */
+  shareLeft?: number;
   starters: BoxRowView[];
   bench: BoxRowView[];
   /** The build's default team; the browser may substitute the user's choice. */
