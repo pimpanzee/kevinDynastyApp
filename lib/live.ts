@@ -1,6 +1,6 @@
 import { barWidth, fmtScore, formatClock, scoreBar, shareLeft, winPct } from '@/lib/format';
 import type { BoxPlayerView, BoxRowView, MatchupDetailView, MatchupView, SideView, WeekView } from '@/lib/types';
-import { rebaseBreakdown, scoreBreakdown, statLine, trimStats, type Stats } from '@/lib/scoring';
+import { rebaseBreakdown, scoreBreakdown, scorePoints, statLine, trimStats, type Stats } from '@/lib/scoring';
 
 /**
  * Live-score overlay. Pages are prebuilt, so during games the browser polls
@@ -84,13 +84,14 @@ function scoreMatchup(home: SideView, away: SideView, live: LiveData) {
   const a = liveSide(away, live.franchises[away.franchiseId]);
   if (!h || !a) return null;
   const decided = h.done && a.done;
+  const left = shareLeft(h.remaining + a.remaining, h.projected + a.projected);
   if (decided) {
     h.view.win = h.live >= a.live ? 'W' : 'L';
     a.view.win = a.live > h.live ? 'W' : 'L';
   } else {
-    [h.view.win, a.view.win] = winPct(h.projectedFinal, a.projectedFinal, shareLeft(h.remaining + a.remaining, h.projected + a.projected));
+    [h.view.win, a.view.win] = winPct(h.projectedFinal, a.projectedFinal, left);
   }
-  return { h, a, decided, bar: decided ? scoreBar(h.live, a.live) : barWidth(h.view.win) };
+  return { h, a, decided, left, bar: decided ? scoreBar(h.live, a.live) : barWidth(h.view.win) };
 }
 
 export function applyLiveToWeek(view: WeekView, live: LiveData): WeekView {
@@ -150,6 +151,7 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
     home: s.h.view,
     away: s.a.view,
     bar: s.bar,
+    shareLeft: s.decided ? undefined : s.left,
     starters: patchRows(view.starters),
     bench: patchRows(view.bench),
   };
@@ -157,25 +159,71 @@ export function applyLiveToDetail(view: MatchupDetailView, live: LiveData): Matc
 
 /**
  * Rescore bylines and breakdowns from live stats. Runs after the score
- * overlay, so each breakdown adds up to the points the row now shows; a
- * player whose game has not started keeps a blank byline.
+ * overlay; a player whose game has not started keeps a blank byline.
+ *
+ * MFL's live scoring can trail the stat feed by several minutes (a touchdown
+ * shows in the stats while MFL still has the player on 0). Scored with the
+ * league's rules the two agree to the hundredth once settled, so while a
+ * player's game is on, the stats' points are the fresher number: the row,
+ * his breakdown and his side's total use them. Once the game is final MFL's
+ * score stands, and any gap (a stat correction) shows as "Other".
  */
 export function applyStatsToDetail(view: MatchupDetailView, stats: Record<string, Stats>): MatchupDetailView {
   const rules = view.scoring?.rules;
   if (!rules) return view;
-  const patch = (p: BoxPlayerView): BoxPlayerView => {
+  const shift = { home: 0, away: 0 };
+  const patch = (p: BoxPlayerView, side: 'home' | 'away', starter: boolean): BoxPlayerView => {
     const id = p.live?.sleeperId;
     if (!p.live || !id || p.pts === '—' || p.line.includes('yet to play')) return p;
-    const s = trimStats(stats[id]);
+    const raw = stats[id];
+    const s = trimStats(raw);
+    const official = p.ptsExact ?? Number(p.pts);
+    const inPlay = p.line.endsWith('in play') && !!raw && Object.keys(s).length > 0;
+    const pts = inPlay ? scorePoints(p.live.position, s, rules) : official;
+    const delta = round2(pts - official);
+    if (delta === 0) {
+      return { ...p, byline: statLine(p.live.position, s), breakdown: scoreBreakdown(p.live.position, s, rules, official) };
+    }
+    if (starter) shift[side] += delta;
     return {
       ...p,
+      pts: fmtScore(pts),
+      ptsExact: pts,
+      projNow: p.projNow === undefined ? undefined : fmtScore(Number(p.projNow) + delta),
       byline: statLine(p.live.position, s),
-      breakdown: scoreBreakdown(p.live.position, s, rules, p.ptsExact ?? Number(p.pts)),
+      breakdown: scoreBreakdown(p.live.position, s, rules, pts),
     };
   };
-  const patchRows = (rows: BoxRowView[]) => rows.map((r) => ({ ...r, home: patch(r.home), away: patch(r.away) }));
-  return { ...view, starters: patchRows(view.starters), bench: patchRows(view.bench) };
+  const patchRows = (rows: BoxRowView[], starter: boolean) =>
+    rows.map((r) => ({ ...r, home: patch(r.home, 'home', starter), away: patch(r.away, 'away', starter) }));
+  const starters = patchRows(view.starters, true);
+  const bench = patchRows(view.bench, false);
+  const moveSide = (v: SideView, by: number): SideView => {
+    by = round2(by);
+    if (!by) return v;
+    const score = round2(v.scoreValue + by);
+    return {
+      ...v,
+      num: fmtScore(score),
+      scoreValue: score,
+      sub: Number.isFinite(Number(v.sub)) ? fmtScore(Number(v.sub) + by) : v.sub,
+      projectedFinal: v.projectedFinal === undefined ? undefined : v.projectedFinal + by,
+    };
+  };
+  let home = moveSide(view.home, shift.home);
+  let away = moveSide(view.away, shift.away);
+  let bar = view.bar;
+  // The odds follow the corrected totals while the game is undecided.
+  if ((home !== view.home || away !== view.away) && view.shareLeft !== undefined) {
+    const [hw, aw] = winPct(home.projectedFinal ?? home.scoreValue, away.projectedFinal ?? away.scoreValue, view.shareLeft);
+    home = { ...home, win: hw };
+    away = { ...away, win: aw };
+    bar = barWidth(hw);
+  }
+  return { ...view, starters, bench, home, away, bar };
 }
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /* ── Lineups ────────────────────────────────────────────────────────────── */
 
